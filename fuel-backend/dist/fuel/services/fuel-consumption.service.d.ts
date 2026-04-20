@@ -60,5 +60,7 @@ export declare class FuelConsumptionService {
     getPythonAlerts(imei: string, from: Date, to: Date, unit?: string): Promise<PythonDropAlert[]>;
     getConsumption(imei: string, from: Date, to: Date, sensor: FuelSensor, fcrJson: string): Promise<ConsumptionResult>;
     private analyzeRows;
+    private hasMovementDuringRefuelWindow;
+    private calculateRefuelWindowBounds;
     private extractPricePerLiter;
 }

@@ -56,9 +56,8 @@ function ReportRankingComponent({
           />
         );
 
-      case "thrift":
-      case "fleet-ranking": {
-        const thriftVehicles = thriftData?.vehicles || fleetRankingData?.ranking || [];
+      case "thrift": {
+        const thriftVehicles = thriftData?.vehicles || [];
         return (
           <RankingTable
             title="Efficiency Rankings"
@@ -75,6 +74,34 @@ function ReportRankingComponent({
                 metrics: [
                   { label: "km/L", value: formatNumber(v.kmPerLiter || 0) },
                   { label: "Idle %", value: formatNumber(v.idlePercentage || 0) },
+                  { label: "Distance", value: formatNumber(v.totalDistanceKm || 0), unit: "km" },
+                ],
+              }))}
+            sortable
+            paginated
+            pageSize={8}
+          />
+        );
+      }
+
+      case "fleet-ranking": {
+        const rankingEntries = fleetRankingData?.ranking || [];
+        return (
+          <RankingTable
+            title="Fleet Ranking"
+            subtitle="Ranked by thrift score (higher is better)"
+            items={[...rankingEntries]
+              .sort((a: any, b: any) => (b.thriftScore || 0) - (a.thriftScore || 0))
+              .map((v: any, i: number) => ({
+                rank: i + 1,
+                id: v.imei,
+                name: v.name,
+                subtitle: v.plateNumber,
+                score: v.thriftScore || 0,
+                badge: i === 0 ? "best" : i === rankingEntries.length - 1 ? "worst" : undefined,
+                metrics: [
+                  { label: "Consumed", value: formatNumber(v.consumed || 0), unit: "L" },
+                  { label: "km/L", value: formatNumber(v.kmPerLiter || 0) },
                   { label: "Distance", value: formatNumber(v.totalDistanceKm || 0), unit: "km" },
                 ],
               }))}

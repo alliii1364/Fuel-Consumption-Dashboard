@@ -293,6 +293,82 @@ function SpecialReportViewsComponent({
     // Full width Trips Report
     if (activeReport === "trips" && tripsData) {
       const hasVehicles = tripsData.vehicles && tripsData.vehicles.length > 0;
+      const getTripFuelUsed = (trip: any): number => {
+        const reported =
+          typeof trip?.fuelConsumed === "number" && Number.isFinite(trip.fuelConsumed)
+            ? Math.max(0, trip.fuelConsumed)
+            : null;
+        const hasBoundaries =
+          typeof trip?.fuelAtStart === "number" &&
+          Number.isFinite(trip.fuelAtStart) &&
+          typeof trip?.fuelAtEnd === "number" &&
+          Number.isFinite(trip.fuelAtEnd);
+        const boundary = hasBoundaries ? Math.max(0, trip.fuelAtStart - trip.fuelAtEnd) : null;
+        // Use backend-calculated trip fuel as source of truth.
+        // Fallback to boundary delta only when backend value is missing.
+        if (reported != null) return reported;
+        if (boundary != null) return boundary;
+        return 0;
+      };
+      const getTripEfficiency = (trip: any): number | null => {
+        if (typeof trip?.kmPerLiter === "number" && Number.isFinite(trip.kmPerLiter) && trip.kmPerLiter > 0) {
+          return trip.kmPerLiter;
+        }
+        const fuelUsed = getTripFuelUsed(trip);
+        const distanceKm = Number.isFinite(trip?.distanceKm) ? Math.max(0, trip.distanceKm) : 0;
+        if (fuelUsed <= 0 || distanceKm <= 0) return null;
+        return distanceKm / fuelUsed;
+      };
+      const getVehicleTripFuel = (vehicle: any): number => {
+        if (typeof vehicle?.tripFuelConsumed === "number" && Number.isFinite(vehicle.tripFuelConsumed)) {
+          return Math.max(0, vehicle.tripFuelConsumed);
+        }
+        // Never fall back to period fuel here; derive strictly from trip records.
+        return (vehicle?.trips ?? []).reduce(
+          (sum: number, trip: any) => sum + getTripFuelUsed(trip),
+          0
+        );
+      };
+      const getVehiclePeriodFuel = (vehicle: any): number => {
+        if (typeof vehicle?.totalFuelConsumed === "number" && Number.isFinite(vehicle.totalFuelConsumed)) {
+          return Math.max(0, vehicle.totalFuelConsumed);
+        }
+        return getVehicleTripFuel(vehicle);
+      };
+      const getVehicleUnassignedFuel = (vehicle: any): number => {
+        if (
+          typeof vehicle?.unassignedFuelConsumed === "number" &&
+          Number.isFinite(vehicle.unassignedFuelConsumed)
+        ) {
+          return Math.max(0, vehicle.unassignedFuelConsumed);
+        }
+        return Math.max(0, getVehiclePeriodFuel(vehicle) - getVehicleTripFuel(vehicle));
+      };
+      const getVehicleTripEfficiency = (vehicle: any): number | null => {
+        if (
+          typeof vehicle?.avgKmPerLiter === "number" &&
+          Number.isFinite(vehicle.avgKmPerLiter) &&
+          vehicle.avgKmPerLiter > 0
+        ) {
+          return vehicle.avgKmPerLiter;
+        }
+        const tripFuel = getVehicleTripFuel(vehicle);
+        const distanceKm = Number.isFinite(vehicle?.totalDistanceKm) ? Math.max(0, vehicle.totalDistanceKm) : 0;
+        if (tripFuel <= 0 || distanceKm <= 0) return null;
+        return distanceKm / tripFuel;
+      };
+      const fleetTripFuelFromVehicles = hasVehicles
+        ? tripsData.vehicles.reduce((sum: number, vehicle: any) => sum + getVehicleTripFuel(vehicle), 0)
+        : 0;
+      const fleetPeriodFuelFromVehicles = hasVehicles
+        ? tripsData.vehicles.reduce((sum: number, vehicle: any) => sum + getVehiclePeriodFuel(vehicle), 0)
+        : 0;
+      const fleetTripFuel = Number.isFinite(tripsData.fleetTotals?.tripFuelConsumed)
+        ? Math.max(0, tripsData.fleetTotals.tripFuelConsumed)
+        : fleetTripFuelFromVehicles;
+      const fleetPeriodFuel = fleetPeriodFuelFromVehicles > 0
+        ? fleetPeriodFuelFromVehicles
+        : Math.max(0, tripsData.fleetTotals?.totalFuelConsumed || 0);
       const allTrips = hasVehicles
         ? tripsData.vehicles.flatMap((v: any) =>
             v.trips.map((t: any) => ({ ...t, vehicleName: v.name, vehiclePlate: v.plateNumber }))
@@ -322,11 +398,11 @@ function SpecialReportViewsComponent({
               </div>
               <div className="text-center px-4 py-2 rounded-xl" style={{ background: "#E8404015", border: "1px solid #E8404030" }}>
                 <p className="text-xs" style={{ color: "#9CA3AF" }}>Fuel (Period)</p>
-                <p className="font-bold text-lg" style={{ color: "#E84040" }}>{formatNumber(tripsData.fleetTotals?.totalFuelConsumed || 0)} L</p>
+                <p className="font-bold text-lg" style={{ color: "#E84040" }}>{formatNumber(fleetPeriodFuel)} L</p>
               </div>
               <div className="text-center px-4 py-2 rounded-xl" style={{ background: "#f59e0b15", border: "1px solid #f59e0b30" }}>
                 <p className="text-xs" style={{ color: "#9CA3AF" }}>Fuel (Trips)</p>
-                <p className="font-bold text-lg" style={{ color: "#f59e0b" }}>{formatNumber(tripsData.fleetTotals?.tripFuelConsumed || 0)} L</p>
+                <p className="font-bold text-lg" style={{ color: "#f59e0b" }}>{formatNumber(fleetTripFuel)} L</p>
               </div>
             </div>
           </div>
@@ -389,11 +465,11 @@ function SpecialReportViewsComponent({
                                 <span className="font-medium" style={{ color: "#22c55e" }}>{formatNumber(trip.distanceKm)} km</span>
                               </td>
                               <td className="px-4 py-3">
-                                <span className="font-medium" style={{ color: "#E84040" }}>{formatNumber(trip.fuelConsumed)} L</span>
+                                <span className="font-medium" style={{ color: "#E84040" }}>{formatNumber(getTripFuelUsed(trip))} L</span>
                               </td>
                               <td className="px-4 py-3">
-                                <span className="font-medium" style={{ color: trip.kmPerLiter >= 8 ? "#22c55e" : trip.kmPerLiter >= 5 ? "#f59e0b" : "#ef4444" }}>
-                                  {trip.kmPerLiter ? `${formatNumber(trip.kmPerLiter)} km/L` : "—"}
+                                <span className="font-medium" style={{ color: (getTripEfficiency(trip) ?? 0) >= 8 ? "#22c55e" : (getTripEfficiency(trip) ?? 0) >= 5 ? "#f59e0b" : "#ef4444" }}>
+                                  {getTripEfficiency(trip) ? `${formatNumber(getTripEfficiency(trip) ?? 0)} km/L` : "—"}
                                 </span>
                               </td>
                               <td className="px-4 py-3" style={{ color: "#6B7280" }}>
@@ -446,15 +522,27 @@ function SpecialReportViewsComponent({
                               <p className="font-semibold" style={{ color: "#22c55e" }}>{formatNumber(vehicle.totalDistanceKm)} km</p>
                             </div>
                             <div className="text-center">
-                              <p className="text-xs" style={{ color: "#9CA3AF" }}>Trip Fuel</p>
+                              <p className="text-xs" style={{ color: "#9CA3AF" }}>Period Fuel</p>
                               <p className="font-semibold" style={{ color: "#E84040" }}>
-                                {formatNumber(vehicle.tripFuelConsumed ?? vehicle.totalFuelConsumed)} L
+                                {formatNumber(getVehiclePeriodFuel(vehicle))} L
+                              </p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xs" style={{ color: "#9CA3AF" }}>Trip Fuel</p>
+                              <p className="font-semibold" style={{ color: "#f59e0b" }}>
+                                {formatNumber(getVehicleTripFuel(vehicle))} L
+                              </p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xs" style={{ color: "#9CA3AF" }}>Unassigned</p>
+                              <p className="font-semibold" style={{ color: "#6B7280" }}>
+                                {formatNumber(getVehicleUnassignedFuel(vehicle))} L
                               </p>
                             </div>
                             <div className="text-center">
                               <p className="text-xs" style={{ color: "#9CA3AF" }}>Efficiency</p>
-                              <p className="font-semibold" style={{ color: vehicle.avgKmPerLiter >= 8 ? "#22c55e" : vehicle.avgKmPerLiter >= 5 ? "#f59e0b" : "#ef4444" }}>
-                                {vehicle.avgKmPerLiter ? `${formatNumber(vehicle.avgKmPerLiter)} km/L` : "—"}
+                              <p className="font-semibold" style={{ color: (getVehicleTripEfficiency(vehicle) ?? 0) >= 8 ? "#22c55e" : (getVehicleTripEfficiency(vehicle) ?? 0) >= 5 ? "#f59e0b" : "#ef4444" }}>
+                                {getVehicleTripEfficiency(vehicle) ? `${formatNumber(getVehicleTripEfficiency(vehicle) ?? 0)} km/L` : "—"}
                               </p>
                             </div>
                           </div>
@@ -495,10 +583,10 @@ function SpecialReportViewsComponent({
                                         {formatNumber(trip.distanceKm)} km
                                       </td>
                                       <td className="px-3 py-2 text-xs font-medium" style={{ color: "#E84040" }}>
-                                        {formatNumber(trip.fuelConsumed)} L
+                                        {formatNumber(getTripFuelUsed(trip))} L
                                       </td>
-                                      <td className="px-3 py-2 text-xs font-medium" style={{ color: trip.kmPerLiter >= 8 ? "#22c55e" : trip.kmPerLiter >= 5 ? "#f59e0b" : "#ef4444" }}>
-                                        {trip.kmPerLiter ? `${formatNumber(trip.kmPerLiter)} km/L` : "—"}
+                                      <td className="px-3 py-2 text-xs font-medium" style={{ color: (getTripEfficiency(trip) ?? 0) >= 8 ? "#22c55e" : (getTripEfficiency(trip) ?? 0) >= 5 ? "#f59e0b" : "#ef4444" }}>
+                                        {getTripEfficiency(trip) ? `${formatNumber(getTripEfficiency(trip) ?? 0)} km/L` : "—"}
                                       </td>
                                     </tr>
                                   ))}

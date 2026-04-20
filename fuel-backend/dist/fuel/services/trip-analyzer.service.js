@@ -25,7 +25,6 @@ const MOVEMENT_STOP_END_MS = 10 * 60 * 1000;
 const MAX_DISTANCE_SEGMENT_GAP_MS = 5 * 60 * 1000;
 const MIN_DISTANCE_SEGMENT_KM = 0.02;
 const MAX_REASONABLE_SEGMENT_SPEED_KMH = 160;
-const MAX_SINGLE_READING_DROP_L = 2.0;
 const MIN_REFUEL_RISE_L = 3.0;
 const BOUNDARY_MEDIAN_SAMPLES = 3;
 let TripAnalyzerService = TripAnalyzerService_1 = class TripAnalyzerService {
@@ -260,17 +259,12 @@ let TripAnalyzerService = TripAnalyzerService_1 = class TripAnalyzerService {
         }
         const startFuel = this.median(fuels.slice(0, Math.min(BOUNDARY_MEDIAN_SAMPLES, fuels.length)));
         const endFuel = this.median(fuels.slice(Math.max(0, fuels.length - BOUNDARY_MEDIAN_SAMPLES)));
-        let filteredDropSum = 0;
         let refueled = 0;
         let prevFuel = null;
         for (const fuel of fuels) {
             if (prevFuel !== null) {
                 const delta = fuel - prevFuel;
                 if (delta < -NOISE_THRESHOLD) {
-                    const drop = Math.abs(delta);
-                    if (drop <= MAX_SINGLE_READING_DROP_L) {
-                        filteredDropSum += drop;
-                    }
                 }
                 else if (delta >= MIN_REFUEL_RISE_L) {
                     refueled += delta;
@@ -279,14 +273,10 @@ let TripAnalyzerService = TripAnalyzerService_1 = class TripAnalyzerService {
             prevFuel = fuel;
         }
         const conservationConsumed = Math.max(0, refueled + (startFuel - endFuel));
-        let consumed = Math.min(filteredDropSum, conservationConsumed);
-        if (consumed === 0 && conservationConsumed > 0) {
-            consumed = conservationConsumed;
-        }
         return {
             startFuel,
             endFuel,
-            consumed: Math.max(0, consumed),
+            consumed: conservationConsumed,
         };
     }
     isValidCoordinatePair(lat, lng) {

@@ -32,6 +32,13 @@ const BASE = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3007"}/api`
 // ─── Core fetch ────────────────────────────────────────────────────────────
 
 const REQUEST_TIMEOUT_MS = 30_000;
+const RETRYABLE_STATUSES = new Set([500, 502, 503, 504]);
+const MAX_GET_RETRIES = 2;
+const RETRY_DELAY_MS = 700;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 async function request<T>(
   path: string,
@@ -44,37 +51,64 @@ async function request<T>(
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const method = (options.method ?? "GET").toUpperCase();
+  const canRetry = method === "GET";
+  const maxAttempts = canRetry ? MAX_GET_RETRIES + 1 : 1;
 
-  let res: Response;
-  try {
-    res = await fetch(`${BASE}${path}`, { ...options, headers, signal: controller.signal });
-  } catch (err: unknown) {
-    if ((err as Error)?.name === "AbortError") {
-      throw new ApiError(0, "Request timed out. Please check your connection and try again.");
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    let res: Response;
+    try {
+      res = await fetch(`${BASE}${path}`, { ...options, headers, signal: controller.signal });
+    } catch (err: unknown) {
+      clearTimeout(timer);
+      const isAbort = (err as Error)?.name === "AbortError";
+      const isLastAttempt = attempt === maxAttempts;
+      if (!isLastAttempt && canRetry) {
+        await sleep(RETRY_DELAY_MS * attempt);
+        continue;
+      }
+      if (isAbort) {
+        throw new ApiError(0, "Request timed out. Please check your connection and try again.");
+      }
+      throw new ApiError(0, "Cannot connect to server. Is the backend running?");
     }
-    throw new ApiError(0, "Cannot connect to server. Is the backend running?");
-  } finally {
+
     clearTimeout(timer);
+    let body: ApiResponse<T> | null = null;
+    try {
+      body = await res.json();
+    } catch {
+      body = null;
+    }
+
+    if (!res.ok) {
+      const isRetryableStatus = RETRYABLE_STATUSES.has(res.status);
+      const isLastAttempt = attempt === maxAttempts;
+      if (canRetry && isRetryableStatus && !isLastAttempt) {
+        await sleep(RETRY_DELAY_MS * attempt);
+        continue;
+      }
+
+      if (!body) {
+        throw new ApiError(res.status, `Unexpected response (${res.status})`);
+      }
+      throw new ApiError(
+        res.status,
+        body?.message ?? `Request failed with status ${res.status}`,
+        (body as any)?.error
+      );
+    }
+
+    if (!body) {
+      throw new ApiError(res.status, `Unexpected response (${res.status})`);
+    }
+    return body.data;
   }
 
-  let body: ApiResponse<T>;
-  try {
-    body = await res.json();
-  } catch {
-    throw new ApiError(res.status, `Unexpected response (${res.status})`);
-  }
-
-  if (!res.ok) {
-    throw new ApiError(
-      res.status,
-      body?.message ?? `Request failed with status ${res.status}`,
-      (body as any)?.error
-    );
-  }
-
-  return body.data;
+  throw new ApiError(0, "Cannot connect to server. Is the backend running?");
 }
 
 // ─── Health ────────────────────────────────────────────────────────────────

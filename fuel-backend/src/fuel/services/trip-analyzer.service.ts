@@ -14,7 +14,6 @@ const MOVEMENT_STOP_END_MS = 10 * 60 * 1000;
 const MAX_DISTANCE_SEGMENT_GAP_MS = 5 * 60 * 1000;
 const MIN_DISTANCE_SEGMENT_KM = 0.02; // 20m: suppress GPS jitter
 const MAX_REASONABLE_SEGMENT_SPEED_KMH = 160;
-const MAX_SINGLE_READING_DROP_L = 2.0; // mirrors consumption jump filter
 const MIN_REFUEL_RISE_L = 3.0;
 const BOUNDARY_MEDIAN_SAMPLES = 3;
 
@@ -354,7 +353,6 @@ export class TripAnalyzerService {
       fuels.slice(Math.max(0, fuels.length - BOUNDARY_MEDIAN_SAMPLES)),
     );
 
-    let filteredDropSum = 0;
     let refueled = 0;
     let prevFuel: number | null = null;
 
@@ -362,10 +360,8 @@ export class TripAnalyzerService {
       if (prevFuel !== null) {
         const delta = fuel - prevFuel;
         if (delta < -NOISE_THRESHOLD) {
-          const drop = Math.abs(delta);
-          if (drop <= MAX_SINGLE_READING_DROP_L) {
-            filteredDropSum += drop;
-          }
+          // drop observed; consumed is derived from conservation below
+          // to avoid under-counting on sparse telemetry where per-step drops can be >2L
         } else if (delta >= MIN_REFUEL_RISE_L) {
           refueled += delta;
         }
@@ -373,20 +369,14 @@ export class TripAnalyzerService {
       prevFuel = fuel;
     }
 
-    // Conservation bound: consumed ~= refueled + (startFuel - endFuel).
-    // Clamp with filtered drop sum to suppress oscillation overcounting.
+    // Physical conservation: consumed ~= refueled + (startFuel - endFuel).
+    // This keeps trip totals aligned with tank boundaries and in-trip refuels.
     const conservationConsumed = Math.max(0, refueled + (startFuel - endFuel));
-    let consumed = Math.min(filteredDropSum, conservationConsumed);
-
-    // If drop-sum becomes zero (strict noise suppression), keep physical net.
-    if (consumed === 0 && conservationConsumed > 0) {
-      consumed = conservationConsumed;
-    }
 
     return {
       startFuel,
       endFuel,
-      consumed: Math.max(0, consumed),
+      consumed: conservationConsumed,
     };
   }
 

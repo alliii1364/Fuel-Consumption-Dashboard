@@ -13,6 +13,7 @@ interface ReportKpiCardsProps {
   fleetRankingData?: any;
   highSpeedData?: any;
   vehicleCount: number;
+  activeVehicleCount: number;
 }
 
 const formatNumber = (num: number, decimals = 1): string => {
@@ -33,6 +34,7 @@ function ReportKpiCardsComponent({
   fleetRankingData,
   highSpeedData,
   vehicleCount,
+  activeVehicleCount,
 }: ReportKpiCardsProps) {
   const mockTrend = useMemo(() => generateMockTrend(7, 10, 100), []);
 
@@ -63,7 +65,7 @@ function ReportKpiCardsComponent({
             />
             <KpiCard
               title="Active Vehicles"
-              value={consumptionData?.vehicles?.length ?? vehicleCount}
+              value={activeVehicleCount}
               icon={Users}
               color="#3b82f6"
               trend={{ value: -2.1, label: "vs last period" }}
@@ -223,7 +225,7 @@ function ReportKpiCardsComponent({
       default:
         return null;
     }
-  }, [activeReport, loading, consumptionData, idleWasteData, thriftData, fleetRankingData, highSpeedData, vehicleCount, mockTrend]);
+  }, [activeReport, loading, consumptionData, idleWasteData, thriftData, fleetRankingData, highSpeedData, vehicleCount, activeVehicleCount, mockTrend]);
 
   return content;
 }

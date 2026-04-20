@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
-import { fmtDateDisplay, toLocalMidnight } from "@/lib/dateUtils";
+import { fmtDateDisplay, fmtTime, toLocalMidnight, getUserTimezone } from "@/lib/dateUtils";
 
 interface Props {
   className?: string;
@@ -21,10 +21,67 @@ const MONTHS = [
 
 const toMidnight = (iso: string) => toLocalMidnight(iso);
 const fmtDisplay  = (iso: string) => fmtDateDisplay(iso);
+const fmtDisplayTime = (iso: string) => fmtTime(iso);
 
-function toLocalEndOfDayISO(day: Date): string {
-  const end = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
-  return end.toISOString();
+function toTimeInputValue(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "00:00";
+  const tz = getUserTimezone();
+  const parts = new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: tz,
+  }).formatToParts(d);
+  const h = parts.find((p) => p.type === "hour")?.value ?? "00";
+  const m = parts.find((p) => p.type === "minute")?.value ?? "00";
+  return `${h}:${m}`;
+}
+
+function withLocalTime(iso: string, time: string, endOfMinute = false): string {
+  const base = new Date(iso);
+  if (isNaN(base.getTime())) return iso;
+  const [h, m] = time.split(":").map((part) => Number(part));
+  const tz = getUserTimezone();
+  // Extract the local date components in the user's timezone
+  const parts = new Intl.DateTimeFormat("en-US", {
+    year: "numeric", month: "2-digit", day: "2-digit", timeZone: tz,
+  }).formatToParts(base);
+  const localYear  = parseInt(parts.find((p) => p.type === "year")?.value  ?? "0");
+  const localMonth = parseInt(parts.find((p) => p.type === "month")?.value ?? "1") - 1;
+  const localDay   = parseInt(parts.find((p) => p.type === "day")?.value   ?? "1");
+  // Build a new date with the same local date but different time
+  const next = new Date(
+    localYear, localMonth, localDay,
+    Number.isFinite(h) ? h : 0,
+    Number.isFinite(m) ? m : 0,
+    endOfMinute ? 59 : 0,
+    endOfMinute ? 999 : 0,
+  );
+  return next.toISOString();
+}
+
+function combineDayAndTimeISO(day: Date, time: string, endOfMinute = false): string {
+  const [h, m] = time.split(":").map((part) => Number(part));
+  const value = new Date(
+    day.getFullYear(),
+    day.getMonth(),
+    day.getDate(),
+    Number.isFinite(h) ? h : 0,
+    Number.isFinite(m) ? m : 0,
+    endOfMinute ? 59 : 0,
+    endOfMinute ? 999 : 0
+  );
+  return value.toISOString();
+}
+
+function ensureToAfterFrom(fromIso: string, toIso: string): string {
+  const fromDate = new Date(fromIso);
+  const toDate = new Date(toIso);
+  if (!isNaN(fromDate.getTime()) && !isNaN(toDate.getTime()) && toDate > fromDate) {
+    return toIso;
+  }
+  return new Date(fromDate.getTime() + 60 * 1000).toISOString();
 }
 
 export default function DateRangePicker({
@@ -112,16 +169,18 @@ export default function DateRangePicker({
   }
 
   function handleDayClick(day: Date) {
-    const fromIso = day.toISOString();
-    const toIso = toLocalEndOfDayISO(day);
+    const currentFromTime = toTimeInputValue(from);
+    const currentToTime = toTimeInputValue(to);
+    const fromIso = combineDayAndTimeISO(day, currentFromTime);
+    const toIso = combineDayAndTimeISO(day, currentToTime, true);
 
     if (selecting === "from") {
       onFromChange(fromIso);
-      if (day >= toDate) onToChange(toIso);
+      if (day >= toDate) onToChange(ensureToAfterFrom(fromIso, toIso));
       setSelecting("to");
     } else {
       if (day < fromDate) return;
-      onToChange(toIso);
+      onToChange(ensureToAfterFrom(from, toIso));
       setSelecting("from");
       setOpen(false);
       setHovered(null);
@@ -180,9 +239,13 @@ export default function DateRangePicker({
         className="flex items-center gap-2 px-4 py-2 border rounded-xl bg-white"
       >
         <CalendarDays size={16} className="text-red-500" />
-        <span className="text-sm font-semibold">{fmtDisplay(from)}</span>
+        <span className="text-sm font-semibold">
+          {fmtDisplay(from)} {fmtDisplayTime(from)}
+        </span>
         <span className="text-gray-400">→</span>
-        <span className="text-sm font-semibold">{fmtDisplay(to)}</span>
+        <span className="text-sm font-semibold">
+          {fmtDisplay(to)} {fmtDisplayTime(to)}
+        </span>
         {open && <X size={14} />}
       </button>
 
@@ -240,6 +303,35 @@ export default function DateRangePicker({
                   ))}
                 </div>
               ))}
+            </div>
+
+            {/* Time inputs */}
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <label className="flex flex-col gap-1 text-xs text-gray-500">
+                From time
+                <input
+                  type="time"
+                  className="border rounded-lg px-2 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-200"
+                  value={toTimeInputValue(from)}
+                  onChange={(e) => {
+                    const nextFrom = withLocalTime(from, e.target.value);
+                    onFromChange(nextFrom);
+                    onToChange(ensureToAfterFrom(nextFrom, to));
+                  }}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-gray-500">
+                To time
+                <input
+                  type="time"
+                  className="border rounded-lg px-2 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-200"
+                  value={toTimeInputValue(to)}
+                  onChange={(e) => {
+                    const nextTo = withLocalTime(to, e.target.value, true);
+                    onToChange(ensureToAfterFrom(from, nextTo));
+                  }}
+                />
+              </label>
             </div>
 
             {/* Footer hint */}

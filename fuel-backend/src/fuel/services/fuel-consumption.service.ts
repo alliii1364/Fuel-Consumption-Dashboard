@@ -37,6 +37,8 @@ const WARMUP_HOURS = 2;
 const NOISE_THRESHOLD = 0.5;
 /** Used ONLY inside the drop window scan to detect a mid-window refuel and break early. */
 const REFUEL_THRESHOLD = 3.0;
+const REFUEL_MOVEMENT_MAX_SPEED_KMH = 10.0;
+const REFUEL_WINDOW_BOUNDARY_MINUTES = 5;
 
 // Mirrors Python's MILEAGE_MAX_LITER_DROP_PER_READING = 2.0
 const MAX_SINGLE_READING_DROP = 2.0;
@@ -433,19 +435,35 @@ export class FuelConsumptionService {
             !fakeRise &&
             !recoveryRise &&
             isPostRefuelFallback(consolidationEndTs, peakFuel, transformed);
+          // ── Layer D: movement veto (shared with dashboard/reports paths) ──────
+          // If vehicle is moving through refuel window, treat as non-stationary
+          // spike instead of station refuel.
+          const movementDuringRefuel =
+            !fakeRise &&
+            !recoveryRise &&
+            !postFallback &&
+            this.hasMovementDuringRefuelWindow(baselineTs, consolidationEndTs, raw);
 
           this.logger.log(
             `[RISE] IMEI ${imei} at ${baselineTs.toISOString()}: ` +
             `added=${totalAdded.toFixed(2)}L peak=${peakFuel.toFixed(2)}L ` +
-            `fakeRise=${fakeRise} recoveryRise=${recoveryRise} postFallback=${postFallback}`,
+            `fakeRise=${fakeRise} recoveryRise=${recoveryRise} postFallback=${postFallback} ` +
+            `movementDuringRefuel=${movementDuringRefuel}`,
           );
 
-          if (!fakeRise && !recoveryRise && !postFallback) {
+          if (!fakeRise && !recoveryRise && !postFallback && !movementDuringRefuel) {
+            const adjustedRefuel = this.calculateRefuelWindowBounds(
+              transformed,
+              baselineTs,
+              consolidationEndTs,
+              baselineFuel,
+              peakFuel,
+            );
             refuels.push({
               at:         baselineTs.toISOString(),
-              fuelBefore: Math.round(baselineFuel * 100) / 100,
-              fuelAfter:  Math.round(peakFuel * 100) / 100,
-              added:      Math.round(totalAdded * 100) / 100,
+              fuelBefore: Math.round(adjustedRefuel.fuelBefore * 100) / 100,
+              fuelAfter:  Math.round(adjustedRefuel.fuelAfter * 100) / 100,
+              added:      Math.round(adjustedRefuel.added * 100) / 100,
               unit:       sensor.units || 'L',
             });
           }
@@ -461,6 +479,53 @@ export class FuelConsumptionService {
     }
 
     return { drops, refuels, firstFuel, lastFuel, readings: raw };
+  }
+
+  private hasMovementDuringRefuelWindow(
+    riseAt: Date,
+    consolidationEndAt: Date,
+    readings: FuelReading[],
+  ): boolean {
+    const windowStart = new Date(riseAt.getTime() - SPIKE_WINDOW_MINUTES * 60 * 1000);
+    const windowEnd = new Date(consolidationEndAt.getTime() + SPIKE_WINDOW_MINUTES * 60 * 1000);
+    const maxSpeed = readings
+      .filter((r) => r.ts >= windowStart && r.ts <= windowEnd)
+      .reduce(
+        (max, r) =>
+          Math.max(
+            max,
+            typeof r.speed === 'number' && Number.isFinite(r.speed) ? r.speed : 0,
+          ),
+        0,
+      );
+    return maxSpeed > REFUEL_MOVEMENT_MAX_SPEED_KMH;
+  }
+
+  private calculateRefuelWindowBounds(
+    readings: FuelReading[],
+    riseAt: Date,
+    consolidationEndAt: Date,
+    fallbackBefore: number,
+    fallbackAfter: number,
+  ): { fuelBefore: number; fuelAfter: number; added: number } {
+    const windowMs = REFUEL_WINDOW_BOUNDARY_MINUTES * 60 * 1000;
+    const beforeStart = new Date(riseAt.getTime() - windowMs);
+    const afterEnd = new Date(consolidationEndAt.getTime() + windowMs);
+
+    const beforeWindow = readings
+      .filter((r) => r.ts >= beforeStart && r.ts <= riseAt)
+      .map((r) => r.fuel);
+    const afterWindow = readings
+      .filter((r) => r.ts >= consolidationEndAt && r.ts <= afterEnd)
+      .map((r) => r.fuel);
+
+    const fuelBefore = beforeWindow.length > 0 ? Math.min(...beforeWindow) : fallbackBefore;
+    const afterFromWindow = afterWindow.length > 0 ? Math.max(...afterWindow) : fallbackAfter;
+    // Keep at least the consolidation peak so we do not undercount sparse data.
+    const fuelAfter = Math.max(afterFromWindow, fallbackAfter);
+    const added = Math.max(0, fuelAfter - fuelBefore);
+
+    return { fuelBefore, fuelAfter, added };
   }
 
   private extractPricePerLiter(fcrJson: string, from: Date): number | null {

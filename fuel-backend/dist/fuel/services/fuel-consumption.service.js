@@ -23,6 +23,8 @@ const fuel_drop_filter_util_1 = require("./fuel-drop-filter.util");
 const WARMUP_HOURS = 2;
 const NOISE_THRESHOLD = 0.5;
 const REFUEL_THRESHOLD = 3.0;
+const REFUEL_MOVEMENT_MAX_SPEED_KMH = 10.0;
+const REFUEL_WINDOW_BOUNDARY_MINUTES = 5;
 const MAX_SINGLE_READING_DROP = 2.0;
 let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionService {
     transform;
@@ -212,15 +214,21 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
                     const postFallback = !fakeRise &&
                         !recoveryRise &&
                         (0, fuel_drop_filter_util_1.isPostRefuelFallback)(consolidationEndTs, peakFuel, transformed);
+                    const movementDuringRefuel = !fakeRise &&
+                        !recoveryRise &&
+                        !postFallback &&
+                        this.hasMovementDuringRefuelWindow(baselineTs, consolidationEndTs, raw);
                     this.logger.log(`[RISE] IMEI ${imei} at ${baselineTs.toISOString()}: ` +
                         `added=${totalAdded.toFixed(2)}L peak=${peakFuel.toFixed(2)}L ` +
-                        `fakeRise=${fakeRise} recoveryRise=${recoveryRise} postFallback=${postFallback}`);
-                    if (!fakeRise && !recoveryRise && !postFallback) {
+                        `fakeRise=${fakeRise} recoveryRise=${recoveryRise} postFallback=${postFallback} ` +
+                        `movementDuringRefuel=${movementDuringRefuel}`);
+                    if (!fakeRise && !recoveryRise && !postFallback && !movementDuringRefuel) {
+                        const adjustedRefuel = this.calculateRefuelWindowBounds(transformed, baselineTs, consolidationEndTs, baselineFuel, peakFuel);
                         refuels.push({
                             at: baselineTs.toISOString(),
-                            fuelBefore: Math.round(baselineFuel * 100) / 100,
-                            fuelAfter: Math.round(peakFuel * 100) / 100,
-                            added: Math.round(totalAdded * 100) / 100,
+                            fuelBefore: Math.round(adjustedRefuel.fuelBefore * 100) / 100,
+                            fuelAfter: Math.round(adjustedRefuel.fuelAfter * 100) / 100,
+                            added: Math.round(adjustedRefuel.added * 100) / 100,
                             unit: sensor.units || 'L',
                         });
                     }
@@ -232,6 +240,30 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
             i++;
         }
         return { drops, refuels, firstFuel, lastFuel, readings: raw };
+    }
+    hasMovementDuringRefuelWindow(riseAt, consolidationEndAt, readings) {
+        const windowStart = new Date(riseAt.getTime() - fuel_drop_filter_util_1.SPIKE_WINDOW_MINUTES * 60 * 1000);
+        const windowEnd = new Date(consolidationEndAt.getTime() + fuel_drop_filter_util_1.SPIKE_WINDOW_MINUTES * 60 * 1000);
+        const maxSpeed = readings
+            .filter((r) => r.ts >= windowStart && r.ts <= windowEnd)
+            .reduce((max, r) => Math.max(max, typeof r.speed === 'number' && Number.isFinite(r.speed) ? r.speed : 0), 0);
+        return maxSpeed > REFUEL_MOVEMENT_MAX_SPEED_KMH;
+    }
+    calculateRefuelWindowBounds(readings, riseAt, consolidationEndAt, fallbackBefore, fallbackAfter) {
+        const windowMs = REFUEL_WINDOW_BOUNDARY_MINUTES * 60 * 1000;
+        const beforeStart = new Date(riseAt.getTime() - windowMs);
+        const afterEnd = new Date(consolidationEndAt.getTime() + windowMs);
+        const beforeWindow = readings
+            .filter((r) => r.ts >= beforeStart && r.ts <= riseAt)
+            .map((r) => r.fuel);
+        const afterWindow = readings
+            .filter((r) => r.ts >= consolidationEndAt && r.ts <= afterEnd)
+            .map((r) => r.fuel);
+        const fuelBefore = beforeWindow.length > 0 ? Math.min(...beforeWindow) : fallbackBefore;
+        const afterFromWindow = afterWindow.length > 0 ? Math.max(...afterWindow) : fallbackAfter;
+        const fuelAfter = Math.max(afterFromWindow, fallbackAfter);
+        const added = Math.max(0, fuelAfter - fuelBefore);
+        return { fuelBefore, fuelAfter, added };
     }
     extractPricePerLiter(fcrJson, from) {
         if (!fcrJson || fcrJson === '{}' || fcrJson === '')

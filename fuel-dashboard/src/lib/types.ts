@@ -746,12 +746,23 @@ export class ApiError extends Error {
   }
 
   get userMessage(): string {
+    if (this.statusCode === 0) {
+      return this.message;
+    }
+    if (
+      this.message.includes("EHOSTUNREACH") ||
+      this.message.includes("ECONNREFUSED") ||
+      this.message.includes("ETIMEDOUT")
+    ) {
+      return "Database is temporarily unreachable. Please retry in a moment.";
+    }
     switch (this.statusCode) {
       case 400: return this.message;
       case 401: return "Session expired. Please log in again.";
       case 403: return "You don't have permission to access this vehicle.";
       case 404: return "No data found for the selected period.";
       case 422: return "No fuel sensor configured for this vehicle.";
+      case 500: return "Server error while loading report. Please retry in a moment.";
       default:  return "Something went wrong. Please try again.";
     }
   }

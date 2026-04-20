@@ -141,7 +141,7 @@ function ReportsPage() {
   // ─── State ──────────────────────────────────────────────────────────────────
   const [activeReport, setActiveReport] = useState<ReportType>("consumption");
   const [range, setRange] = useState({
-    from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+    from: new Date(new Date().setHours(0, 0, 0, 0)).toISOString(),
     to: new Date().toISOString(),
   });
 
@@ -395,6 +395,7 @@ function ReportsPage() {
           fleetRankingData={fleetRankingData}
           highSpeedData={highSpeedData}
           vehicleCount={vehicles.length}
+          activeVehicleCount={vehicles.filter((v) => v.status === "online").length}
         />
 
         {isSpecialView ? (
