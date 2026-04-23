@@ -121,8 +121,14 @@ export class DashboardService {
       let currentFuel: number | null = null;
       let unit = 'L';
 
+      // Only include vehicles that have a fuel sensor configured.
+      // Vehicles without a sensor have no fuel data to show, so they must
+      // not inflate the vehicle count, offline count, or consumption totals.
+      let hasSensor = false;
+
       try {
         const sensor = await this.sensorResolver.resolveFuelSensor(v.imei);
+        hasSensor = true;
         unit = sensor.units || 'L';
 
         const result = await this.consumptionService.getConsumption(
@@ -133,10 +139,15 @@ export class DashboardService {
           v.fcr ?? '',
         );
 
-        // Use the validated drop-sum from FuelConsumptionService.
-        // netDrop (firstFuel − lastFuel) is derived from raw sensor readings
-        // and inflates wildly when a boundary reading has a sensor spike.
-        consumed = result.consumed;
+        // Mass-balance formula: actual fuel used = (firstFuel + refueled) − lastFuel
+        //   = netDrop + refueled  (where netDrop = firstFuel − lastFuel)
+        // This matches exactly what the Routes page "Period Summary" shows.
+        // Falls back to the drop-sum only when boundary readings are unavailable.
+        if (result.netDrop !== null) {
+          consumed = Math.max(0, result.netDrop + result.refueled);
+        } else {
+          consumed = result.consumed;
+        }
 
         refueled = result.refueled;
         cost = result.estimatedCost;
@@ -155,10 +166,16 @@ export class DashboardService {
           }
         }
       } catch (err) {
-        this.logger.warn(
-          `Could not compute fuel summary for IMEI ${v.imei}: ${String(err)}`,
-        );
+        if (hasSensor) {
+          // Sensor exists but consumption computation failed — still include the vehicle.
+          this.logger.warn(
+            `Could not compute fuel summary for IMEI ${v.imei}: ${String(err)}`,
+          );
+        }
+        // No sensor → silently skip; vehicle is irrelevant to the fuel dashboard.
       }
+
+      if (!hasSensor) continue;
 
       totalConsumed += consumed;
       if (cost !== null) {

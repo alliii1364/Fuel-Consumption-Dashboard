@@ -77,11 +77,12 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
         const netDrop = firstFuel !== null && lastFuel !== null
             ? Math.round((firstFuel - lastFuel) * 100) / 100
             : null;
-        const estimatedCost = pricePerLiter !== null && netDrop !== null && netDrop > 0
-            ? Math.round(netDrop * pricePerLiter * 100) / 100
-            : pricePerLiter !== null
-                ? Math.round(consumed * pricePerLiter * 100) / 100
-                : null;
+        const actualConsumed = netDrop !== null
+            ? Math.max(0, netDrop + refueled)
+            : consumed;
+        const estimatedCost = pricePerLiter !== null
+            ? Math.round(actualConsumed * pricePerLiter * 100) / 100
+            : null;
         return {
             imei,
             from: from.toISOString(),

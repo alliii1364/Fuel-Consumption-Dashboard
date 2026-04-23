@@ -76,11 +76,18 @@ let DashboardService = DashboardService_1 = class DashboardService {
             let cost = null;
             let currentFuel = null;
             let unit = 'L';
+            let hasSensor = false;
             try {
                 const sensor = await this.sensorResolver.resolveFuelSensor(v.imei);
+                hasSensor = true;
                 unit = sensor.units || 'L';
                 const result = await this.consumptionService.getConsumption(v.imei, from, to, sensor, v.fcr ?? '');
-                consumed = result.consumed;
+                if (result.netDrop !== null) {
+                    consumed = Math.max(0, result.netDrop + result.refueled);
+                }
+                else {
+                    consumed = result.consumed;
+                }
                 refueled = result.refueled;
                 cost = result.estimatedCost;
                 const latestRow = await this.dynQuery.getLatestRow(v.imei);
@@ -93,8 +100,12 @@ let DashboardService = DashboardService_1 = class DashboardService {
                 }
             }
             catch (err) {
-                this.logger.warn(`Could not compute fuel summary for IMEI ${v.imei}: ${String(err)}`);
+                if (hasSensor) {
+                    this.logger.warn(`Could not compute fuel summary for IMEI ${v.imei}: ${String(err)}`);
+                }
             }
+            if (!hasSensor)
+                continue;
             totalConsumed += consumed;
             if (cost !== null) {
                 totalCost += cost;

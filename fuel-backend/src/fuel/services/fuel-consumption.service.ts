@@ -209,12 +209,18 @@ export class FuelConsumptionService {
         ? Math.round((firstFuel - lastFuel) * 100) / 100
         : null;
   
+    // Mass-balance: actual fuel burned = (firstFuel + refueled) − lastFuel
+    // = max(0, netDrop + refueled).  This is the same formula the Routes page
+    // "Period Summary" uses, so cost is consistent with the displayed consumption.
+    const actualConsumed =
+      netDrop !== null
+        ? Math.max(0, netDrop + refueled)
+        : consumed;
+
     const estimatedCost =
-      pricePerLiter !== null && netDrop !== null && netDrop > 0
-        ? Math.round(netDrop * pricePerLiter * 100) / 100
-        : pricePerLiter !== null
-          ? Math.round(consumed * pricePerLiter * 100) / 100
-          : null;
+      pricePerLiter !== null
+        ? Math.round(actualConsumed * pricePerLiter * 100) / 100
+        : null;
   
     return {
       imei,

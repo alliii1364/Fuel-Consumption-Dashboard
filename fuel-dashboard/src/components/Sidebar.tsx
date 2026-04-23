@@ -9,9 +9,9 @@ import { useRouter, usePathname } from "next/navigation";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/",        badge: null },
-  { icon: BarChart3,       label: "Analytics", href: "/analytics", badge: "NEW" },
+  // { icon: BarChart3,       label: "Analytics", href: "/analytics", badge: "NEW" },
   { icon: Route,           label: "Routes",    href: "/routes",    badge: null },
-  { icon: FileText,        label: "Reports",   href: "/reports",   badge: null },
+  { icon: FileText,        label: "Reports & Analytics",   href: "/reports",   badge: null },
 ];
 
 const Sidebar = memo(function Sidebar() {
