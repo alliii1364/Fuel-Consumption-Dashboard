@@ -235,13 +235,18 @@ export function isFakeSpike(
   if (readings.length < 2) return false; // not enough data → assume real
 
   // ── Speed veto: mirrors Python is_fake_spike lines 2096-2109 ─────────────
-  // Only check post-event rows (ts > dropAt), exactly as Python does.
-  // If ANY post-event reading shows the vehicle moving → normal driving
-  // consumption, NOT a theft/spike → treat as fake.
-  const movedAfterDrop = readings.some(
-    (r) => r.ts > dropAt && (r.speed ?? 0) > maxSpeedKmh,
+  // Veto only if the vehicle is ACTIVELY MOVING at the moment of the drop
+  // (within 2 minutes after dropAt). This catches sensor sloshing from
+  // vehicle dynamics (braking, cornering) while correctly allowing the case
+  // where fuel was stolen while the vehicle was parked and the driver then
+  // drove away — "moved after theft" must NOT suppress a real drop alert.
+  const movingAtDrop = readings.some(
+    (r) =>
+      r.ts > dropAt &&
+      r.ts.getTime() <= dropAt.getTime() + 2 * 60 * 1000 &&
+      (r.speed ?? 0) > maxSpeedKmh,
   );
-  if (movedAfterDrop) return true;
+  if (movingAtDrop) return true;
 
   // ── Fuel-pattern checks ───────────────────────────────────────────────────
   const startFuel = readings[0].fuel;
@@ -253,19 +258,28 @@ export function isFakeSpike(
   // Condition 2: nearly recovered (within DROP_THRESHOLD)
   if (Math.abs(finalFuel - startFuel) <= dropThreshold) return true;
 
-  // Condition 3: find first large sub-drop and check if it stays low
-  for (let i = 0; i < readings.length - 1; i++) {
-    const delta = readings[i].fuel - readings[i + 1].fuel;
+  // Condition 3: scan ALL large sub-drops in the window.
+  // A single recovered sub-drop (driving sloshing) must not suppress detection
+  // of a later sustained theft drop in the same window.
+  // → Only declare "fake" when EVERY large sub-drop recovered.
+  // → "real" if at least one large sub-drop stayed low, OR if no large
+  //    sub-drop was found at all (gradual drop, already cleared by conditions 1-2).
+  let foundLargeSubdrop = false;
+  for (let j = 0; j < readings.length - 1; j++) {
+    const delta = readings[j].fuel - readings[j + 1].fuel;
     if (delta >= dropThreshold) {
+      foundLargeSubdrop = true;
       const stayedLow = readings
-        .slice(i + 1)
-        .every((r) => Math.abs(r.fuel - readings[i].fuel) > dropThreshold);
-      return !stayedLow; // recovered → fake; stayed low → real
+        .slice(j + 1)
+        .every((r) => Math.abs(r.fuel - readings[j].fuel) > dropThreshold);
+      if (stayedLow) return false; // sustained drop found → real
+      // this sub-drop recovered → keep scanning for a sustained one
     }
   }
 
-  // No recovery pattern found → real drop
-  return false;
+  // All large sub-drops recovered → fake.
+  // No large sub-drops at all → real (gradual drop already vetted by conditions 1-2).
+  return foundLargeSubdrop;
 }
 
 // ─── Layer 4: Post-Drop Verification ─────────────────────────────────────────

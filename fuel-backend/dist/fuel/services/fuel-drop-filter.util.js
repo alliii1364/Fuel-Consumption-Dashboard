@@ -53,8 +53,10 @@ function isFakeSpike(dropAt, allRows, spikeWindowMinutes = exports.SPIKE_WINDOW_
     const readings = allRows.filter((r) => r.ts >= winStart && r.ts <= winEnd);
     if (readings.length < 2)
         return false;
-    const movedAfterDrop = readings.some((r) => r.ts > dropAt && (r.speed ?? 0) > maxSpeedKmh);
-    if (movedAfterDrop)
+    const movingAtDrop = readings.some((r) => r.ts > dropAt &&
+        r.ts.getTime() <= dropAt.getTime() + 2 * 60 * 1000 &&
+        (r.speed ?? 0) > maxSpeedKmh);
+    if (movingAtDrop)
         return true;
     const startFuel = readings[0].fuel;
     const finalFuel = readings[readings.length - 1].fuel;
@@ -62,16 +64,19 @@ function isFakeSpike(dropAt, allRows, spikeWindowMinutes = exports.SPIKE_WINDOW_
         return true;
     if (Math.abs(finalFuel - startFuel) <= dropThreshold)
         return true;
-    for (let i = 0; i < readings.length - 1; i++) {
-        const delta = readings[i].fuel - readings[i + 1].fuel;
+    let foundLargeSubdrop = false;
+    for (let j = 0; j < readings.length - 1; j++) {
+        const delta = readings[j].fuel - readings[j + 1].fuel;
         if (delta >= dropThreshold) {
+            foundLargeSubdrop = true;
             const stayedLow = readings
-                .slice(i + 1)
-                .every((r) => Math.abs(r.fuel - readings[i].fuel) > dropThreshold);
-            return !stayedLow;
+                .slice(j + 1)
+                .every((r) => Math.abs(r.fuel - readings[j].fuel) > dropThreshold);
+            if (stayedLow)
+                return false;
         }
     }
-    return false;
+    return foundLargeSubdrop;
 }
 function isPostDropRecovery(dropAt, baselineFuel, allRows, spikeWindowMinutes = exports.SPIKE_WINDOW_MINUTES, eps = exports.POST_DROP_VERIFY_EPS_LITERS) {
     const windowMs = spikeWindowMinutes * 60 * 1000;

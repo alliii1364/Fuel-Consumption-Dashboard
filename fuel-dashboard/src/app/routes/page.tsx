@@ -321,8 +321,26 @@ export default function RoutesPage() {
           };
         });
 
+        // Include NestJS-detected confirmed drops (isConfirmedDrop=true from consumption API).
+        // Python drops take priority — deduplicate by timestamp (within 5 min window).
+        const pythonDropTimes = confirmedDropEvents.map(e => new Date(e.at).getTime());
+        const nestDropEvents: FuelEvent[] = (c.drops ?? [])
+          .filter(d => d.isConfirmedDrop && !pythonDropTimes.some(
+            t => Math.abs(t - new Date(d.at).getTime()) < 5 * 60 * 1000
+          ))
+          .map(d => ({
+            type: "drop" as const,
+            at: d.at,
+            amount: d.consumed,
+            fuelBefore: d.fuelBefore,
+            fuelAfter: d.fuelAfter,
+            unit: d.unit,
+            isConfirmedDrop: true,
+          }));
+
         const events: FuelEvent[] = [
           ...confirmedDropEvents,
+          ...nestDropEvents,
           ...refuelEvents,
         ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()); // Latest first
         setFuelEvents(events);
