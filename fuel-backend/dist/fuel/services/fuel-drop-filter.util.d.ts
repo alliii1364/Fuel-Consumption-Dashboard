@@ -21,4 +21,5 @@ export declare function isFakeSpike(dropAt: Date, allRows: FuelReading[], spikeW
 export declare function isPostDropRecovery(dropAt: Date, baselineFuel: number, allRows: FuelReading[], spikeWindowMinutes?: number, eps?: number): boolean;
 export declare function isRecoveryRise(dropAt: Date, baselineFuel: number, peakFuel: number, allRows: FuelReading[], lookbackMinutes?: number, riseThreshold?: number, eps?: number): boolean;
 export declare function isFakeRise(riseAt: Date, allRows: FuelReading[], spikeWindowMinutes?: number, riseThreshold?: number, maxSpeedKmh?: number): boolean;
+export declare function isStationaryDropRecovery(riseAt: Date, peakFuel: number, allRows: FuelReading[], lookbackMinutes?: number, dropThreshold?: number, eps?: number): boolean;
 export declare function isPostRefuelFallback(riseAt: Date, peakFuel: number, allRows: FuelReading[], spikeWindowMinutes?: number, eps?: number): boolean;

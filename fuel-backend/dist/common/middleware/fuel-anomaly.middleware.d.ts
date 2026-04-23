@@ -1,5 +1,6 @@
 import { NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
+import { FuelReading } from '../../fuel/services/fuel-drop-filter.util';
 export interface RefuelAnomalyResult {
     isAnomaly: boolean;
     anomalyType: 'fake_spike' | 'sensor_reset' | 'unsustained_rise' | 'movement_during_refuel' | 'no_stationary_period' | 'voltage_glitch' | 'none';
@@ -28,7 +29,7 @@ export declare class FuelAnomalyMiddleware implements NestMiddleware {
     use(req: Request, res: Response, next: NextFunction): void;
     private isFuelResponse;
     private processFuelResponse;
-    private detectRefuelAnomaly;
+    detectRefuelAnomaly(refuel: any, readings: FuelReading[]): RefuelAnomalyResult;
     private analyzeMovementPattern;
     private checkFuelSustained;
     private checkPostRefuelFallback;

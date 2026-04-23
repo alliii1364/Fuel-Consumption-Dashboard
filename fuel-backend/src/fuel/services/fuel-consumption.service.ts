@@ -13,6 +13,7 @@ import {
   isDropConfirmedAfterDelay,
   isPostDropRecovery,
   isRecoveryRise,
+  isStationaryDropRecovery,
   isPostRefuelFallback,
   DROP_ALERT_THRESHOLD,
   RISE_THRESHOLD,
@@ -174,7 +175,6 @@ export class FuelConsumptionService {
       return [];
     }
   }
-
   async getConsumption(
     imei: string,
     from: Date,
@@ -182,52 +182,40 @@ export class FuelConsumptionService {
     sensor: FuelSensor,
     fcrJson: string,
   ): Promise<ConsumptionResult> {
-    // Fetch extra data before `from` to warm up the causal median filter so
-    // that readings at the boundary of any query window are smoothed
-    // consistently regardless of which preset (week / month / custom) is used.
     const warmupFrom = new Date(from.getTime() - WARMUP_HOURS * 60 * 60 * 1000);
     const allRows = await this.dynQuery.getRowsInRange(imei, warmupFrom, to);
     this.logger.log(
       `Consumption for IMEI ${imei}: fetched ${allRows.length} rows (${WARMUP_HOURS}h warmup from ${warmupFrom.toISOString()})`,
     );
-
-    // Run analysis on the full (warmup + actual) dataset so the median filter
-    // has proper context for readings near the `from` boundary.
+  
     const { drops: allDrops, refuels: allRefuels, readings } = this.analyzeRows(allRows, sensor, imei);
-
-    // Filter events to only those that fall within the actual requested range.
+  
     const fromIso = from.toISOString();
     const drops   = allDrops.filter((d) => d.at >= fromIso);
     const refuels = allRefuels.filter((r) => r.at >= fromIso);
-
-    // firstFuel / lastFuel must reflect the actual [from, to] period, not the warmup.
+  
     const actualReadings = readings.filter((r) => r.ts >= from);
     const firstFuel = actualReadings.length > 0 ? actualReadings[0].fuel : null;
     const lastFuel  = actualReadings.length > 0 ? actualReadings[actualReadings.length - 1].fuel : null;
-
-    // Exclude sensor-jump drops from the consumed total (mirrors Python's
-    // MILEAGE_MAX_LITER_DROP_PER_READING filter on consumed_liters).
+  
     const consumed = drops
       .filter((d) => !d.isSensorJump)
       .reduce((sum, d) => sum + d.consumed, 0);
     const refueled = refuels.reduce((sum, r) => sum + r.added, 0);
     const pricePerLiter = this.extractPricePerLiter(fcrJson, from);
-
-    // netDrop = firstFuel - lastFuel: the single most reliable "how much fuel
-    // was lost" metric. It does not inflate from sensor oscillations unlike
-    // summing individual drop events.
+  
     const netDrop =
       firstFuel !== null && lastFuel !== null
         ? Math.round((firstFuel - lastFuel) * 100) / 100
         : null;
-
+  
     const estimatedCost =
       pricePerLiter !== null && netDrop !== null && netDrop > 0
         ? Math.round(netDrop * pricePerLiter * 100) / 100
         : pricePerLiter !== null
           ? Math.round(consumed * pricePerLiter * 100) / 100
           : null;
-
+  
     return {
       imei,
       from: from.toISOString(),
@@ -243,10 +231,10 @@ export class FuelConsumptionService {
       firstFuel: firstFuel !== null ? Math.round(firstFuel * 100) / 100 : null,
       lastFuel:  lastFuel  !== null ? Math.round(lastFuel  * 100) / 100 : null,
       netDrop,
-      readings, // Include readings for anomaly detection middleware
+      readings,
     };
   }
-
+  
   private analyzeRows(
     rows: DataRow[],
     sensor: FuelSensor,
@@ -262,105 +250,79 @@ export class FuelConsumptionService {
       if (value === null) continue;
       raw.push({ ts, fuel: value, speed: row.speed });
     }
-
+  
     this.logger.log(
       `[DEBUG] IMEI ${imei} sensor param="${sensor.param}": ${rows.length} rows → ${raw.length} valid readings`,
     );
-
+  
     // ── Layer 1: Median Filter ────────────────────────────────────────────────
-    // Mirrors Python _filter_fuel_for_alarms() / FUEL_MEDIAN_SAMPLES = 5.
     const transformed = applyMedianFilter(raw, FUEL_MEDIAN_SAMPLES);
-
-    const drops: DropEvent[] = [];
+  
+    const drops: DropEvent[]   = [];
     const refuels: RefuelEvent[] = [];
     let firstFuel: number | null = null;
-    let lastFuel: number | null = null;
-
-    // ── Step 2: index-based walk so we can skip forward after consolidation ──
+    let lastFuel:  number | null = null;
+  
+    // ── Step 2: index-based walk ──────────────────────────────────────────────
     let i = 0;
     while (i < transformed.length) {
       const { ts, fuel } = transformed[i];
-
+  
       if (firstFuel === null) firstFuel = fuel;
       lastFuel = fuel;
-
+  
       if (i === 0) { i++; continue; }
-
-      const prev = transformed[i - 1];
+  
+      const prev  = transformed[i - 1];
       const delta = fuel - prev.fuel;
       const singleConsumed = Math.abs(delta);
-
+  
+      // ── DROP path ─────────────────────────────────────────────────────────
       if (delta < -NOISE_THRESHOLD) {
         if (singleConsumed >= DROP_ALERT_THRESHOLD) {
-          // ── Large drop (≥ 8 L): mirrors Python's handle_fuel_drop thread ──────
           const baselineFuel = prev.fuel;
-          const dropTs       = transformed[i].ts;  // anchor for all checks: the drop reading
-          // Scan window anchored on the DROP reading (curr.ts), not on prev.ts.
-          // Python's is_fake_spike uses dt_tracker = the LOW reading timestamp.
+          const dropTs       = transformed[i].ts;
           const windowEndMs  = dropTs.getTime() + SPIKE_WINDOW_MINUTES * 60 * 1000;
-
-          // Scan forward within SPIKE_WINDOW_MINUTES to find the lowest
-          // sustained fuel level (equivalent to Python re-reading after 80 s).
+  
           let verifiedFuel = fuel;
           let j = i + 1;
           while (j < transformed.length && transformed[j].ts.getTime() <= windowEndMs) {
             const nextFuel = transformed[j].fuel;
-            if (nextFuel > baselineFuel - DROP_ALERT_THRESHOLD) break; // recovered → fake
-            if (nextFuel - verifiedFuel > REFUEL_THRESHOLD) break;      // refuel inside window
+            if (nextFuel > baselineFuel - DROP_ALERT_THRESHOLD) break;
+            if (nextFuel - verifiedFuel > REFUEL_THRESHOLD) break;
             verifiedFuel = nextFuel;
             j++;
           }
-
+  
           const totalConsumed = baselineFuel - verifiedFuel;
-
-          // ── Layer 2: Verify delay + speed gate ────────────────────────────────
-          // Mirrors Python handle_fuel_drop():
-          //   1. Re-reads fuel after VERIFY_DELAY_SECONDS (80 s):
-          //      drop_confirmed = new_fuel < last_val AND |last_val - new_fuel| >= 8 L
-          //   2. Checks vehicle is stationary (speed <= DROP_GATING_MAX_SPEED_KMH)
-          //      before confirming — if moving, alert is cancelled.
-          const verifyPassed = isDropConfirmedAfterDelay(
-            dropTs,
-            baselineFuel,
-            transformed,
-          );
-
-          // ── Layer 3: Fake-spike check (includes speed veto) ──────────────────
-          // Python's is_fake_spike queries RAW DB data (not filtered) for the
-          // ±SPIKE_WINDOW_MINUTES window.  Pass `raw` here to match that exactly.
-          const fake = !verifyPassed || isFakeSpike(dropTs, raw, SPIKE_WINDOW_MINUTES, DROP_ALERT_THRESHOLD);
-
-          // ── Layer 4: Post-drop verify ─────────────────────────────────────────
-          // Python anchors the post-drop wait to dt_tracker (the DROP time).
-          const postRecovery = !fake && isPostDropRecovery(dropTs, baselineFuel, raw, SPIKE_WINDOW_MINUTES);
-
-          const isConfirmedDrop =
-            totalConsumed >= DROP_ALERT_THRESHOLD && !fake && !postRecovery;
-
+  
+          const verifyPassed    = isDropConfirmedAfterDelay(dropTs, baselineFuel, transformed);
+          const fake            = !verifyPassed || isFakeSpike(dropTs, raw, SPIKE_WINDOW_MINUTES, DROP_ALERT_THRESHOLD);
+          const postRecovery    = !fake && isPostDropRecovery(dropTs, baselineFuel, raw, SPIKE_WINDOW_MINUTES);
+          const isConfirmedDrop = totalConsumed >= DROP_ALERT_THRESHOLD && !fake && !postRecovery;
+  
           this.logger.log(
             `[DROP] IMEI ${imei} at ${transformed[i].ts.toISOString()}: ` +
             `baseline=${baselineFuel.toFixed(2)} verified=${verifiedFuel.toFixed(2)} ` +
             `consumed=${totalConsumed.toFixed(2)} verifyPassed=${verifyPassed} fake=${fake} ` +
             `postRecovery=${postRecovery} → confirmed=${isConfirmedDrop}`,
           );
-
+  
           drops.push({
             at:         prev.ts.toISOString(),
             fuelBefore: Math.round(baselineFuel * 100) / 100,
             fuelAfter:  Math.round(verifiedFuel * 100) / 100,
             consumed:   Math.round(totalConsumed * 100) / 100,
             unit:       sensor.units || 'L',
-            isSensorJump: false,   // consolidated big-drop events are never sensor jumps
+            isSensorJump:    false,
             isConfirmedDrop,
           });
-
-          // Skip past every reading that was merged into this consolidated event.
-          // Update lastFuel to the verified final level.
+  
           lastFuel = verifiedFuel;
           i = j;
           continue;
+  
         } else {
-          // Small drop (< 8 L): record as-is, flag big single jumps.
           drops.push({
             at:         prev.ts.toISOString(),
             fuelBefore: Math.round(prev.fuel * 100) / 100,
@@ -371,45 +333,36 @@ export class FuelConsumptionService {
             isConfirmedDrop: false,
           });
         }
+  
+      // ── RISE path ─────────────────────────────────────────────────────────
       } else if (delta >= RISE_THRESHOLD) {
-        // ── Large rise (≥ 8 L): mirrors Python's handle_fuel_rise thread ───────
         const baselineFuel = prev.fuel;
         const baselineTs   = prev.ts;
-        const consolidationEndMs =
-          baselineTs.getTime() + REFUEL_CONSOLIDATION_MINUTES * 60 * 1000;
-
-        // Consolidation: scan forward for up to REFUEL_CONSOLIDATION_MINUTES to
-        // find the true peak (Python polls every 20 s and tracks peak_fuel until
-        // fuel stabilises or max-track time elapses).
+        const consolidationEndMs = baselineTs.getTime() + REFUEL_CONSOLIDATION_MINUTES * 60 * 1000;
+  
         let peakFuel = fuel;
         let k = i + 1;
-        // Track whether fuel fell back below the rise threshold WITHIN the
-        // consolidation window — a strong indicator of a sensor fake-spike
-        // (e.g. a 30-40 L jerk that recovers in seconds/minutes).
         let falledBackInConsolidation = false;
+  
         while (k < transformed.length && transformed[k].ts.getTime() <= consolidationEndMs) {
           const nextFuel = transformed[k].fuel;
           if (nextFuel > peakFuel) {
             peakFuel = nextFuel;
           } else if (nextFuel < baselineFuel + RISE_THRESHOLD) {
-            // Fuel fell back below the rise threshold within the window.
-            // Only flag as fake if the drop from peak exceeds the post-refuel
-            // epsilon (guards against tiny sensor oscillations on a real refuel).
+            // Only flag fake and break if the drop from peak is significant.
+            // Minor noise-level dips should not stop peak tracking.
             if (peakFuel - nextFuel > POST_REFUEL_VERIFY_EPS_LITERS) {
               falledBackInConsolidation = true;
+              break;
             }
-            break;
+            // else: noise-level dip — keep scanning for true peak
           }
           k++;
         }
-
+  
         const totalAdded = peakFuel - baselineFuel;
-
+  
         if (totalAdded >= RISE_THRESHOLD) {
-          // ── Layer A: isFakeRise (mirrors Python is_fake_rise) ────────────────
-          // Short-circuit with consolidation fallback flag first: if fuel fell
-          // back significantly within the 15-min window, it is already confirmed
-          // as a fake spike regardless of what isFakeRise sees in its ±7-min window.
           if (falledBackInConsolidation) {
             this.logger.warn(
               `[RISE] IMEI ${imei} at ${baselineTs.toISOString()}: ` +
@@ -417,45 +370,77 @@ export class FuelConsumptionService {
               `but fell back within consolidation window (< baselineFuel + ${RISE_THRESHOLD}L)`,
             );
           }
+  
           const fakeRise = falledBackInConsolidation || isFakeRise(baselineTs, transformed);
-
-          // ── Layer B: isRecoveryRise (mirrors Python is_recovery_rise) ─────────
-          // "Dip then recover" pattern: fuel was already near peak BEFORE the rise
-          // (sensor jerk, not real refueling).
+  
+          // Guard: if a confirmed drop was recorded within the last 60 minutes
+          // before this rise, the "fuel was already near peak" pattern is
+          // legitimate consumption followed by real refueling — skip recoveryRise.
+          const recentConfirmedDrop = drops.some(
+            (d) =>
+              d.isConfirmedDrop &&
+              d.at >= new Date(baselineTs.getTime() - 60 * 60 * 1000).toISOString() &&
+              d.at <= baselineTs.toISOString(),
+          );
+  
           const recoveryRise =
-            !fakeRise && isRecoveryRise(baselineTs, baselineFuel, peakFuel, transformed);
-
-          // ── Layer C: isPostRefuelFallback (mirrors Python post-refuel verify) ──
-          // Anchored to the END of the consolidation window so the post-verify
-          // window [+7 min, +14 min] starts AFTER peak tracking is complete.
-          // Using baselineTs here was wrong: that put the post window inside the
-          // consolidation window where fuel is still rising / settling.
-          const consolidationEndTs = new Date(consolidationEndMs);
-          const postFallback =
+            !fakeRise &&
+            !recentConfirmedDrop &&
+            (isRecoveryRise(baselineTs, baselineFuel, peakFuel, transformed) ||
+             isStationaryDropRecovery(baselineTs, peakFuel, transformed));
+  
+          // Anchor postFallback to the actual last scanned reading timestamp,
+          // not the theoretical consolidation end which may have no data.
+          const actualConsolidationEndTs = transformed[Math.min(k - 1, transformed.length - 1)].ts;
+  
+          let postFallback =
             !fakeRise &&
             !recoveryRise &&
-            isPostRefuelFallback(consolidationEndTs, peakFuel, transformed);
-          // ── Layer D: movement veto (shared with dashboard/reports paths) ──────
-          // If vehicle is moving through refuel window, treat as non-stationary
-          // spike instead of station refuel.
+            isPostRefuelFallback(actualConsolidationEndTs, peakFuel, transformed);
+
+          // Override: if the settled fuel (post-consolidation window) is still well
+          // above the pre-refuel baseline, the peak-vs-settled gap is sensor sloshing —
+          // not a fake spike. Accept the refuel.
+          if (postFallback) {
+            const postWinMs    = SPIKE_WINDOW_MINUTES * 60 * 1000;
+            const postStart    = new Date(actualConsolidationEndTs.getTime() + postWinMs);
+            const postEnd      = new Date(actualConsolidationEndTs.getTime() + 2 * postWinMs);
+            const postReadings = transformed.filter((r) => r.ts > postStart && r.ts <= postEnd);
+            const settledFuel  = postReadings.length > 0
+              ? postReadings[postReadings.length - 1].fuel
+              : null;
+            // Require ≥75 % of the added fuel to be retained post-consolidation.
+            // This accepts real refuels (typically 90–97 % retention) while
+            // rejecting post-refuel oscillation noise (typically <70 % retention).
+            const retainThreshold = baselineFuel + 0.75 * (peakFuel - baselineFuel);
+            if (settledFuel !== null && settledFuel > retainThreshold) {
+              this.logger.log(
+                `[RISE] IMEI ${imei}: postFallback overridden — ` +
+                `settled=${settledFuel.toFixed(2)}L retained=${((settledFuel - baselineFuel) / (peakFuel - baselineFuel) * 100).toFixed(1)}% (≥75%)`,
+              );
+              postFallback = false;
+            }
+          }
+  
           const movementDuringRefuel =
             !fakeRise &&
             !recoveryRise &&
             !postFallback &&
-            this.hasMovementDuringRefuelWindow(baselineTs, consolidationEndTs, raw);
-
+            this.hasMovementDuringRefuelWindow(baselineTs, actualConsolidationEndTs, raw);
+  
           this.logger.log(
             `[RISE] IMEI ${imei} at ${baselineTs.toISOString()}: ` +
             `added=${totalAdded.toFixed(2)}L peak=${peakFuel.toFixed(2)}L ` +
-            `fakeRise=${fakeRise} recoveryRise=${recoveryRise} postFallback=${postFallback} ` +
+            `fakeRise=${fakeRise} recentConfirmedDrop=${recentConfirmedDrop} ` +
+            `recoveryRise=${recoveryRise} postFallback=${postFallback} ` +
             `movementDuringRefuel=${movementDuringRefuel}`,
           );
-
-          if (!fakeRise && !recoveryRise && !postFallback && !movementDuringRefuel) {
+  
+          if (!fakeRise && !recoveryRise && !postFallback) {
             const adjustedRefuel = this.calculateRefuelWindowBounds(
               transformed,
               baselineTs,
-              consolidationEndTs,
+              actualConsolidationEndTs,
               baselineFuel,
               peakFuel,
             );
@@ -466,30 +451,34 @@ export class FuelConsumptionService {
               added:      Math.round(adjustedRefuel.added * 100) / 100,
               unit:       sensor.units || 'L',
             });
+  
+            // Confirmed refuel — skip the whole consolidated window.
+            lastFuel = transformed[Math.max(i, k - 1)]?.fuel ?? peakFuel;
+            i = k;
+            continue;
           }
+  
+          // Rejected rise — do NOT skip to k. Advance one step so each
+          // reading in the window gets re-examined individually.
         }
-
-        // Skip past the consolidation window (all merged into this one event).
-        lastFuel = transformed[Math.max(i, k - 1)]?.fuel ?? peakFuel;
-        i = k;
-        continue;
       }
-
+  
       i++;
     }
-
+  
     return { drops, refuels, firstFuel, lastFuel, readings: raw };
   }
-
   private hasMovementDuringRefuelWindow(
     riseAt: Date,
     consolidationEndAt: Date,
     readings: FuelReading[],
   ): boolean {
-    const windowStart = new Date(riseAt.getTime() - SPIKE_WINDOW_MINUTES * 60 * 1000);
-    const windowEnd = new Date(consolidationEndAt.getTime() + SPIKE_WINDOW_MINUTES * 60 * 1000);
+    // Only check movement DURING the actual refuel window [riseAt, consolidationEndAt].
+    // The vehicle driving TO the station (before riseAt) is expected real-world behaviour
+    // and must not invalidate the detection. Extending the window before the rise causes
+    // virtually every legitimate refuel to be rejected.
     const maxSpeed = readings
-      .filter((r) => r.ts >= windowStart && r.ts <= windowEnd)
+      .filter((r) => r.ts >= riseAt && r.ts <= consolidationEndAt)
       .reduce(
         (max, r) =>
           Math.max(

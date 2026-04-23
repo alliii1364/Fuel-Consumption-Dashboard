@@ -28,6 +28,7 @@ import { FuelAnomalyMiddleware } from '../common/middleware/fuel-anomaly.middlew
     ThriftService,
     TheftDetectionService,
     TripAnalyzerService,
+    FuelAnomalyMiddleware,
   ],
   exports: [
     FuelSensorResolverService,
@@ -39,6 +40,7 @@ import { FuelAnomalyMiddleware } from '../common/middleware/fuel-anomaly.middlew
     ThriftService,
     TheftDetectionService,
     TripAnalyzerService,
+    FuelAnomalyMiddleware,
   ],
 })
 export class FuelModule implements NestModule {

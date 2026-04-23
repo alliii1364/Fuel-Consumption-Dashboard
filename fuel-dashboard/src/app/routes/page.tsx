@@ -251,6 +251,7 @@ export default function RoutesPage() {
       getFuelStats(token, selectedImei, range.from, range.to),
       getFuelDropAlerts(token, selectedImei, range.from, range.to),
     ]).then(([cur, cons, stats, pyDrops]) => {
+    
       if (cancelled) return;
       if (cur.status   === "fulfilled") setCurrentFuel(cur.value);
       if (stats.status === "fulfilled") setFuelStats(stats.value);
@@ -365,7 +366,6 @@ export default function RoutesPage() {
     return amount >= 50 && !isFakeSpike;
   };
   const refuels = fuelEvents.filter(isLegitimateRefuel);
-
   const filteredEvents = fuelEvents.filter(e => {
     // Never show noise / normal-consumption drops — only confirmed drop alerts
     if (e.type === "drop" && !e.isConfirmedDrop) return false;

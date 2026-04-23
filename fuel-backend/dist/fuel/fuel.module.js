@@ -40,6 +40,7 @@ exports.FuelModule = FuelModule = __decorate([
             thrift_service_1.ThriftService,
             theft_detection_service_1.TheftDetectionService,
             trip_analyzer_service_1.TripAnalyzerService,
+            fuel_anomaly_middleware_1.FuelAnomalyMiddleware,
         ],
         exports: [
             fuel_sensor_resolver_service_1.FuelSensorResolverService,
@@ -51,6 +52,7 @@ exports.FuelModule = FuelModule = __decorate([
             thrift_service_1.ThriftService,
             theft_detection_service_1.TheftDetectionService,
             trip_analyzer_service_1.TripAnalyzerService,
+            fuel_anomaly_middleware_1.FuelAnomalyMiddleware,
         ],
     })
 ], FuelModule);

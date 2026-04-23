@@ -196,8 +196,8 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
                     else if (nextFuel < baselineFuel + fuel_drop_filter_util_1.RISE_THRESHOLD) {
                         if (peakFuel - nextFuel > fuel_drop_filter_util_1.POST_REFUEL_VERIFY_EPS_LITERS) {
                             falledBackInConsolidation = true;
+                            break;
                         }
-                        break;
                     }
                     k++;
                 }
@@ -209,21 +209,43 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
                             `but fell back within consolidation window (< baselineFuel + ${fuel_drop_filter_util_1.RISE_THRESHOLD}L)`);
                     }
                     const fakeRise = falledBackInConsolidation || (0, fuel_drop_filter_util_1.isFakeRise)(baselineTs, transformed);
-                    const recoveryRise = !fakeRise && (0, fuel_drop_filter_util_1.isRecoveryRise)(baselineTs, baselineFuel, peakFuel, transformed);
-                    const consolidationEndTs = new Date(consolidationEndMs);
-                    const postFallback = !fakeRise &&
+                    const recentConfirmedDrop = drops.some((d) => d.isConfirmedDrop &&
+                        d.at >= new Date(baselineTs.getTime() - 60 * 60 * 1000).toISOString() &&
+                        d.at <= baselineTs.toISOString());
+                    const recoveryRise = !fakeRise &&
+                        !recentConfirmedDrop &&
+                        ((0, fuel_drop_filter_util_1.isRecoveryRise)(baselineTs, baselineFuel, peakFuel, transformed) ||
+                            (0, fuel_drop_filter_util_1.isStationaryDropRecovery)(baselineTs, peakFuel, transformed));
+                    const actualConsolidationEndTs = transformed[Math.min(k - 1, transformed.length - 1)].ts;
+                    let postFallback = !fakeRise &&
                         !recoveryRise &&
-                        (0, fuel_drop_filter_util_1.isPostRefuelFallback)(consolidationEndTs, peakFuel, transformed);
+                        (0, fuel_drop_filter_util_1.isPostRefuelFallback)(actualConsolidationEndTs, peakFuel, transformed);
+                    if (postFallback) {
+                        const postWinMs = fuel_drop_filter_util_1.SPIKE_WINDOW_MINUTES * 60 * 1000;
+                        const postStart = new Date(actualConsolidationEndTs.getTime() + postWinMs);
+                        const postEnd = new Date(actualConsolidationEndTs.getTime() + 2 * postWinMs);
+                        const postReadings = transformed.filter((r) => r.ts > postStart && r.ts <= postEnd);
+                        const settledFuel = postReadings.length > 0
+                            ? postReadings[postReadings.length - 1].fuel
+                            : null;
+                        const retainThreshold = baselineFuel + 0.75 * (peakFuel - baselineFuel);
+                        if (settledFuel !== null && settledFuel > retainThreshold) {
+                            this.logger.log(`[RISE] IMEI ${imei}: postFallback overridden — ` +
+                                `settled=${settledFuel.toFixed(2)}L retained=${((settledFuel - baselineFuel) / (peakFuel - baselineFuel) * 100).toFixed(1)}% (≥75%)`);
+                            postFallback = false;
+                        }
+                    }
                     const movementDuringRefuel = !fakeRise &&
                         !recoveryRise &&
                         !postFallback &&
-                        this.hasMovementDuringRefuelWindow(baselineTs, consolidationEndTs, raw);
+                        this.hasMovementDuringRefuelWindow(baselineTs, actualConsolidationEndTs, raw);
                     this.logger.log(`[RISE] IMEI ${imei} at ${baselineTs.toISOString()}: ` +
                         `added=${totalAdded.toFixed(2)}L peak=${peakFuel.toFixed(2)}L ` +
-                        `fakeRise=${fakeRise} recoveryRise=${recoveryRise} postFallback=${postFallback} ` +
+                        `fakeRise=${fakeRise} recentConfirmedDrop=${recentConfirmedDrop} ` +
+                        `recoveryRise=${recoveryRise} postFallback=${postFallback} ` +
                         `movementDuringRefuel=${movementDuringRefuel}`);
-                    if (!fakeRise && !recoveryRise && !postFallback && !movementDuringRefuel) {
-                        const adjustedRefuel = this.calculateRefuelWindowBounds(transformed, baselineTs, consolidationEndTs, baselineFuel, peakFuel);
+                    if (!fakeRise && !recoveryRise && !postFallback) {
+                        const adjustedRefuel = this.calculateRefuelWindowBounds(transformed, baselineTs, actualConsolidationEndTs, baselineFuel, peakFuel);
                         refuels.push({
                             at: baselineTs.toISOString(),
                             fuelBefore: Math.round(adjustedRefuel.fuelBefore * 100) / 100,
@@ -231,21 +253,19 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
                             added: Math.round(adjustedRefuel.added * 100) / 100,
                             unit: sensor.units || 'L',
                         });
+                        lastFuel = transformed[Math.max(i, k - 1)]?.fuel ?? peakFuel;
+                        i = k;
+                        continue;
                     }
                 }
-                lastFuel = transformed[Math.max(i, k - 1)]?.fuel ?? peakFuel;
-                i = k;
-                continue;
             }
             i++;
         }
         return { drops, refuels, firstFuel, lastFuel, readings: raw };
     }
     hasMovementDuringRefuelWindow(riseAt, consolidationEndAt, readings) {
-        const windowStart = new Date(riseAt.getTime() - fuel_drop_filter_util_1.SPIKE_WINDOW_MINUTES * 60 * 1000);
-        const windowEnd = new Date(consolidationEndAt.getTime() + fuel_drop_filter_util_1.SPIKE_WINDOW_MINUTES * 60 * 1000);
         const maxSpeed = readings
-            .filter((r) => r.ts >= windowStart && r.ts <= windowEnd)
+            .filter((r) => r.ts >= riseAt && r.ts <= consolidationEndAt)
             .reduce((max, r) => Math.max(max, typeof r.speed === 'number' && Number.isFinite(r.speed) ? r.speed : 0), 0);
         return maxSpeed > REFUEL_MOVEMENT_MAX_SPEED_KMH;
     }

@@ -7,6 +7,7 @@ exports.isFakeSpike = isFakeSpike;
 exports.isPostDropRecovery = isPostDropRecovery;
 exports.isRecoveryRise = isRecoveryRise;
 exports.isFakeRise = isFakeRise;
+exports.isStationaryDropRecovery = isStationaryDropRecovery;
 exports.isPostRefuelFallback = isPostRefuelFallback;
 exports.FUEL_MEDIAN_SAMPLES = 5;
 exports.DROP_ALERT_THRESHOLD = 8.0;
@@ -109,6 +110,13 @@ function isFakeRise(riseAt, allRows, spikeWindowMinutes = exports.SPIKE_WINDOW_M
     const movedAfterRise = readings.some((r) => r.ts > riseAt && (r.speed ?? 0) > maxSpeedKmh);
     if (movedAfterRise)
         return true;
+    const preAndAtRise = readings.filter((r) => r.ts <= riseAt);
+    if (preAndAtRise.length >= 1) {
+        const allPreMoving = preAndAtRise.every((r) => (r.speed ?? 0) > 0);
+        const anyPostStationary = readings.some((r) => r.ts > riseAt && (r.speed ?? 0) === 0);
+        if (allPreMoving && anyPostStationary)
+            return true;
+    }
     const startFuel = readings[0].fuel;
     const finalFuel = readings[readings.length - 1].fuel;
     if (finalFuel <= startFuel)
@@ -122,6 +130,25 @@ function isFakeRise(riseAt, allRows, spikeWindowMinutes = exports.SPIKE_WINDOW_M
                 .slice(i + 1)
                 .every((r) => Math.abs(r.fuel - readings[i].fuel) > riseThreshold);
             return !stayedHigh;
+        }
+    }
+    return false;
+}
+function isStationaryDropRecovery(riseAt, peakFuel, allRows, lookbackMinutes = 90, dropThreshold = exports.RISE_THRESHOLD, eps = exports.RISE_RECOVERY_EPS_LITERS) {
+    const lookbackMs = lookbackMinutes * 60 * 1000;
+    const lookStart = new Date(riseAt.getTime() - lookbackMs);
+    const preReadings = allRows.filter((r) => r.ts >= lookStart && r.ts < riseAt);
+    if (preReadings.length < 2)
+        return false;
+    for (let i = 0; i < preReadings.length - 1; i++) {
+        const curr = preReadings[i];
+        const next = preReadings[i + 1];
+        const drop = curr.fuel - next.fuel;
+        if (drop >= dropThreshold &&
+            (curr.speed ?? 0) === 0 &&
+            (next.speed ?? 0) === 0 &&
+            curr.fuel >= peakFuel - eps) {
+            return true;
         }
     }
     return false;

@@ -92,7 +92,7 @@ const TAB_CONFIG: TabConfig[] = [
   { id: "overview", label: "Overview", icon: BarChart3, description: "Fleet performance summary" },
   { id: "cost", label: "Cost Analysis", icon: PiggyBank, description: "Financial insights & projections" },
   { id: "efficiency", label: "Efficiency", icon: Gauge, description: "Benchmarking & scoring" },
-  { id: "theft", label: "Fuel Theft Detection", icon: Shield, description: "Real-time drop & theft monitoring" },
+  // { id: "theft", label: "Fuel Theft Detection", icon: Shield, description: "Real-time drop & theft monitoring" },
 ];
 
 // ─── Utility Functions ────────────────────────────────────────────────────────
@@ -135,7 +135,7 @@ function AnalyticsPage() {
   // ─── State ────────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<AnalyticsTab>("overview");
   const [range, setRange] = useState({
-    from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+    from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
     to: new Date().toISOString(),
   });
 

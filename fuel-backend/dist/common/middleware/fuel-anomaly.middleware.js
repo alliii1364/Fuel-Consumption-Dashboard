@@ -137,7 +137,7 @@ let FuelAnomalyMiddleware = FuelAnomalyMiddleware_1 = class FuelAnomalyMiddlewar
                 reason: 'Insufficient data to validate refuel - treating as suspicious',
             };
         }
-        const quickSpikeCheck = this.checkQuickSpike(riseAt, peakFuel, readings);
+        const quickSpikeCheck = this.checkQuickSpike(riseAt, peakFuel, readings, added);
         if (quickSpikeCheck.isQuickSpike) {
             this.logger.warn(`[AnomalyMiddleware] 🚨 QUICK SPIKE detected: +${added.toFixed(1)}L dropped ${quickSpikeCheck.fallbackAmount.toFixed(1)}L ` +
                 `within ${quickSpikeCheck.minutes.toFixed(1)} minutes`);
@@ -163,7 +163,7 @@ let FuelAnomalyMiddleware = FuelAnomalyMiddleware_1 = class FuelAnomalyMiddlewar
                 reason: `Vehicle moving at ${movementCheck.maxSpeedDuring.toFixed(1)} km/h during refuel window - not at a station`,
             };
         }
-        const sustainedCheck = this.checkFuelSustained(riseAt, peakFuel, readings);
+        const sustainedCheck = this.checkFuelSustained(riseAt, peakFuel, readings, added);
         result.details.sustainedMinutes = sustainedCheck.durationMin;
         if (!sustainedCheck.sustained) {
             return {
@@ -175,7 +175,7 @@ let FuelAnomalyMiddleware = FuelAnomalyMiddleware_1 = class FuelAnomalyMiddlewar
                     `(only ${sustainedCheck.durationMin} min) - possible sensor glitch`,
             };
         }
-        const fallbackCheck = this.checkPostRefuelFallback(riseAt, peakFuel, readings);
+        const fallbackCheck = this.checkPostRefuelFallback(riseAt, peakFuel, readings, added);
         result.details.fuelAfterWindow = fallbackCheck.finalFuel;
         result.details.fallbackAmount = fallbackCheck.fallbackAmount;
         this.logger.debug(`[AnomalyMiddleware] Fallback check for +${added.toFixed(1)}L at ${riseAt.toISOString()}: ` +
@@ -230,25 +230,29 @@ let FuelAnomalyMiddleware = FuelAnomalyMiddleware_1 = class FuelAnomalyMiddlewar
                 maxSpeedAfter: 0,
             };
         }
-        const beforeRise = windowReadings.filter((r) => r.ts <= riseAt);
+        const duringRise = windowReadings.filter((r) => r.ts > riseAt);
         const afterRise = windowReadings.filter((r) => r.ts > riseAt);
-        const maxSpeedDuring = Math.max(...beforeRise.map((r) => r.speed ?? 0), 0);
+        const maxSpeedDuring = Math.max(...duringRise.map((r) => r.speed ?? 0), 0);
         const maxSpeedAfter = Math.max(...afterRise.map((r) => r.speed ?? 0), 0);
+        const everStationaryDuring = duringRise.some((r) => (r.speed ?? 0) <= this.RISE_GATING_MAX_SPEED_KMH);
+        const hadMovementDuring = !everStationaryDuring && maxSpeedDuring > this.RISE_GATING_MAX_SPEED_KMH;
+        const hadMovementAfter = maxSpeedAfter > this.RISE_GATING_MAX_SPEED_KMH;
         return {
-            hadMovementDuring: maxSpeedDuring > this.RISE_GATING_MAX_SPEED_KMH,
-            hadMovementAfter: maxSpeedAfter > this.RISE_GATING_MAX_SPEED_KMH,
+            hadMovementDuring,
+            hadMovementAfter,
             maxSpeedDuring,
             maxSpeedAfter,
         };
     }
-    checkFuelSustained(riseAt, peakFuel, readings) {
+    checkFuelSustained(riseAt, peakFuel, readings, added = 0) {
         const windowMs = this.SUSTAINED_MIN_MINUTES * 60 * 1000;
         const windowEnd = new Date(riseAt.getTime() + windowMs);
         const postRiseReadings = readings.filter((r) => r.ts > riseAt && r.ts <= windowEnd);
         if (postRiseReadings.length === 0) {
             return { sustained: false, durationMin: 0 };
         }
-        const withinTolerance = postRiseReadings.filter((r) => r.fuel >= peakFuel - this.SUSTAINED_EPSILON_LITERS);
+        const epsilon = Math.max(this.SUSTAINED_EPSILON_LITERS, added * 0.10);
+        const withinTolerance = postRiseReadings.filter((r) => r.fuel >= peakFuel - epsilon);
         const sustainedRatio = withinTolerance.length / postRiseReadings.length;
         const lastReading = postRiseReadings[postRiseReadings.length - 1];
         const actualDuration = (lastReading.ts.getTime() - riseAt.getTime()) / (60 * 1000);
@@ -257,7 +261,8 @@ let FuelAnomalyMiddleware = FuelAnomalyMiddleware_1 = class FuelAnomalyMiddlewar
             durationMin: Math.round(actualDuration),
         };
     }
-    checkPostRefuelFallback(riseAt, peakFuel, readings) {
+    checkPostRefuelFallback(riseAt, peakFuel, readings, added = 0) {
+        const epsilon = Math.max(this.FALLBACK_EPSILON_LITERS, added * 0.10);
         const immediateWindowMs = 2 * 60 * 1000;
         const immediateEndMs = 7 * 60 * 1000;
         const immediateReadings = readings.filter((r) => r.ts > new Date(riseAt.getTime() + immediateWindowMs) &&
@@ -265,13 +270,13 @@ let FuelAnomalyMiddleware = FuelAnomalyMiddleware_1 = class FuelAnomalyMiddlewar
         if (immediateReadings.length > 0) {
             const minFuelInWindow = Math.min(...immediateReadings.map(r => r.fuel));
             const immediateFallback = peakFuel - minFuelInWindow;
-            if (immediateFallback > this.FALLBACK_EPSILON_LITERS) {
-                this.logger.debug(`[AnomalyMiddleware] ⚠️ Immediate fallback detected: ${immediateFallback.toFixed(1)}L drop within 2-7 min`);
+            if (immediateFallback > epsilon) {
+                this.logger.debug(`[AnomalyMiddleware] ⚠️ Immediate fallback detected: ${immediateFallback.toFixed(1)}L drop within 2-7 min (epsilon=${epsilon.toFixed(1)}L)`);
                 return {
                     didFallback: true,
                     finalFuel: minFuelInWindow,
                     fallbackAmount: immediateFallback,
-                    windowChecked: 'immediate (2-7min)'
+                    windowChecked: 'immediate (2-7min)',
                 };
             }
         }
@@ -285,7 +290,7 @@ let FuelAnomalyMiddleware = FuelAnomalyMiddleware_1 = class FuelAnomalyMiddlewar
                 const finalFuel = anyAfter[anyAfter.length - 1].fuel;
                 const fallbackAmount = peakFuel - finalFuel;
                 return {
-                    didFallback: fallbackAmount > this.FALLBACK_EPSILON_LITERS,
+                    didFallback: fallbackAmount > epsilon,
                     finalFuel,
                     fallbackAmount,
                     windowChecked: 'any-after-7min',
@@ -296,7 +301,7 @@ let FuelAnomalyMiddleware = FuelAnomalyMiddleware_1 = class FuelAnomalyMiddlewar
         const finalFuel = postReadings[postReadings.length - 1].fuel;
         const fallbackAmount = peakFuel - finalFuel;
         return {
-            didFallback: fallbackAmount > this.FALLBACK_EPSILON_LITERS,
+            didFallback: fallbackAmount > epsilon,
             finalFuel,
             fallbackAmount,
             windowChecked: 'standard (7-14min)',
@@ -317,7 +322,7 @@ let FuelAnomalyMiddleware = FuelAnomalyMiddleware_1 = class FuelAnomalyMiddlewar
         const hadVariation = preMax - preMin >= this.RISE_THRESHOLD;
         return wasAlreadyHigh && hadDip && hadVariation;
     }
-    checkQuickSpike(riseAt, peakFuel, readings) {
+    checkQuickSpike(riseAt, peakFuel, readings, added = 0) {
         const startMs = 1 * 60 * 1000;
         const endMs = 5 * 60 * 1000;
         const windowReadings = readings.filter((r) => r.ts > new Date(riseAt.getTime() + startMs) &&
@@ -331,7 +336,7 @@ let FuelAnomalyMiddleware = FuelAnomalyMiddleware_1 = class FuelAnomalyMiddlewar
         const minutes = minReading
             ? (minReading.ts.getTime() - riseAt.getTime()) / (60 * 1000)
             : 0;
-        const QUICK_SPIKE_THRESHOLD = 10.0;
+        const QUICK_SPIKE_THRESHOLD = Math.max(10.0, added * 0.10);
         const isQuickSpike = fallbackAmount > QUICK_SPIKE_THRESHOLD;
         if (isQuickSpike) {
             this.logger.debug(`[AnomalyMiddleware] Quick spike check: dropped ${fallbackAmount.toFixed(1)}L ` +

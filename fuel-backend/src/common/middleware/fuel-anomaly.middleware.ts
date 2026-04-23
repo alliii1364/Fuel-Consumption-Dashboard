@@ -192,9 +192,10 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
   }
 
   /**
-   * Main anomaly detection logic for a single refuel event
+   * Main anomaly detection logic for a single refuel event.
+   * Public so it can be called directly from services that bypass the HTTP middleware.
    */
-  private detectRefuelAnomaly(
+  public detectRefuelAnomaly(
     refuel: any,
     readings: FuelReading[],
   ): RefuelAnomalyResult {
@@ -244,7 +245,7 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
 
     // ─── CHECK 0: Quick Spike Detection (for fake 30-40L jerks) ─────────────────
     // Check if fuel dropped significantly within first 5 minutes after rise
-    const quickSpikeCheck = this.checkQuickSpike(riseAt, peakFuel, readings);
+    const quickSpikeCheck = this.checkQuickSpike(riseAt, peakFuel, readings, added);
     if (quickSpikeCheck.isQuickSpike) {
       this.logger.warn(
         `[AnomalyMiddleware] 🚨 QUICK SPIKE detected: +${added.toFixed(1)}L dropped ${quickSpikeCheck.fallbackAmount.toFixed(1)}L ` +
@@ -280,7 +281,7 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
     }
 
     // ─── CHECK 2: Fuel Sustained? ──────────────────────────────────────────────
-    const sustainedCheck = this.checkFuelSustained(riseAt, peakFuel, readings);
+    const sustainedCheck = this.checkFuelSustained(riseAt, peakFuel, readings, added);
     result.details.sustainedMinutes = sustainedCheck.durationMin;
 
     if (!sustainedCheck.sustained) {
@@ -300,6 +301,7 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
       riseAt,
       peakFuel,
       readings,
+      added,
     );
     result.details.fuelAfterWindow = fallbackCheck.finalFuel;
     result.details.fallbackAmount = fallbackCheck.fallbackAmount;
@@ -395,18 +397,27 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
       };
     }
 
-    const beforeRise = windowReadings.filter((r) => r.ts <= riseAt);
-    const afterRise = windowReadings.filter((r) => r.ts > riseAt);
+    // Check movement AFTER the rise starts — the pre-rise approach to the station is
+    // expected movement and must not reject a real refuel.
+    const duringRise = windowReadings.filter((r) => r.ts > riseAt);
+    const afterRise  = windowReadings.filter((r) => r.ts > riseAt);
 
-    const maxSpeedDuring = Math.max(
-      ...beforeRise.map((r) => r.speed ?? 0),
-      0,
+    const maxSpeedDuring = Math.max(...duringRise.map((r) => r.speed ?? 0), 0);
+    const maxSpeedAfter  = Math.max(...afterRise.map((r) => r.speed ?? 0), 0);
+
+    // A real refuel: vehicle arrives, STOPS at the pump, refuels, drives away.
+    // The vehicle will be stationary for part of the window.
+    // A driving spike: vehicle never stops — speed stays consistently high.
+    // Only flag movement if the vehicle was NEVER stationary in the post-rise window.
+    const everStationaryDuring = duringRise.some(
+      (r) => (r.speed ?? 0) <= this.RISE_GATING_MAX_SPEED_KMH,
     );
-    const maxSpeedAfter = Math.max(...afterRise.map((r) => r.speed ?? 0), 0);
+    const hadMovementDuring = !everStationaryDuring && maxSpeedDuring > this.RISE_GATING_MAX_SPEED_KMH;
+    const hadMovementAfter  = maxSpeedAfter > this.RISE_GATING_MAX_SPEED_KMH;
 
     return {
-      hadMovementDuring: maxSpeedDuring > this.RISE_GATING_MAX_SPEED_KMH,
-      hadMovementAfter: maxSpeedAfter > this.RISE_GATING_MAX_SPEED_KMH,
+      hadMovementDuring,
+      hadMovementAfter,
       maxSpeedDuring,
       maxSpeedAfter,
     };
@@ -419,6 +430,7 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
     riseAt: Date,
     peakFuel: number,
     readings: FuelReading[],
+    added: number = 0,
   ): { sustained: boolean; durationMin: number } {
     const windowMs = this.SUSTAINED_MIN_MINUTES * 60 * 1000;
     const windowEnd = new Date(riseAt.getTime() + windowMs);
@@ -431,9 +443,16 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
       return { sustained: false, durationMin: 0 };
     }
 
+    // Scale epsilon with fill size: large fills have larger absolute sensor
+    // oscillations as the tank sloshes and foam settles. A 15L drop on a
+    // 200L fill (7.5%) is normal settling; the same drop on a 15L fill
+    // (100%) means the fill didn't happen at all.
+    // Minimum 3L; 10% of fill amount when that is larger.
+    const epsilon = Math.max(this.SUSTAINED_EPSILON_LITERS, added * 0.10);
+
     // Must stay within epsilon of peak for majority of readings
     const withinTolerance = postRiseReadings.filter(
-      (r) => r.fuel >= peakFuel - this.SUSTAINED_EPSILON_LITERS,
+      (r) => r.fuel >= peakFuel - epsilon,
     );
 
     const sustainedRatio = withinTolerance.length / postRiseReadings.length;
@@ -455,28 +474,33 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
     riseAt: Date,
     peakFuel: number,
     readings: FuelReading[],
+    added: number = 0,
   ): { didFallback: boolean; finalFuel: number; fallbackAmount: number; windowChecked: string } {
+    // Scale fallback epsilon with fill size (same logic as checkQuickSpike and
+    // checkFuelSustained): large fills have larger absolute sensor settling gaps.
+    const epsilon = Math.max(this.FALLBACK_EPSILON_LITERS, added * 0.10);
+
     // Check 1: Immediate fallback (within 2-7 minutes) - for quick spikes
     const immediateWindowMs = 2 * 60 * 1000; // Start after 2 min
     const immediateEndMs = 7 * 60 * 1000;    // End at 7 min
     const immediateReadings = readings.filter(
-      (r) => r.ts > new Date(riseAt.getTime() + immediateWindowMs) && 
+      (r) => r.ts > new Date(riseAt.getTime() + immediateWindowMs) &&
              r.ts <= new Date(riseAt.getTime() + immediateEndMs),
     );
 
     if (immediateReadings.length > 0) {
       const minFuelInWindow = Math.min(...immediateReadings.map(r => r.fuel));
       const immediateFallback = peakFuel - minFuelInWindow;
-      
-      if (immediateFallback > this.FALLBACK_EPSILON_LITERS) {
+
+      if (immediateFallback > epsilon) {
         this.logger.debug(
-          `[AnomalyMiddleware] ⚠️ Immediate fallback detected: ${immediateFallback.toFixed(1)}L drop within 2-7 min`,
+          `[AnomalyMiddleware] ⚠️ Immediate fallback detected: ${immediateFallback.toFixed(1)}L drop within 2-7 min (epsilon=${epsilon.toFixed(1)}L)`,
         );
-        return { 
-          didFallback: true, 
-          finalFuel: minFuelInWindow, 
+        return {
+          didFallback: true,
+          finalFuel: minFuelInWindow,
           fallbackAmount: immediateFallback,
-          windowChecked: 'immediate (2-7min)'
+          windowChecked: 'immediate (2-7min)',
         };
       }
     }
@@ -497,7 +521,7 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
         const finalFuel = anyAfter[anyAfter.length - 1].fuel;
         const fallbackAmount = peakFuel - finalFuel;
         return {
-          didFallback: fallbackAmount > this.FALLBACK_EPSILON_LITERS,
+          didFallback: fallbackAmount > epsilon,
           finalFuel,
           fallbackAmount,
           windowChecked: 'any-after-7min',
@@ -510,7 +534,7 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
     const fallbackAmount = peakFuel - finalFuel;
 
     return {
-      didFallback: fallbackAmount > this.FALLBACK_EPSILON_LITERS,
+      didFallback: fallbackAmount > epsilon,
       finalFuel,
       fallbackAmount,
       windowChecked: 'standard (7-14min)',
@@ -554,13 +578,14 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
     riseAt: Date,
     peakFuel: number,
     readings: FuelReading[],
+    added: number = 0,
   ): { isQuickSpike: boolean; fallbackAmount: number; minutes: number } {
     // Look at readings from 1 minute after rise up to 5 minutes
     const startMs = 1 * 60 * 1000; // 1 minute after
     const endMs = 5 * 60 * 1000;   // 5 minutes after
-    
+
     const windowReadings = readings.filter(
-      (r) => r.ts > new Date(riseAt.getTime() + startMs) && 
+      (r) => r.ts > new Date(riseAt.getTime() + startMs) &&
              r.ts <= new Date(riseAt.getTime() + endMs),
     );
 
@@ -571,15 +596,18 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
     // Find minimum fuel in this window
     const minFuel = Math.min(...windowReadings.map(r => r.fuel));
     const fallbackAmount = peakFuel - minFuel;
-    
+
     // Find when the minimum occurred
     const minReading = windowReadings.find(r => r.fuel === minFuel);
-    const minutes = minReading 
+    const minutes = minReading
       ? (minReading.ts.getTime() - riseAt.getTime()) / (60 * 1000)
       : 0;
 
-    // Threshold: if fuel dropped more than 10L within 5 minutes, it's a quick spike
-    const QUICK_SPIKE_THRESHOLD = 10.0;
+    // Scale threshold with fill size: large fills have larger absolute sensor
+    // oscillations. A 10L drop on a 200L fill (5%) is normal sloshing; the
+    // same 10L drop on a 15L fill (67%) is a clear fake spike.
+    // Minimum 10L absolute; 10% of fill amount when that is larger.
+    const QUICK_SPIKE_THRESHOLD = Math.max(10.0, added * 0.10);
     const isQuickSpike = fallbackAmount > QUICK_SPIKE_THRESHOLD;
 
     if (isQuickSpike) {

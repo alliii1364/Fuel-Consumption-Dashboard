@@ -393,6 +393,23 @@ export function isFakeRise(
   );
   if (movedAfterRise) return true;
 
+  // ── Pre-rise motion veto: stop-induced fuel settlement (sloshing) ─────────
+  // If every reading from the start of the window up to and including riseAt
+  // shows the vehicle in motion (speed > 0), and at least one post-rise reading
+  // is stationary, the fuel "rise" is caused by fuel sloshing as the vehicle
+  // decelerates to a stop — not a real refuel.
+  // A real refuel requires the vehicle to be parked before filling begins, so
+  // there is always at least one stationary reading (speed = 0) at or before
+  // the rise baseline.
+  const preAndAtRise = readings.filter((r) => r.ts <= riseAt);
+  if (preAndAtRise.length >= 1) {
+    const allPreMoving = preAndAtRise.every((r) => (r.speed ?? 0) > 0);
+    const anyPostStationary = readings.some(
+      (r) => r.ts > riseAt && (r.speed ?? 0) === 0,
+    );
+    if (allPreMoving && anyPostStationary) return true;
+  }
+
   // ── Fuel-pattern checks ───────────────────────────────────────────────────
   const startFuel = readings[0].fuel;
   const finalFuel = readings[readings.length - 1].fuel;
@@ -411,6 +428,61 @@ export function isFakeRise(
         .slice(i + 1)
         .every((r) => Math.abs(r.fuel - readings[i].fuel) > riseThreshold);
       return !stayedHigh; // stayed high → real; fell back → fake
+    }
+  }
+
+  return false;
+}
+
+// ─── Refuel: Stationary-Drop Recovery Detection ──────────────────────────────
+
+/**
+ * Detects the "sensor glitch while parked → brief movement → recovery" pattern:
+ *
+ *   1. Vehicle is parked at ~X litres (speed = 0).
+ *   2. Sensor drops suddenly by ≥ RISE_THRESHOLD while vehicle is STILL parked
+ *      (both the reading before and after the drop have speed = 0).
+ *   3. Vehicle moves briefly.
+ *   4. After re-parking, sensor reads back up to ~X litres.
+ *   5. The rise detector sees the gap between the post-glitch low and the
+ *      recovered level as a "refuel", but no fuel was actually added.
+ *
+ * Returns true  → rise is a recovery from a parked sensor drop → suppress
+ * Returns false → not this pattern → treat as normal rise
+ *
+ * lookbackMinutes: how far back to scan for the stationary drop (default 90 min).
+ * 90 minutes covers cases where the sensor glitch drop and the recovery rise
+ * are separated by up to ~1.5 hours of parked/idle time after a real refuel.
+ * The condition curr.fuel >= peakFuel - eps (near full-tank level) combined
+ * with speed=0 on both readings prevents false positives from normal driving
+ * consumption.
+ */
+export function isStationaryDropRecovery(
+  riseAt: Date,
+  peakFuel: number,
+  allRows: FuelReading[],
+  lookbackMinutes: number = 90,
+  dropThreshold: number = RISE_THRESHOLD,
+  eps: number = RISE_RECOVERY_EPS_LITERS,
+): boolean {
+  const lookbackMs = lookbackMinutes * 60 * 1000;
+  const lookStart = new Date(riseAt.getTime() - lookbackMs);
+
+  const preReadings = allRows.filter((r) => r.ts >= lookStart && r.ts < riseAt);
+  if (preReadings.length < 2) return false;
+
+  for (let i = 0; i < preReadings.length - 1; i++) {
+    const curr = preReadings[i];
+    const next = preReadings[i + 1];
+    const drop = curr.fuel - next.fuel;
+
+    if (
+      drop >= dropThreshold &&
+      (curr.speed ?? 0) === 0 &&
+      (next.speed ?? 0) === 0 &&
+      curr.fuel >= peakFuel - eps
+    ) {
+      return true;
     }
   }
 

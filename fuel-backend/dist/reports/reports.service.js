@@ -25,6 +25,7 @@ const dynamic_table_query_service_1 = require("../fuel/services/dynamic-table-qu
 const thrift_service_1 = require("../fuel/services/thrift.service");
 const theft_detection_service_1 = require("../fuel/services/theft-detection.service");
 const trip_analyzer_service_1 = require("../fuel/services/trip-analyzer.service");
+const fuel_anomaly_middleware_1 = require("../common/middleware/fuel-anomaly.middleware");
 const NOISE_THRESHOLD = 0.5;
 let ReportsService = ReportsService_1 = class ReportsService {
     dataSource;
@@ -36,8 +37,9 @@ let ReportsService = ReportsService_1 = class ReportsService {
     thriftService;
     theftDetectionService;
     tripAnalyzerService;
+    anomalyMiddleware;
     logger = new common_1.Logger(ReportsService_1.name);
-    constructor(dataSource, config, sensorResolver, consumptionService, transform, dynQuery, thriftService, theftDetectionService, tripAnalyzerService) {
+    constructor(dataSource, config, sensorResolver, consumptionService, transform, dynQuery, thriftService, theftDetectionService, tripAnalyzerService, anomalyMiddleware) {
         this.dataSource = dataSource;
         this.config = config;
         this.sensorResolver = sensorResolver;
@@ -47,6 +49,7 @@ let ReportsService = ReportsService_1 = class ReportsService {
         this.thriftService = thriftService;
         this.theftDetectionService = theftDetectionService;
         this.tripAnalyzerService = tripAnalyzerService;
+        this.anomalyMiddleware = anomalyMiddleware;
     }
     parseDateRange(fromStr, toStr) {
         const from = new Date(fromStr);
@@ -167,7 +170,11 @@ let ReportsService = ReportsService_1 = class ReportsService {
             try {
                 const sensor = await this.sensorResolver.resolveFuelSensor(v.imei);
                 const result = await this.consumptionService.getConsumption(v.imei, from, to, sensor, v.fcr ?? '');
+                const readings = result.readings ?? [];
                 for (const r of result.refuels) {
+                    const anomaly = this.anomalyMiddleware.detectRefuelAnomaly(r, readings);
+                    if (anomaly.isAnomaly)
+                        continue;
                     allEvents.push({
                         imei: v.imei,
                         name: v.name,
@@ -744,6 +751,7 @@ exports.ReportsService = ReportsService = ReportsService_1 = __decorate([
         dynamic_table_query_service_1.DynamicTableQueryService,
         thrift_service_1.ThriftService,
         theft_detection_service_1.TheftDetectionService,
-        trip_analyzer_service_1.TripAnalyzerService])
+        trip_analyzer_service_1.TripAnalyzerService,
+        fuel_anomaly_middleware_1.FuelAnomalyMiddleware])
 ], ReportsService);
 //# sourceMappingURL=reports.service.js.map
