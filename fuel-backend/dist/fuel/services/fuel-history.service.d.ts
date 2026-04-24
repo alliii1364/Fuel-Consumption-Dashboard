@@ -1,7 +1,7 @@
 import { FuelSensor } from './fuel-sensor-resolver.service';
 import { FuelTransformService } from './fuel-transform.service';
 import { DynamicTableQueryService } from './dynamic-table-query.service';
-export type FuelInterval = '5min' | '15min' | 'hour' | 'day';
+export type FuelInterval = '1min' | '5min' | '15min' | 'hour' | 'day';
 export interface FuelHistoryPoint {
     dt: string;
     fuel: number | null;

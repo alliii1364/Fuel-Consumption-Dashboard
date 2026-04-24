@@ -15,18 +15,21 @@ const common_1 = require("@nestjs/common");
 const fuel_transform_service_1 = require("./fuel-transform.service");
 const dynamic_table_query_service_1 = require("./dynamic-table-query.service");
 const INTERVAL_MINUTES = {
+    '1min': 1,
     '5min': 5,
     '15min': 15,
     hour: 60,
     day: 1440,
 };
 const INTERVAL_SECONDS = {
+    '1min': 60,
     '5min': 300,
     '15min': 900,
     hour: 3600,
     day: 86400,
 };
 const MAX_RANGE_DAYS = {
+    '1min': 3,
     '5min': 31,
     '15min': 31,
     hour: 365,
@@ -53,9 +56,9 @@ let FuelHistoryService = FuelHistoryService_1 = class FuelHistoryService {
             return 'day';
         if (rangeDays > 7)
             return 'hour';
-        if (rangeDays > 1)
+        if (rangeDays > 3)
             return '15min';
-        return '5min';
+        return '1min';
     }
     async getHistory(imei, from, to, sensor, requestedInterval, tz) {
         const interval = this.resolveInterval(from, to, requestedInterval);

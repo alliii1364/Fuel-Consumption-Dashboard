@@ -60,7 +60,7 @@ export interface FuelCurrentData {
 
 // ─── Fuel history ──────────────────────────────────────────────────────────
 
-export type Interval = "5min" | "15min" | "hour" | "day";
+export type Interval = "1min" | "5min" | "15min" | "hour" | "day";
 
 export interface FuelBucket {
   dt: string;

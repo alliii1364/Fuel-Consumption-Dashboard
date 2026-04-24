@@ -72,6 +72,9 @@ const DashboardPage = memo(function DashboardPage() {
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [summaryError,  setSummaryError]  = useState<string | null>(null);
 
+  // ── Live-poll state ────────────────────────────────────────────────────────
+  const [lastLiveUpdate, setLastLiveUpdate] = useState<Date | null>(null);
+
   // ── Per-vehicle data ───────────────────────────────────────────────────────
   const [currentFuel,   setCurrentFuel]   = useState<FuelCurrentData | null>(null);
   const [fuelHistory,   setFuelHistory]   = useState<FuelHistoryData | null>(null);
@@ -153,7 +156,8 @@ const DashboardPage = memo(function DashboardPage() {
     //   ≤365 days → hour  (~8 760 pts)
     //   >365 days → day
     const rangeDays = (new Date(range.to).getTime() - new Date(range.from).getTime()) / 86_400_000;
-    const HISTORY_INTERVAL: "5min" | "15min" | "hour" | "day" =
+    const HISTORY_INTERVAL: "1min" | "5min" | "15min" | "hour" | "day" =
+      rangeDays <= 3   ? "1min"  :
       rangeDays <= 31  ? "5min"  :
       rangeDays <= 90  ? "15min" :
       rangeDays <= 365 ? "hour"  : "day";
@@ -184,6 +188,37 @@ const DashboardPage = memo(function DashboardPage() {
 
     return () => { cancelled = true; };
   }, [token, selectedImei, range, handle401]);
+
+  // ── Live polling: refresh chart + current fuel every 30 s when in today view
+  useEffect(() => {
+    if (!token || !selectedImei) return;
+
+    // Only poll when range.to is within the last 10 minutes (live / "today" view).
+    const toMs = new Date(range.to).getTime();
+    if (Date.now() - toMs > 10 * 60 * 1000) return;
+
+    const rangeDays = (new Date(range.to).getTime() - new Date(range.from).getTime()) / 86_400_000;
+    const liveInterval: "1min" | "5min" | "15min" | "hour" | "day" =
+      rangeDays <= 3   ? "1min"  :
+      rangeDays <= 31  ? "5min"  :
+      rangeDays <= 90  ? "15min" :
+      rangeDays <= 365 ? "hour"  : "day";
+
+    const poll = () => {
+      const nowTo = new Date().toISOString();
+      Promise.allSettled([
+        getFuelHistory(token, selectedImei, range.from, nowTo, liveInterval),
+        getCurrentFuel(token, selectedImei),
+      ]).then(([hist, cur]) => {
+        if (hist.status === "fulfilled") setFuelHistory(hist.value);
+        if (cur.status === "fulfilled") setCurrentFuel(cur.value);
+        setLastLiveUpdate(new Date());
+      });
+    };
+
+    const id = setInterval(poll, 60_000);
+    return () => clearInterval(id);
+  }, [token, selectedImei, range.from, range.to]);
 
   // ── Date handlers (with validation) ───────────────────────────────────────
   function handleFromChange(v: string) {
@@ -300,6 +335,7 @@ const DashboardPage = memo(function DashboardPage() {
                 to={range.to}
                 onPrevPeriod={() => shiftPeriod(-1)}
                 onNextPeriod={() => shiftPeriod(1)}
+                lastLiveUpdate={lastLiveUpdate}
               />
             </div>
 

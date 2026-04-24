@@ -13,6 +13,7 @@ exports.FuelHistoryDto = exports.FuelIntervalEnum = void 0;
 const class_validator_1 = require("class-validator");
 var FuelIntervalEnum;
 (function (FuelIntervalEnum) {
+    FuelIntervalEnum["ONE_MIN"] = "1min";
     FuelIntervalEnum["FIVE_MIN"] = "5min";
     FuelIntervalEnum["FIFTEEN_MIN"] = "15min";
     FuelIntervalEnum["HOUR"] = "hour";
@@ -36,7 +37,7 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(FuelIntervalEnum, {
-        message: 'interval must be one of: 5min, 15min, hour, day',
+        message: 'interval must be one of: 1min, 5min, 15min, hour, day',
     }),
     __metadata("design:type", String)
 ], FuelHistoryDto.prototype, "interval", void 0);

@@ -47,6 +47,7 @@ interface Props {
   to?: string;
   onPrevPeriod?: () => void;
   onNextPeriod?: () => void;
+  lastLiveUpdate?: Date | null;
 }
 
 // ── Tooltip ──────────────────────────────────────────────────────────────────
@@ -87,7 +88,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function DarkFuelChart({
   buckets, consumption, loading, error, onRetry,
   vehicleName, sensorName, from, to,
-  onPrevPeriod, onNextPeriod,
+  onPrevPeriod, onNextPeriod, lastLiveUpdate,
 }: Props) {
   if (loading) return <ChartSkeleton />;
 
@@ -125,6 +126,17 @@ export default function DarkFuelChart({
                 <Fuel size={14} color="white" />
               </div>
               <p style={{ fontWeight: 700, color: "#1e3a5f", fontSize: 15 }}>Fuel level graph</p>
+              {lastLiveUpdate && (
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{
+                    width: 7, height: 7, borderRadius: "50%", background: "#22c55e",
+                    display: "inline-block", flexShrink: 0,
+                    boxShadow: "0 0 0 0 rgba(34,197,94,0.6)",
+                    animation: "livePulse 1.8s ease-in-out infinite",
+                  }} />
+                  <span style={{ fontSize: 10, fontWeight: 600, color: "#22c55e", letterSpacing: "0.03em" }}>Live</span>
+                </div>
+              )}
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>

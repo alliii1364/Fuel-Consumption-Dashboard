@@ -53,12 +53,14 @@ function isFakeSpike(dropAt, allRows, spikeWindowMinutes = exports.SPIKE_WINDOW_
     const readings = allRows.filter((r) => r.ts >= winStart && r.ts <= winEnd);
     if (readings.length < 2)
         return false;
-    const movingAtDrop = readings.some((r) => r.ts > dropAt &&
-        r.ts.getTime() <= dropAt.getTime() + 2 * 60 * 1000 &&
-        (r.speed ?? 0) > maxSpeedKmh);
-    if (movingAtDrop)
-        return true;
     const startFuel = readings[0].fuel;
+    const rawDropIdx = readings.findIndex((r, i) => i > 0 && r.fuel < startFuel - dropThreshold);
+    const rawDropAt = rawDropIdx !== -1 ? readings[rawDropIdx].ts : dropAt;
+    const preLookbackMs = 2 * 60 * 1000;
+    const preReadings = readings.filter((r) => r.ts < rawDropAt && r.ts.getTime() >= rawDropAt.getTime() - preLookbackMs);
+    const vehicleContinuouslyMovingBeforeDrop = preReadings.length > 0 && preReadings.every((r) => (r.speed ?? 0) > maxSpeedKmh);
+    if (vehicleContinuouslyMovingBeforeDrop)
+        return true;
     const finalFuel = readings[readings.length - 1].fuel;
     if (finalFuel >= startFuel)
         return true;

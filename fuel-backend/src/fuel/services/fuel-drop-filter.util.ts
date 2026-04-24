@@ -234,22 +234,31 @@ export function isFakeSpike(
   const readings = allRows.filter((r) => r.ts >= winStart && r.ts <= winEnd);
   if (readings.length < 2) return false; // not enough data → assume real
 
-  // ── Speed veto: mirrors Python is_fake_spike lines 2096-2109 ─────────────
-  // Veto only if the vehicle is ACTIVELY MOVING at the moment of the drop
-  // (within 2 minutes after dropAt). This catches sensor sloshing from
-  // vehicle dynamics (braking, cornering) while correctly allowing the case
-  // where fuel was stolen while the vehicle was parked and the driver then
-  // drove away — "moved after theft" must NOT suppress a real drop alert.
-  const movingAtDrop = readings.some(
-    (r) =>
-      r.ts > dropAt &&
-      r.ts.getTime() <= dropAt.getTime() + 2 * 60 * 1000 &&
-      (r.speed ?? 0) > maxSpeedKmh,
+  // ── Speed veto ───────────────────────────────────────────────────────────
+  // The median filter delays the filtered dropAt by 2-3 readings (~1-2 min)
+  // relative to the actual raw drop. Checking post-dropAt movement therefore
+  // catches the vehicle DRIVING AWAY after a real theft, not just sloshing.
+  //
+  // Correct approach: find the raw drop point (first reading in the window
+  // where fuel crosses below startFuel - threshold) and check whether the
+  // vehicle was CONTINUOUSLY MOVING in the 2 minutes BEFORE that raw drop.
+  //   • Continuously moving before drop → sloshing → fake
+  //   • Parked before drop (even if driving away after) → theft → real
+  const startFuel = readings[0].fuel;
+  const rawDropIdx = readings.findIndex(
+    (r, i) => i > 0 && r.fuel < startFuel - dropThreshold,
   );
-  if (movingAtDrop) return true;
+  const rawDropAt = rawDropIdx !== -1 ? readings[rawDropIdx].ts : dropAt;
+
+  const preLookbackMs = 2 * 60 * 1000;
+  const preReadings = readings.filter(
+    (r) => r.ts < rawDropAt && r.ts.getTime() >= rawDropAt.getTime() - preLookbackMs,
+  );
+  const vehicleContinuouslyMovingBeforeDrop =
+    preReadings.length > 0 && preReadings.every((r) => (r.speed ?? 0) > maxSpeedKmh);
+  if (vehicleContinuouslyMovingBeforeDrop) return true;
 
   // ── Fuel-pattern checks ───────────────────────────────────────────────────
-  const startFuel = readings[0].fuel;
   const finalFuel = readings[readings.length - 1].fuel;
 
   // Condition 1: fuel fully recovered (or exceeded baseline)

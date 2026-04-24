@@ -3,7 +3,7 @@ import { FuelSensor } from './fuel-sensor-resolver.service';
 import { FuelTransformService } from './fuel-transform.service';
 import { DynamicTableQueryService } from './dynamic-table-query.service';
 
-export type FuelInterval = '5min' | '15min' | 'hour' | 'day';
+export type FuelInterval = '1min' | '5min' | '15min' | 'hour' | 'day';
 
 export interface FuelHistoryPoint {
   dt: string;
@@ -22,6 +22,7 @@ export interface FuelHistoryResult {
 }
 
 const INTERVAL_MINUTES: Record<FuelInterval, number> = {
+  '1min': 1,
   '5min': 5,
   '15min': 15,
   hour: 60,
@@ -29,6 +30,7 @@ const INTERVAL_MINUTES: Record<FuelInterval, number> = {
 };
 
 const INTERVAL_SECONDS: Record<FuelInterval, number> = {
+  '1min': 60,
   '5min': 300,
   '15min': 900,
   hour: 3600,
@@ -36,6 +38,7 @@ const INTERVAL_SECONDS: Record<FuelInterval, number> = {
 };
 
 const MAX_RANGE_DAYS: Record<FuelInterval, number> = {
+  '1min': 3,
   '5min': 31,
   '15min': 31,
   hour: 365,
@@ -67,8 +70,8 @@ export class FuelHistoryService {
     // Auto-select interval based on range
     if (rangeDays > 30) return 'day';
     if (rangeDays > 7) return 'hour';
-    if (rangeDays > 1) return '15min';
-    return '5min';
+    if (rangeDays > 3) return '15min';
+    return '1min';
   }
 
   async getHistory(

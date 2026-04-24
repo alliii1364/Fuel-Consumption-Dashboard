@@ -1,6 +1,7 @@
 import { IsEnum, IsISO8601, IsOptional, IsString } from 'class-validator';
 
 export enum FuelIntervalEnum {
+  ONE_MIN = '1min',
   FIVE_MIN = '5min',
   FIFTEEN_MIN = '15min',
   HOUR = 'hour',
@@ -16,7 +17,7 @@ export class FuelHistoryDto {
 
   @IsOptional()
   @IsEnum(FuelIntervalEnum, {
-    message: 'interval must be one of: 5min, 15min, hour, day',
+    message: 'interval must be one of: 1min, 5min, 15min, hour, day',
   })
   interval?: FuelIntervalEnum;
 
