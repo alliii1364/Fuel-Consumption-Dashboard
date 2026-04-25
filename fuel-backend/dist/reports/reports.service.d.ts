@@ -7,7 +7,6 @@ import { DynamicTableQueryService } from '../fuel/services/dynamic-table-query.s
 import { ThriftService } from '../fuel/services/thrift.service';
 import { TheftDetectionService } from '../fuel/services/theft-detection.service';
 import { TripAnalyzerService } from '../fuel/services/trip-analyzer.service';
-import { FuelAnomalyMiddleware } from '../common/middleware/fuel-anomaly.middleware';
 export declare class ReportsService {
     private readonly dataSource;
     private readonly config;
@@ -18,9 +17,8 @@ export declare class ReportsService {
     private readonly thriftService;
     private readonly theftDetectionService;
     private readonly tripAnalyzerService;
-    private readonly anomalyMiddleware;
     private readonly logger;
-    constructor(dataSource: DataSource, config: ConfigService, sensorResolver: FuelSensorResolverService, consumptionService: FuelConsumptionService, transform: FuelTransformService, dynQuery: DynamicTableQueryService, thriftService: ThriftService, theftDetectionService: TheftDetectionService, tripAnalyzerService: TripAnalyzerService, anomalyMiddleware: FuelAnomalyMiddleware);
+    constructor(dataSource: DataSource, config: ConfigService, sensorResolver: FuelSensorResolverService, consumptionService: FuelConsumptionService, transform: FuelTransformService, dynQuery: DynamicTableQueryService, thriftService: ThriftService, theftDetectionService: TheftDetectionService, tripAnalyzerService: TripAnalyzerService);
     parseDateRange(fromStr: string, toStr: string): {
         from: Date;
         to: Date;

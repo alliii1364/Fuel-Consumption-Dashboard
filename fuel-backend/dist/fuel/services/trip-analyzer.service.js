@@ -83,9 +83,13 @@ let TripAnalyzerService = TripAnalyzerService_1 = class TripAnalyzerService {
             let ignition = false;
             try {
                 const p = JSON.parse(row.params);
-                ignition =
-                    p['acc'] === '1' || p['acc'] === 1 ||
+                if ('io239' in p) {
+                    ignition = p['io239'] === '1' || p['io239'] === 1;
+                }
+                else {
+                    ignition = p['acc'] === '1' || p['acc'] === 1 ||
                         p['io1'] === '1' || p['io1'] === 1;
+                }
             }
             catch {
             }
@@ -155,7 +159,7 @@ let TripAnalyzerService = TripAnalyzerService_1 = class TripAnalyzerService {
                         const durationMinutes = (tripEnd.ts.getTime() - tripStart.ts.getTime()) / 60000;
                         const distanceKm = this.calcTripDistance(effectiveTripRows);
                         const idleAndMoving = this.calcIdleAndMovingTime(effectiveTripRows);
-                        const fuelMetrics = this.calcTripFuelMetrics(effectiveTripRows);
+                        const fuelMetrics = this.calcTripFuelMetrics(effectiveTripRows, rows, tripEnd.ts);
                         const movingSpeeds = effectiveTripRows
                             .filter(r => r.speed > 5)
                             .map(r => r.speed);
@@ -250,34 +254,52 @@ let TripAnalyzerService = TripAnalyzerService_1 = class TripAnalyzerService {
         }
         return dist;
     }
-    calcTripFuelMetrics(rows) {
-        const fuels = rows
+    calcTripFuelMetrics(tripRows, allRows, tripEndTs) {
+        const fuels = tripRows
             .map((r) => r.fuel)
             .filter((f) => f !== null);
         if (fuels.length === 0) {
             return { startFuel: 0, endFuel: 0, consumed: 0 };
         }
-        const startFuel = this.median(fuels.slice(0, Math.min(BOUNDARY_MEDIAN_SAMPLES, fuels.length)));
-        const endFuel = this.median(fuels.slice(Math.max(0, fuels.length - BOUNDARY_MEDIAN_SAMPLES)));
+        const sensorIsFrozen = fuels.length >= 3 && this.stdDev(fuels) < 0.5;
+        let startFuel;
+        let endFuel;
+        if (sensorIsFrozen && allRows && tripEndTs) {
+            startFuel = fuels[0];
+            const postTripRows = allRows.filter(r => r.ts > tripEndTs);
+            const nextIgnitionIdx = postTripRows.findIndex(r => r.ignition);
+            const parkedRows = (nextIgnitionIdx === -1 ? postTripRows : postTripRows.slice(0, nextIgnitionIdx))
+                .filter(r => r.fuel !== null);
+            if (parkedRows.length >= BOUNDARY_MEDIAN_SAMPLES) {
+                endFuel = this.median(parkedRows.slice(-BOUNDARY_MEDIAN_SAMPLES).map(r => r.fuel));
+            }
+            else if (parkedRows.length > 0) {
+                endFuel = this.median(parkedRows.map(r => r.fuel));
+            }
+            else {
+                endFuel = startFuel;
+            }
+        }
+        else {
+            const boundary = Math.min(BOUNDARY_MEDIAN_SAMPLES, Math.ceil(fuels.length / 2));
+            startFuel = this.median(fuels.slice(0, boundary));
+            endFuel = this.median(fuels.slice(fuels.length - boundary));
+        }
         let refueled = 0;
         let prevFuel = null;
         for (const fuel of fuels) {
-            if (prevFuel !== null) {
-                const delta = fuel - prevFuel;
-                if (delta < -NOISE_THRESHOLD) {
-                }
-                else if (delta >= MIN_REFUEL_RISE_L) {
-                    refueled += delta;
-                }
+            if (prevFuel !== null && fuel - prevFuel >= MIN_REFUEL_RISE_L) {
+                refueled += fuel - prevFuel;
             }
             prevFuel = fuel;
         }
-        const conservationConsumed = Math.max(0, refueled + (startFuel - endFuel));
-        return {
-            startFuel,
-            endFuel,
-            consumed: conservationConsumed,
-        };
+        const consumed = Math.max(0, refueled + (startFuel - endFuel));
+        return { startFuel, endFuel, consumed };
+    }
+    stdDev(values) {
+        const mean = values.reduce((a, b) => a + b, 0) / values.length;
+        const variance = values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / values.length;
+        return Math.sqrt(variance);
     }
     isValidCoordinatePair(lat, lng) {
         return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;

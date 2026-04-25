@@ -87,9 +87,10 @@ interface ReportConfig {
 const REPORT_CONFIG: ReportConfig[] = [
   { id: "consumption", title: "Fuel Consumption", description: "Fleet fuel consumption analysis", icon: Fuel, color: "#E84040", requiresDateRange: true, category: "fuel" },
   { id: "refuels", title: "Refueling Log", description: "Track all refueling events", icon: TrendingUp, color: "#22c55e", requiresDateRange: true, category: "fuel" },
+  // { id: "
+  // trips", title: "Trips", description: "Ignition ON/OFF with distance & fuel per trip", icon: MapPin, color: "#0ea5e9", requiresDateRange: true, category: "fuel" },
   // { id: "idle-waste", title: "Idle Analysis", description: "Fuel wasted while idling", icon: Timer, color: "#f59e0b", requiresDateRange: true, category: "performance" },
   // { id: "high-speed", title: "Speed Analysis", description: "High-speed fuel consumption", icon: Zap, color: "#ef4444", requiresDateRange: true, category: "performance" },
-  // { id: "trips", title: "Trips", description: "Individual trip analysis", icon: MapPin, color: "#0ea5e9", requiresDateRange: true, category: "fuel" },
   // { id: "thrift", title: "Thrift Score", description: "Vehicle efficiency rankings", icon: Gauge, color: "#8b5cf6", requiresDateRange: true, category: "performance" },
   // { id: "engine-hours", title: "Engine Hours", description: "Engine runtime analysis", icon: Clock, color: "#14b8a6", requiresDateRange: true, category: "performance" },
   // { id: "vehicle-status", title: "Fleet Status", description: "Real-time vehicle snapshot", icon: MapPin, color: "#6366f1", requiresDateRange: false, category: "status" },

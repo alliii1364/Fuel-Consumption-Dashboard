@@ -47,6 +47,7 @@ export declare class TripAnalyzerService {
     private calcIdleAndMovingTime;
     private calcTripDistance;
     private calcTripFuelMetrics;
+    private stdDev;
     private isValidCoordinatePair;
     private median;
     private haversineKm;

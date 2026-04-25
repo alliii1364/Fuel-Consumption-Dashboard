@@ -138,9 +138,13 @@ export class TripAnalyzerService {
       let ignition = false;
       try {
         const p = JSON.parse(row.params) as Record<string, string | number>;
-        ignition =
-          p['acc'] === '1' || p['acc'] === 1 ||
-          p['io1'] === '1' || p['io1'] === 1;
+        // io239 is the real ignition signal on these devices; acc is hardwired to 1 on some
+        if ('io239' in p) {
+          ignition = p['io239'] === '1' || p['io239'] === 1;
+        } else {
+          ignition = p['acc'] === '1' || p['acc'] === 1 ||
+                     p['io1'] === '1' || p['io1'] === 1;
+        }
       } catch {
         // no ignition data
       }
@@ -221,7 +225,7 @@ export class TripAnalyzerService {
             const durationMinutes = (tripEnd.ts.getTime() - tripStart.ts.getTime()) / 60000;
             const distanceKm = this.calcTripDistance(effectiveTripRows);
             const idleAndMoving = this.calcIdleAndMovingTime(effectiveTripRows);
-            const fuelMetrics = this.calcTripFuelMetrics(effectiveTripRows);
+            const fuelMetrics = this.calcTripFuelMetrics(effectiveTripRows, rows, tripEnd.ts);
 
             // Calculate average speed only while moving (speed > 5 km/h)
             const movingSpeeds = effectiveTripRows
@@ -337,8 +341,12 @@ export class TripAnalyzerService {
     return dist;
   }
 
-  private calcTripFuelMetrics(rows: EnrichedRow[]): { startFuel: number; endFuel: number; consumed: number } {
-    const fuels = rows
+  private calcTripFuelMetrics(
+    tripRows: EnrichedRow[],
+    allRows?: EnrichedRow[],
+    tripEndTs?: Date,
+  ): { startFuel: number; endFuel: number; consumed: number } {
+    const fuels = tripRows
       .map((r) => r.fuel)
       .filter((f): f is number => f !== null);
 
@@ -346,38 +354,58 @@ export class TripAnalyzerService {
       return { startFuel: 0, endFuel: 0, consumed: 0 };
     }
 
-    const startFuel = this.median(
-      fuels.slice(0, Math.min(BOUNDARY_MEDIAN_SAMPLES, fuels.length)),
-    );
-    const endFuel = this.median(
-      fuels.slice(Math.max(0, fuels.length - BOUNDARY_MEDIAN_SAMPLES)),
-    );
+    // Detect frozen sensor: near-zero variance in fuel readings during movement
+    // means the device suppresses sensor updates while driving (anti-slosh damping).
+    // The real fuel drop only appears in the PARKED PERIOD after the trip ends.
+    const sensorIsFrozen = fuels.length >= 3 && this.stdDev(fuels) < 0.5;
+
+    let startFuel: number;
+    let endFuel: number;
+
+    if (sensorIsFrozen && allRows && tripEndTs) {
+      startFuel = fuels[0];
+
+      // Collect post-trip rows (ignition OFF, parked period)
+      const postTripRows = allRows.filter(r => r.ts > tripEndTs);
+      // Find where the next trip starts (first ignition-ON after this trip ends)
+      const nextIgnitionIdx = postTripRows.findIndex(r => r.ignition);
+      const parkedRows = (nextIgnitionIdx === -1 ? postTripRows : postTripRows.slice(0, nextIgnitionIdx))
+        .filter(r => r.fuel !== null);
+
+      if (parkedRows.length >= BOUNDARY_MEDIAN_SAMPLES) {
+        // Take the LAST readings of the parked period — fully stabilised after sloshing settles
+        endFuel = this.median(
+          parkedRows.slice(-BOUNDARY_MEDIAN_SAMPLES).map(r => r.fuel as number),
+        );
+      } else if (parkedRows.length > 0) {
+        endFuel = this.median(parkedRows.map(r => r.fuel as number));
+      } else {
+        endFuel = startFuel;
+      }
+    } else {
+      // Normal sensor: use in-trip boundary readings without overlapping windows
+      const boundary = Math.min(BOUNDARY_MEDIAN_SAMPLES, Math.ceil(fuels.length / 2));
+      startFuel = this.median(fuels.slice(0, boundary));
+      endFuel = this.median(fuels.slice(fuels.length - boundary));
+    }
 
     let refueled = 0;
     let prevFuel: number | null = null;
-
     for (const fuel of fuels) {
-      if (prevFuel !== null) {
-        const delta = fuel - prevFuel;
-        if (delta < -NOISE_THRESHOLD) {
-          // drop observed; consumed is derived from conservation below
-          // to avoid under-counting on sparse telemetry where per-step drops can be >2L
-        } else if (delta >= MIN_REFUEL_RISE_L) {
-          refueled += delta;
-        }
+      if (prevFuel !== null && fuel - prevFuel >= MIN_REFUEL_RISE_L) {
+        refueled += fuel - prevFuel;
       }
       prevFuel = fuel;
     }
 
-    // Physical conservation: consumed ~= refueled + (startFuel - endFuel).
-    // This keeps trip totals aligned with tank boundaries and in-trip refuels.
-    const conservationConsumed = Math.max(0, refueled + (startFuel - endFuel));
+    const consumed = Math.max(0, refueled + (startFuel - endFuel));
+    return { startFuel, endFuel, consumed };
+  }
 
-    return {
-      startFuel,
-      endFuel,
-      consumed: conservationConsumed,
-    };
+  private stdDev(values: number[]): number {
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    const variance = values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / values.length;
+    return Math.sqrt(variance);
   }
 
   private isValidCoordinatePair(lat: number, lng: number): boolean {

@@ -409,29 +409,31 @@ export function isFakeRise(
   const readings = allRows.filter((r) => r.ts >= winStart && r.ts <= winEnd);
   if (readings.length < 2) return false; // not enough data → assume real
 
-  // ── Speed veto: only post-event rows (vehicle was driving TO the station
-  // before the refuel event — that should NOT veto a real refuel). ──────────
-  const movedAfterRise = readings.some(
-    (r) => r.ts > riseAt && (r.speed ?? 0) > maxSpeedKmh,
+  // ── Speed veto: check movement BEFORE the raw rise, not after ───────────
+  //
+  // The 5-point causal median filter delays the detected riseAt by 2-3 readings
+  // (~1-2 min) relative to the actual refuel moment. Checking post-riseAt speed
+  // therefore catches the vehicle DRIVING AWAY after a legitimate refuel, not
+  // just sloshing noise. This would suppress real refuels.
+  //
+  // Correct approach: find the raw rise point (first reading in the window where
+  // fuel crosses above baseline + threshold) and check whether the vehicle was
+  // CONTINUOUSLY MOVING in the 2 minutes BEFORE that raw rise.
+  //   • Continuously moving before rise → sloshing → fake
+  //   • Parked before rise (even if driving away after) → real refuel
+  const startFuelForRise = readings[0].fuel;
+  const rawRiseIdx = readings.findIndex(
+    (r, i) => i > 0 && r.fuel > startFuelForRise + riseThreshold,
   );
-  if (movedAfterRise) return true;
+  const rawRiseAt = rawRiseIdx !== -1 ? readings[rawRiseIdx].ts : riseAt;
 
-  // ── Pre-rise motion veto: stop-induced fuel settlement (sloshing) ─────────
-  // If every reading from the start of the window up to and including riseAt
-  // shows the vehicle in motion (speed > 0), and at least one post-rise reading
-  // is stationary, the fuel "rise" is caused by fuel sloshing as the vehicle
-  // decelerates to a stop — not a real refuel.
-  // A real refuel requires the vehicle to be parked before filling begins, so
-  // there is always at least one stationary reading (speed = 0) at or before
-  // the rise baseline.
-  const preAndAtRise = readings.filter((r) => r.ts <= riseAt);
-  if (preAndAtRise.length >= 1) {
-    const allPreMoving = preAndAtRise.every((r) => (r.speed ?? 0) > 0);
-    const anyPostStationary = readings.some(
-      (r) => r.ts > riseAt && (r.speed ?? 0) === 0,
-    );
-    if (allPreMoving && anyPostStationary) return true;
-  }
+  const preLookbackMs = 2 * 60 * 1000;
+  const preRiseReadings = readings.filter(
+    (r) => r.ts < rawRiseAt && r.ts.getTime() >= rawRiseAt.getTime() - preLookbackMs,
+  );
+  const vehicleContinuouslyMovingBeforeRise =
+    preRiseReadings.length > 0 && preRiseReadings.every((r) => (r.speed ?? 0) > maxSpeedKmh);
+  if (vehicleContinuouslyMovingBeforeRise) return true;
 
   // ── Fuel-pattern checks ───────────────────────────────────────────────────
   const startFuel = readings[0].fuel;

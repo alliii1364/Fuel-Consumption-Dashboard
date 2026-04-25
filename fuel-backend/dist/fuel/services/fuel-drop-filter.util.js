@@ -114,16 +114,14 @@ function isFakeRise(riseAt, allRows, spikeWindowMinutes = exports.SPIKE_WINDOW_M
     const readings = allRows.filter((r) => r.ts >= winStart && r.ts <= winEnd);
     if (readings.length < 2)
         return false;
-    const movedAfterRise = readings.some((r) => r.ts > riseAt && (r.speed ?? 0) > maxSpeedKmh);
-    if (movedAfterRise)
+    const startFuelForRise = readings[0].fuel;
+    const rawRiseIdx = readings.findIndex((r, i) => i > 0 && r.fuel > startFuelForRise + riseThreshold);
+    const rawRiseAt = rawRiseIdx !== -1 ? readings[rawRiseIdx].ts : riseAt;
+    const preLookbackMs = 2 * 60 * 1000;
+    const preRiseReadings = readings.filter((r) => r.ts < rawRiseAt && r.ts.getTime() >= rawRiseAt.getTime() - preLookbackMs);
+    const vehicleContinuouslyMovingBeforeRise = preRiseReadings.length > 0 && preRiseReadings.every((r) => (r.speed ?? 0) > maxSpeedKmh);
+    if (vehicleContinuouslyMovingBeforeRise)
         return true;
-    const preAndAtRise = readings.filter((r) => r.ts <= riseAt);
-    if (preAndAtRise.length >= 1) {
-        const allPreMoving = preAndAtRise.every((r) => (r.speed ?? 0) > 0);
-        const anyPostStationary = readings.some((r) => r.ts > riseAt && (r.speed ?? 0) === 0);
-        if (allPreMoving && anyPostStationary)
-            return true;
-    }
     const startFuel = readings[0].fuel;
     const finalFuel = readings[readings.length - 1].fuel;
     if (finalFuel <= startFuel)

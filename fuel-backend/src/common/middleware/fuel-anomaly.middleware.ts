@@ -228,19 +228,13 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
       },
     };
 
-    // Need readings to perform analysis
+    // Without readings we cannot validate — pass through rather than false-positive.
     if (!readings || readings.length === 0) {
       this.logger.warn(
-        `[AnomalyMiddleware] No readings available for refuel at ${riseAt.toISOString()} - marking as suspicious`,
+        `[AnomalyMiddleware] No readings available for refuel at ${riseAt.toISOString()} - passing through`,
       );
-      return {
-        ...result,
-        isAnomaly: true,
-        anomalyType: 'no_stationary_period',
-        confidence: 50,
-        reason:
-          'Insufficient data to validate refuel - treating as suspicious',
-      };
+      return { ...result, isAnomaly: false, anomalyType: 'none', confidence: 50,
+        reason: 'Insufficient data to validate - passing through as legitimate' };
     }
 
     // ─── CHECK 0: Quick Spike Detection (for fake 30-40L jerks) ─────────────────
@@ -397,23 +391,31 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
       };
     }
 
-    // Check movement AFTER the rise starts — the pre-rise approach to the station is
-    // expected movement and must not reject a real refuel.
-    const duringRise = windowReadings.filter((r) => r.ts > riseAt);
-    const afterRise  = windowReadings.filter((r) => r.ts > riseAt);
+    // The 5-point median filter delays the detected riseAt by 2-3 readings (~1-2 min).
+    // Checking post-riseAt speed therefore catches the vehicle DRIVING AWAY after a
+    // legitimate refuel, not sloshing during driving. Fix: find the raw rise point
+    // (first reading in the window where fuel crosses baseline + threshold) and check
+    // whether the vehicle was stationary BEFORE that raw rise.
+    //   • Never stationary before raw rise → sloshing/driving noise → fake
+    //   • Stationary before raw rise (even if driving away after) → real refuel
+    const windowStartFuel = windowReadings[0]?.fuel ?? 0;
+    const rawRiseIdx = windowReadings.findIndex(
+      (r, i) => i > 0 && r.fuel > windowStartFuel + this.RISE_THRESHOLD,
+    );
+    const rawRiseAt = rawRiseIdx !== -1 ? windowReadings[rawRiseIdx].ts : riseAt;
 
-    const maxSpeedDuring = Math.max(...duringRise.map((r) => r.speed ?? 0), 0);
-    const maxSpeedAfter  = Math.max(...afterRise.map((r) => r.speed ?? 0), 0);
-
-    // A real refuel: vehicle arrives, STOPS at the pump, refuels, drives away.
-    // The vehicle will be stationary for part of the window.
-    // A driving spike: vehicle never stops — speed stays consistently high.
-    // Only flag movement if the vehicle was NEVER stationary in the post-rise window.
-    const everStationaryDuring = duringRise.some(
+    const preRawRiseReadings = windowReadings.filter((r) => r.ts < rawRiseAt);
+    const everStationaryBeforeRawRise = preRawRiseReadings.some(
       (r) => (r.speed ?? 0) <= this.RISE_GATING_MAX_SPEED_KMH,
     );
-    const hadMovementDuring = !everStationaryDuring && maxSpeedDuring > this.RISE_GATING_MAX_SPEED_KMH;
-    const hadMovementAfter  = maxSpeedAfter > this.RISE_GATING_MAX_SPEED_KMH;
+    // Only "movement during refuel" when vehicle was NEVER parked before the raw rise
+    const hadMovementDuring =
+      preRawRiseReadings.length > 0 && !everStationaryBeforeRawRise;
+
+    const afterRise     = windowReadings.filter((r) => r.ts > riseAt);
+    const maxSpeedDuring = Math.max(...windowReadings.map((r) => r.speed ?? 0), 0);
+    const maxSpeedAfter  = Math.max(...afterRise.map((r) => r.speed ?? 0), 0);
+    const hadMovementAfter = maxSpeedAfter > this.RISE_GATING_MAX_SPEED_KMH;
 
     return {
       hadMovementDuring,

@@ -428,49 +428,47 @@ function SpecialReportViewsComponent({
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="text-left" style={{ background: "rgba(248, 250, 252, 0.8)" }}>
-                            <th className="px-4 py-3 font-medium" style={{ color: "#6B7280" }}>Trip</th>
+                            <th className="px-4 py-3 font-medium" style={{ color: "#6B7280" }}>#</th>
                             <th className="px-4 py-3 font-medium" style={{ color: "#6B7280" }}>Vehicle</th>
-                            <th className="px-4 py-3 font-medium" style={{ color: "#6B7280" }}>Start Time</th>
+                            <th className="px-4 py-3 font-medium" style={{ color: "#22c55e" }}>Ign. ON</th>
+                            <th className="px-4 py-3 font-medium" style={{ color: "#ef4444" }}>Ign. OFF</th>
                             <th className="px-4 py-3 font-medium" style={{ color: "#6B7280" }}>Duration</th>
                             <th className="px-4 py-3 font-medium" style={{ color: "#6B7280" }}>Distance</th>
                             <th className="px-4 py-3 font-medium" style={{ color: "#6B7280" }}>Fuel Used</th>
-                            <th className="px-4 py-3 font-medium" style={{ color: "#6B7280" }}>Efficiency</th>
                             <th className="px-4 py-3 font-medium" style={{ color: "#6B7280" }}>Max Speed</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {allTrips.slice(0, 50).map((trip: any, idx: number) => (
-                            <tr key={trip.tripId} className="border-b hover:bg-gray-50 transition-colors" style={{ borderColor: "rgba(229, 231, 235, 0.3)" }}>
+                          {allTrips.slice(0, 100).map((trip: any, idx: number) => (
+                            <tr key={`${trip.tripId}-${idx}`} className="border-b hover:bg-gray-50 transition-colors" style={{ borderColor: "rgba(229, 231, 235, 0.3)" }}>
                               <td className="px-4 py-3">
-                                <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-xs font-semibold" style={{ background: "#3b82f615", color: "#3b82f6" }}>
-                                  {trip.tripId}
+                                <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-semibold" style={{ background: "#0ea5e915", color: "#0ea5e9" }}>
+                                  {idx + 1}
                                 </span>
                               </td>
                               <td className="px-4 py-3">
                                 <p className="font-medium" style={{ color: "#1A1A2E" }}>{trip.vehicleName}</p>
                                 <p className="text-xs" style={{ color: "#9CA3AF" }}>{trip.vehiclePlate}</p>
                               </td>
-                              <td className="px-4 py-3" style={{ color: "#6B7280" }}>
-                                {formatDateTime(trip.startTime)}
+                              <td className="px-4 py-3">
+                                <span style={{ color: "#22c55e", fontWeight: 500 }}>{formatDateTime(trip.startTime)}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span style={{ color: "#ef4444", fontWeight: 500 }}>{trip.endTime ? formatDateTime(trip.endTime) : "—"}</span>
                               </td>
                               <td className="px-4 py-3" style={{ color: "#6B7280" }}>
                                 {formatDuration(trip.durationMinutes)}
                                 {trip.idleDurationMinutes > 5 && (
                                   <span className="block text-xs" style={{ color: "#f59e0b" }}>
-                                    ({formatDuration(trip.idleDurationMinutes)} idle)
+                                    {formatDuration(trip.idleDurationMinutes)} idle
                                   </span>
                                 )}
                               </td>
                               <td className="px-4 py-3">
-                                <span className="font-medium" style={{ color: "#22c55e" }}>{formatNumber(trip.distanceKm)} km</span>
+                                <span className="font-medium" style={{ color: "#3b82f6" }}>{formatNumber(trip.distanceKm)} km</span>
                               </td>
                               <td className="px-4 py-3">
                                 <span className="font-medium" style={{ color: "#E84040" }}>{formatNumber(getTripFuelUsed(trip))} L</span>
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className="font-medium" style={{ color: (getTripEfficiency(trip) ?? 0) >= 8 ? "#22c55e" : (getTripEfficiency(trip) ?? 0) >= 5 ? "#f59e0b" : "#ef4444" }}>
-                                  {getTripEfficiency(trip) ? `${formatNumber(getTripEfficiency(trip) ?? 0)} km/L` : "—"}
-                                </span>
                               </td>
                               <td className="px-4 py-3" style={{ color: "#6B7280" }}>
                                 {formatNumber(trip.maxSpeed)} km/h
@@ -479,9 +477,9 @@ function SpecialReportViewsComponent({
                           ))}
                         </tbody>
                       </table>
-                      {allTrips.length > 50 && (
+                      {allTrips.length > 100 && (
                         <div className="p-4 text-center text-sm" style={{ color: "#9CA3AF" }}>
-                          Showing first 50 of {allTrips.length} trips
+                          Showing first 100 of {allTrips.length} trips
                         </div>
                       )}
                     </div>
@@ -554,22 +552,25 @@ function SpecialReportViewsComponent({
                               <table className="w-full text-sm">
                                 <thead>
                                   <tr className="text-left" style={{ background: "rgba(248, 250, 252, 0.5)" }}>
-                                    <th className="px-3 py-2 font-medium text-xs" style={{ color: "#6B7280" }}>Trip</th>
-                                    <th className="px-3 py-2 font-medium text-xs" style={{ color: "#6B7280" }}>Start</th>
+                                    <th className="px-3 py-2 font-medium text-xs" style={{ color: "#6B7280" }}>#</th>
+                                    <th className="px-3 py-2 font-medium text-xs" style={{ color: "#22c55e" }}>Ign. ON</th>
+                                    <th className="px-3 py-2 font-medium text-xs" style={{ color: "#ef4444" }}>Ign. OFF</th>
                                     <th className="px-3 py-2 font-medium text-xs" style={{ color: "#6B7280" }}>Duration</th>
                                     <th className="px-3 py-2 font-medium text-xs" style={{ color: "#6B7280" }}>Distance</th>
-                                    <th className="px-3 py-2 font-medium text-xs" style={{ color: "#6B7280" }}>Fuel</th>
-                                    <th className="px-3 py-2 font-medium text-xs" style={{ color: "#6B7280" }}>Efficiency</th>
+                                    <th className="px-3 py-2 font-medium text-xs" style={{ color: "#6B7280" }}>Fuel Used</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {vehicle.trips.map((trip: any) => (
+                                  {vehicle.trips.map((trip: any, tripIdx: number) => (
                                     <tr key={trip.tripId} className="border-b hover:bg-gray-50 transition-colors" style={{ borderColor: "rgba(229, 231, 235, 0.2)" }}>
                                       <td className="px-3 py-2">
-                                        <span className="text-xs font-medium" style={{ color: "#3b82f6" }}>{trip.tripId}</span>
+                                        <span className="text-xs font-semibold" style={{ color: "#0ea5e9" }}>{tripIdx + 1}</span>
                                       </td>
-                                      <td className="px-3 py-2 text-xs" style={{ color: "#6B7280" }}>
+                                      <td className="px-3 py-2 text-xs font-medium" style={{ color: "#22c55e" }}>
                                         {formatDateTime(trip.startTime)}
+                                      </td>
+                                      <td className="px-3 py-2 text-xs font-medium" style={{ color: "#ef4444" }}>
+                                        {trip.endTime ? formatDateTime(trip.endTime) : "—"}
                                       </td>
                                       <td className="px-3 py-2 text-xs" style={{ color: "#6B7280" }}>
                                         {formatDuration(trip.durationMinutes)}
@@ -579,14 +580,11 @@ function SpecialReportViewsComponent({
                                           </span>
                                         )}
                                       </td>
-                                      <td className="px-3 py-2 text-xs font-medium" style={{ color: "#22c55e" }}>
+                                      <td className="px-3 py-2 text-xs font-medium" style={{ color: "#3b82f6" }}>
                                         {formatNumber(trip.distanceKm)} km
                                       </td>
                                       <td className="px-3 py-2 text-xs font-medium" style={{ color: "#E84040" }}>
                                         {formatNumber(getTripFuelUsed(trip))} L
-                                      </td>
-                                      <td className="px-3 py-2 text-xs font-medium" style={{ color: (getTripEfficiency(trip) ?? 0) >= 8 ? "#22c55e" : (getTripEfficiency(trip) ?? 0) >= 5 ? "#f59e0b" : "#ef4444" }}>
-                                        {getTripEfficiency(trip) ? `${formatNumber(getTripEfficiency(trip) ?? 0)} km/L` : "—"}
                                       </td>
                                     </tr>
                                   ))}

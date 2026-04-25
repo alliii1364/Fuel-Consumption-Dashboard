@@ -128,14 +128,9 @@ let FuelAnomalyMiddleware = FuelAnomalyMiddleware_1 = class FuelAnomalyMiddlewar
             },
         };
         if (!readings || readings.length === 0) {
-            this.logger.warn(`[AnomalyMiddleware] No readings available for refuel at ${riseAt.toISOString()} - marking as suspicious`);
-            return {
-                ...result,
-                isAnomaly: true,
-                anomalyType: 'no_stationary_period',
-                confidence: 50,
-                reason: 'Insufficient data to validate refuel - treating as suspicious',
-            };
+            this.logger.warn(`[AnomalyMiddleware] No readings available for refuel at ${riseAt.toISOString()} - passing through`);
+            return { ...result, isAnomaly: false, anomalyType: 'none', confidence: 50,
+                reason: 'Insufficient data to validate - passing through as legitimate' };
         }
         const quickSpikeCheck = this.checkQuickSpike(riseAt, peakFuel, readings, added);
         if (quickSpikeCheck.isQuickSpike) {
@@ -230,12 +225,15 @@ let FuelAnomalyMiddleware = FuelAnomalyMiddleware_1 = class FuelAnomalyMiddlewar
                 maxSpeedAfter: 0,
             };
         }
-        const duringRise = windowReadings.filter((r) => r.ts > riseAt);
+        const windowStartFuel = windowReadings[0]?.fuel ?? 0;
+        const rawRiseIdx = windowReadings.findIndex((r, i) => i > 0 && r.fuel > windowStartFuel + this.RISE_THRESHOLD);
+        const rawRiseAt = rawRiseIdx !== -1 ? windowReadings[rawRiseIdx].ts : riseAt;
+        const preRawRiseReadings = windowReadings.filter((r) => r.ts < rawRiseAt);
+        const everStationaryBeforeRawRise = preRawRiseReadings.some((r) => (r.speed ?? 0) <= this.RISE_GATING_MAX_SPEED_KMH);
+        const hadMovementDuring = preRawRiseReadings.length > 0 && !everStationaryBeforeRawRise;
         const afterRise = windowReadings.filter((r) => r.ts > riseAt);
-        const maxSpeedDuring = Math.max(...duringRise.map((r) => r.speed ?? 0), 0);
+        const maxSpeedDuring = Math.max(...windowReadings.map((r) => r.speed ?? 0), 0);
         const maxSpeedAfter = Math.max(...afterRise.map((r) => r.speed ?? 0), 0);
-        const everStationaryDuring = duringRise.some((r) => (r.speed ?? 0) <= this.RISE_GATING_MAX_SPEED_KMH);
-        const hadMovementDuring = !everStationaryDuring && maxSpeedDuring > this.RISE_GATING_MAX_SPEED_KMH;
         const hadMovementAfter = maxSpeedAfter > this.RISE_GATING_MAX_SPEED_KMH;
         return {
             hadMovementDuring,

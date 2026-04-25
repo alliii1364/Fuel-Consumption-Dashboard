@@ -9,7 +9,6 @@ import { DynamicTableQueryService } from '../fuel/services/dynamic-table-query.s
 import { ThriftService } from '../fuel/services/thrift.service';
 import { TheftDetectionService } from '../fuel/services/theft-detection.service';
 import { TripAnalyzerService } from '../fuel/services/trip-analyzer.service';
-import { FuelAnomalyMiddleware } from '../common/middleware/fuel-anomaly.middleware';
 
 const NOISE_THRESHOLD = 0.5;
 
@@ -27,7 +26,6 @@ export class ReportsService {
     private readonly thriftService: ThriftService,
     private readonly theftDetectionService: TheftDetectionService,
     private readonly tripAnalyzerService: TripAnalyzerService,
-    private readonly anomalyMiddleware: FuelAnomalyMiddleware,
   ) {}
 
   // ─── Shared helpers ───────────────────────────────────────────────────────
@@ -200,10 +198,7 @@ export class ReportsService {
           const result = await this.consumptionService.getConsumption(
             v.imei, from, to, sensor, v.fcr ?? '',
           );
-          const readings = result.readings ?? [];
           for (const r of result.refuels) {
-            const anomaly = this.anomalyMiddleware.detectRefuelAnomaly(r, readings);
-            if (anomaly.isAnomaly) continue;
             allEvents.push({
               imei: v.imei,
               name: v.name,
