@@ -642,25 +642,43 @@ let ReportsService = ReportsService_1 = class ReportsService {
             try {
                 const sensor = await this.sensorResolver.resolveFuelSensor(v.imei);
                 const unit = sensor.units || 'L';
-                const alerts = await this.consumptionService.getPythonAlerts(v.imei, from, to, unit);
-                await Promise.all(alerts.map(async (alert) => {
-                    const gpsPoint = await this.dynQuery.getNearestGpsPoint(v.imei, new Date(alert.at), 10);
-                    if (!gpsPoint || !gpsPoint.lat || !gpsPoint.lng)
-                        return;
+                const pythonAlerts = await this.consumptionService.getPythonAlerts(v.imei, from, to, unit);
+                const pythonTimes = pythonAlerts.map((a) => new Date(a.at).getTime());
+                let nestConfirmed = [];
+                try {
+                    const c = await this.consumptionService.getConsumption(v.imei, from, to, sensor, v.fcr ?? '');
+                    nestConfirmed = (c.drops ?? []).filter((d) => d.isConfirmedDrop === true);
+                }
+                catch { }
+                for (const alert of pythonAlerts) {
+                    const gps = await this.dynQuery.getNearestGpsPoint(v.imei, new Date(alert.at), 60);
+                    const hasGps = gps && gps.lat && gps.lng && !(gps.lat === 0 && gps.lng === 0);
                     allEvents.push({
-                        imei: v.imei,
-                        name: v.name,
-                        plateNumber: v.plate_number,
-                        at: alert.at,
-                        fuelBefore: alert.fuelBefore,
-                        fuelAfter: alert.fuelAfter,
-                        consumed: alert.consumed,
-                        lat: gpsPoint.lat,
-                        lng: gpsPoint.lng,
+                        imei: v.imei, name: v.name, plateNumber: v.plate_number,
+                        at: alert.at, fuelBefore: alert.fuelBefore,
+                        fuelAfter: alert.fuelAfter, consumed: alert.consumed,
+                        lat: hasGps ? gps.lat : null,
+                        lng: hasGps ? gps.lng : null,
                     });
-                }));
+                }
+                for (const drop of nestConfirmed) {
+                    const dropMs = new Date(drop.at).getTime();
+                    const inPython = pythonTimes.some((t) => Math.abs(t - dropMs) < 5 * 60 * 1000);
+                    if (inPython)
+                        continue;
+                    const gps = await this.dynQuery.getNearestGpsPoint(v.imei, new Date(drop.at), 60);
+                    const hasGps = gps && gps.lat && gps.lng && !(gps.lat === 0 && gps.lng === 0);
+                    allEvents.push({
+                        imei: v.imei, name: v.name, plateNumber: v.plate_number,
+                        at: drop.at, fuelBefore: drop.fuelBefore,
+                        fuelAfter: drop.fuelAfter, consumed: drop.consumed,
+                        lat: hasGps ? gps.lat : null,
+                        lng: hasGps ? gps.lng : null,
+                    });
+                }
             }
-            catch {
+            catch (err) {
+                this.logger.warn(`TheftLocations skip IMEI=${v.imei}: ${String(err)}`);
             }
         }));
         allEvents.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());

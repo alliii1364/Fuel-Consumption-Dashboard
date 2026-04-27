@@ -27,8 +27,8 @@ interface SpecialReportViewsProps {
 // ── Theft location helpers ───────────────────────────────────────────────────
 
 interface TheftPin {
-  lat: number;
-  lng: number;
+  lat: number | null;
+  lng: number | null;
   vehicleName: string;
   plateNumber: string;
   at: string;
@@ -82,18 +82,21 @@ function makeTheftIcon(isSelected: boolean, consumed: number): L.DivIcon {
 // Fits all markers into view on first load; flies to selected marker on click
 function MapController({ pins, selectedIdx }: { pins: TheftPin[]; selectedIdx: number | null }) {
   const map = useMap();
+  const mappable = pins.filter((p) => p.lat !== null && p.lng !== null) as Array<TheftPin & { lat: number; lng: number }>;
 
   useEffect(() => {
-    if (pins.length === 0) return;
-    if (pins.length === 1) { map.setView([pins[0].lat, pins[0].lng], 15); return; }
-    const bounds = L.latLngBounds(pins.map((p) => [p.lat, p.lng] as [number, number]));
+    if (mappable.length === 0) return;
+    if (mappable.length === 1) { map.setView([mappable[0].lat, mappable[0].lng], 15); return; }
+    const bounds = L.latLngBounds(mappable.map((p) => [p.lat, p.lng] as [number, number]));
     map.fitBounds(bounds, { padding: [48, 48], maxZoom: 15 });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pins.length]);
+  }, [mappable.length]);
 
   useEffect(() => {
-    if (selectedIdx === null || !pins[selectedIdx]) return;
-    map.flyTo([pins[selectedIdx].lat, pins[selectedIdx].lng], 15, { duration: 0.8 });
+    if (selectedIdx === null) return;
+    const p = pins[selectedIdx];
+    if (!p || p.lat === null || p.lng === null) return;
+    map.flyTo([p.lat, p.lng], 15, { duration: 0.8 });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedIdx]);
 
@@ -498,8 +501,9 @@ function TheftLocationView({ data, loading }: { data: TheftLocationsReportData |
     }));
   }, [data]);
 
-  const mapCenter: [number, number] = pins.length > 0
-    ? [pins[0].lat, pins[0].lng]
+  const firstMappable = pins.find((p) => p.lat !== null && p.lng !== null) as (TheftPin & { lat: number; lng: number }) | undefined;
+  const mapCenter: [number, number] = firstMappable
+    ? [firstMappable.lat, firstMappable.lng]
     : [24.8607, 67.0011]; // Karachi fallback
 
   const fleetTotalLost = useMemo(
@@ -576,9 +580,17 @@ function TheftLocationView({ data, loading }: { data: TheftLocationsReportData |
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm truncate mb-0.5" style={{ color: "#1A1A2E" }}>{pin.vehicleName}</p>
                     <p className="text-xs mb-1" style={{ color: "#9CA3AF" }}>{pin.plateNumber} · {fmtDateTime(pin.at)}</p>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 mb-1">
                       <span className="text-xs font-semibold" style={{ color: THEFT_COLOR }}>−{formatNumber(pin.consumed)} L</span>
                       <span className="text-xs" style={{ color: "#9CA3AF" }}>{formatNumber(pin.fuelBefore)} → {formatNumber(pin.fuelAfter)} L</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Navigation size={9} style={{ color: "#9CA3AF", flexShrink: 0 }} />
+                      <span className="text-[10px] font-mono" style={{ color: "#9CA3AF" }}>
+                        {pin.lat !== null && pin.lng !== null
+                          ? `${pin.lat.toFixed(5)}, ${pin.lng.toFixed(5)}`
+                          : "Location unknown"}
+                      </span>
                     </div>
                   </div>
                 </button>
@@ -616,6 +628,7 @@ function TheftLocationView({ data, loading }: { data: TheftLocationsReportData |
               <MapController pins={pins} selectedIdx={selectedIdx} />
 
               {pins.map((pin, idx) => {
+                if (pin.lat === null || pin.lng === null) return null;
                 const isSelected = selectedIdx === idx;
                 return (
                   <Marker
@@ -667,7 +680,7 @@ function TheftLocationView({ data, loading }: { data: TheftLocationsReportData |
                         </p>
 
                         {/* Fuel metrics */}
-                        <div style={{ display: "flex", gap: 8 }}>
+                        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                           <div style={{ flex: 1, textAlign: "center", padding: "8px 4px", borderRadius: 8, background: "#fef2f2", border: "1px solid #fecaca" }}>
                             <p style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 2 }}>Stolen</p>
                             <p style={{ fontSize: 15, fontWeight: 800, color: THEFT_COLOR }}>−{formatNumber(pin.consumed)} L</p>
@@ -680,6 +693,14 @@ function TheftLocationView({ data, loading }: { data: TheftLocationsReportData |
                             <p style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 2 }}>After</p>
                             <p style={{ fontSize: 13, fontWeight: 700, color: "#1A1A2E" }}>{formatNumber(pin.fuelAfter)} L</p>
                           </div>
+                        </div>
+
+                        {/* Location */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 8px", borderRadius: 8, background: "#f9fafb", border: "1px solid #e5e7eb" }}>
+                          <MapPin size={11} style={{ color: "#9CA3AF", flexShrink: 0 }} />
+                          <span style={{ fontSize: 10, fontFamily: "monospace", color: "#6B7280" }}>
+                            {pin.lat.toFixed(5)}, {pin.lng.toFixed(5)}
+                          </span>
                         </div>
                       </div>
                     </Popup>

@@ -750,8 +750,8 @@ export interface TheftLocationEvent {
   fuelBefore: number;
   fuelAfter: number;
   consumed: number;
-  lat: number;
-  lng: number;
+  lat: number | null;
+  lng: number | null;
 }
 
 export interface TheftLocationsReportData {

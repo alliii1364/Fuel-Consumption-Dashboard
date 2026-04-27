@@ -399,8 +399,8 @@ export declare class ReportsController {
                 fuelBefore: number;
                 fuelAfter: number;
                 consumed: number;
-                lat: number;
-                lng: number;
+                lat: number | null;
+                lng: number | null;
             }[];
         };
     }>;
