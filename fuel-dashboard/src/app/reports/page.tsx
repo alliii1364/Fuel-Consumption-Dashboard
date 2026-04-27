@@ -57,8 +57,14 @@ import {
   ReportType as ExportReportType,
   ExportState,
 } from "@/lib/export";
+import dynamic from "next/dynamic";
 import { Heatmap, ComparisonCard } from "@/components/reports";
-import { ReportKpiCards, ReportCharts, ReportRanking, SpecialReportViews } from "./components";
+import { ReportKpiCards, ReportCharts, ReportRanking } from "./components";
+
+const SpecialReportViews = dynamic(
+  () => import("./components/SpecialReportViews").then((m) => ({ default: m.SpecialReportViews })),
+  { ssr: false }
+);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
