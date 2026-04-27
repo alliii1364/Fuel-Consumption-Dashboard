@@ -379,6 +379,31 @@ export declare class ReportsController {
             })[];
         };
     }>;
+    getTheftLocations(req: {
+        user: {
+            id: number;
+        };
+    }, query: ReportRangeDto): Promise<{
+        success: boolean;
+        message: string;
+        report: string;
+        data: {
+            from: string;
+            to: string;
+            totalEvents: number;
+            events: {
+                imei: string;
+                name: string;
+                plateNumber: string;
+                at: string;
+                fuelBefore: number;
+                fuelAfter: number;
+                consumed: number;
+                lat: number;
+                lng: number;
+            }[];
+        };
+    }>;
     getTrips(req: {
         user: {
             id: number;

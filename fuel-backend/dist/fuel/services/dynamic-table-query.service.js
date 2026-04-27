@@ -86,6 +86,21 @@ let DynamicTableQueryService = DynamicTableQueryService_1 = class DynamicTableQu
         }
         return rows;
     }
+    async getNearestGpsPoint(imei, targetTs, windowMinutes = 10) {
+        const exists = await this.tableExists(imei);
+        if (!exists)
+            return null;
+        const tableName = this.getTableName(imei);
+        const windowMs = windowMinutes * 60 * 1000;
+        const fromTs = new Date(targetTs.getTime() - windowMs);
+        const toTs = new Date(targetTs.getTime() + windowMs);
+        const rows = await this.dataSource.query(`SELECT lat, lng, dt_tracker
+         FROM \`${tableName}\`
+         WHERE dt_tracker BETWEEN ? AND ?
+         ORDER BY ABS(TIMESTAMPDIFF(SECOND, dt_tracker, ?))
+         LIMIT 1`, [fromTs, toTs, targetTs]);
+        return rows[0] ?? null;
+    }
     async getRowsInRangeBucketed(imei, from, to, bucketSeconds) {
         await this.assertTableExists(imei);
         const tableName = this.getTableName(imei);

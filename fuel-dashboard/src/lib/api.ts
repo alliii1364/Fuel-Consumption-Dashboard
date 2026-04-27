@@ -22,6 +22,8 @@ import {
   TheftReportData,
   ThriftAnalysisData,
   ThriftReportData,
+  TheftLocationsReportData,
+  TripRouteData,
   TripsReportData,
   VehicleStatusReportData,
   VehiclesResponse,
@@ -415,6 +417,25 @@ export async function getFleetTheftReport(
 ): Promise<FleetTheftReportData> {
   const p = new URLSearchParams({ from, to });
   return request<FleetTheftReportData>(`/reports/theft?${p}`, {}, token);
+}
+
+export async function getTripRoute(
+  token: string,
+  imei: string,
+  from: string,
+  to: string,
+): Promise<TripRouteData> {
+  const p = new URLSearchParams({ from, to });
+  return request<TripRouteData>(`/vehicles/${imei}/fuel/route?${p}`, {}, token);
+}
+
+export async function getTheftLocationsReport(
+  token: string,
+  from: string,
+  to: string
+): Promise<TheftLocationsReportData> {
+  const p = new URLSearchParams({ from, to });
+  return request<TheftLocationsReportData>(`/reports/theft-locations?${p}`, {}, token);
 }
 
 // ─── Reports: Trips ────────────────────────────────────────────────────────────

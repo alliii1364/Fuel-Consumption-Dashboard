@@ -183,6 +183,7 @@ function TheftDetectionPage() {
         theftDrops: Math.floor(Math.random() * 2),
         fuelLost: Math.random() * 50,
         alerts: [],
+        drops: [],
       })),
     };
   };

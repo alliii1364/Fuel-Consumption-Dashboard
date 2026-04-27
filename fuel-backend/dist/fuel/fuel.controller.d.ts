@@ -192,6 +192,19 @@ export declare class FuelController {
         message: string;
         data: import("./services/theft-detection.service").TheftDetectionResult;
     }>;
+    getTripRoute(imei: string, query: FuelConsumptionDto): Promise<{
+        success: boolean;
+        message: string;
+        data: {
+            points: {
+                lat: number;
+                lng: number;
+                speed: number;
+                ts: string;
+            }[];
+            totalPoints: number;
+        };
+    }>;
     private resolveSensor;
     private readSensorValue;
     private parseDateRange;

@@ -318,6 +318,29 @@ let FuelController = FuelController_1 = class FuelController {
             data: result,
         };
     }
+    async getTripRoute(imei, query) {
+        this.logger.log(`GET /vehicles/${imei}/fuel/route from=${query.from} to=${query.to}`);
+        const { from, to } = this.parseDateRange(query.from, query.to);
+        const rows = await this.dynQuery.getRowsInRangeOrEmpty(imei, from, to);
+        const valid = rows.filter((r) => r.lat && r.lng && !(r.lat === 0 && r.lng === 0));
+        const MAX_POINTS = 600;
+        const step = Math.max(1, Math.floor(valid.length / MAX_POINTS));
+        const points = valid
+            .filter((_, i) => i % step === 0 || i === valid.length - 1)
+            .map((r) => ({
+            lat: r.lat,
+            lng: r.lng,
+            speed: r.speed ?? 0,
+            ts: r.dt_tracker instanceof Date
+                ? r.dt_tracker.toISOString()
+                : new Date(r.dt_tracker).toISOString(),
+        }));
+        return {
+            success: true,
+            message: `${points.length} GPS points returned`,
+            data: { points, totalPoints: points.length },
+        };
+    }
     async resolveSensor(imei, sensorIdStr) {
         if (sensorIdStr) {
             const sensorId = parseInt(sensorIdStr, 10);
@@ -456,6 +479,14 @@ __decorate([
     __metadata("design:paramtypes", [String, fuel_consumption_dto_1.FuelConsumptionDto, String]),
     __metadata("design:returntype", Promise)
 ], FuelController.prototype, "getTheftDetection", null);
+__decorate([
+    (0, common_1.Get)('route'),
+    __param(0, (0, common_1.Param)('imei')),
+    __param(1, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, fuel_consumption_dto_1.FuelConsumptionDto]),
+    __metadata("design:returntype", Promise)
+], FuelController.prototype, "getTripRoute", null);
 exports.FuelController = FuelController = FuelController_1 = __decorate([
     (0, common_1.Controller)('vehicles/:imei/fuel'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), imei_ownership_guard_1.ImeiOwnershipGuard),

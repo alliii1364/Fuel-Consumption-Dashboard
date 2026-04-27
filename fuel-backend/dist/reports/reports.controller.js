@@ -127,6 +127,17 @@ let ReportsController = ReportsController_1 = class ReportsController {
             data,
         };
     }
+    async getTheftLocations(req, query) {
+        this.requireRange(query);
+        this.logger.log(`GET /reports/theft-locations user=${req.user.id} from=${query.from} to=${query.to}`);
+        const data = await this.reportsService.getTheftLocationsReport(req.user.id, query.from, query.to);
+        return {
+            success: true,
+            message: 'Theft locations report generated',
+            report: 'theft-locations',
+            data,
+        };
+    }
     async getTrips(req, query) {
         this.requireRange(query);
         this.logger.log(`GET /reports/trips user=${req.user.id} from=${query.from} to=${query.to}`);
@@ -211,6 +222,14 @@ __decorate([
     __metadata("design:paramtypes", [Object, report_range_dto_1.ReportRangeDto]),
     __metadata("design:returntype", Promise)
 ], ReportsController.prototype, "getTheftDetection", null);
+__decorate([
+    (0, common_1.Get)('theft-locations'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, report_range_dto_1.ReportRangeDto]),
+    __metadata("design:returntype", Promise)
+], ReportsController.prototype, "getTheftLocations", null);
 __decorate([
     (0, common_1.Get)('trips'),
     __param(0, (0, common_1.Request)()),

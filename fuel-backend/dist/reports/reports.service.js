@@ -634,6 +634,43 @@ let ReportsService = ReportsService_1 = class ReportsService {
             vehicles: results.sort((a, b) => b.riskScore - a.riskScore),
         };
     }
+    async getTheftLocationsReport(userId, fromStr, toStr) {
+        const { from, to } = this.parseDateRange(fromStr, toStr);
+        const vehicles = await this.getUserVehicles(userId);
+        const allEvents = [];
+        await Promise.all(vehicles.map(async (v) => {
+            try {
+                const sensor = await this.sensorResolver.resolveFuelSensor(v.imei);
+                const unit = sensor.units || 'L';
+                const alerts = await this.consumptionService.getPythonAlerts(v.imei, from, to, unit);
+                await Promise.all(alerts.map(async (alert) => {
+                    const gpsPoint = await this.dynQuery.getNearestGpsPoint(v.imei, new Date(alert.at), 10);
+                    if (!gpsPoint || !gpsPoint.lat || !gpsPoint.lng)
+                        return;
+                    allEvents.push({
+                        imei: v.imei,
+                        name: v.name,
+                        plateNumber: v.plate_number,
+                        at: alert.at,
+                        fuelBefore: alert.fuelBefore,
+                        fuelAfter: alert.fuelAfter,
+                        consumed: alert.consumed,
+                        lat: gpsPoint.lat,
+                        lng: gpsPoint.lng,
+                    });
+                }));
+            }
+            catch {
+            }
+        }));
+        allEvents.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+        return {
+            from: from.toISOString(),
+            to: to.toISOString(),
+            totalEvents: allEvents.length,
+            events: allEvents,
+        };
+    }
     async getTripsReport(userId, fromStr, toStr) {
         const { from, to } = this.parseDateRange(fromStr, toStr);
         const vehicles = await this.getUserVehicles(userId);

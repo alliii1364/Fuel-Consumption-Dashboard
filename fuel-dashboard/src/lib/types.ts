@@ -713,6 +713,7 @@ export interface FleetTheftVehicle {
   theftDrops: number;
   fuelLost: number;
   alerts: string[];
+  drops: FuelDrop[];
 }
 
 export interface FleetTheftReportData {
@@ -723,6 +724,41 @@ export interface FleetTheftReportData {
   fleetRiskScore: number;
   fleetAlerts: string[];
   vehicles: FleetTheftVehicle[];
+}
+
+// ─── Trip Route ────────────────────────────────────────────────────────────
+
+export interface TripRoutePoint {
+  lat: number;
+  lng: number;
+  speed: number;
+  ts: string;
+}
+
+export interface TripRouteData {
+  points: TripRoutePoint[];
+  totalPoints: number;
+}
+
+// ─── Theft Locations Report ────────────────────────────────────────────────
+
+export interface TheftLocationEvent {
+  imei: string;
+  name: string;
+  plateNumber: string;
+  at: string;
+  fuelBefore: number;
+  fuelAfter: number;
+  consumed: number;
+  lat: number;
+  lng: number;
+}
+
+export interface TheftLocationsReportData {
+  from: string;
+  to: string;
+  totalEvents: number;
+  events: TheftLocationEvent[];
 }
 
 // ─── Generic API wrapper ───────────────────────────────────────────────────

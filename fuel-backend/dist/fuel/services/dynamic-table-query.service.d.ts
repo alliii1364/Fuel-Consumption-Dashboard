@@ -25,6 +25,11 @@ export declare class DynamicTableQueryService {
     getLatestRow(imei: string): Promise<DataRow | null>;
     getRowsInRange(imei: string, from: Date, to: Date): Promise<DataRow[]>;
     getRowsInRangeOrEmpty(imei: string, from: Date, to: Date): Promise<DataRow[]>;
+    getNearestGpsPoint(imei: string, targetTs: Date, windowMinutes?: number): Promise<{
+        lat: number;
+        lng: number;
+        dt_tracker: Date;
+    } | null>;
     getRowsInRangeBucketed(imei: string, from: Date, to: Date, bucketSeconds: number): Promise<BucketedRow[]>;
     getRowsInRangeBucketedOrEmpty(imei: string, from: Date, to: Date, bucketSeconds: number): Promise<BucketedRow[]>;
 }

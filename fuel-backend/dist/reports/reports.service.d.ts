@@ -320,6 +320,22 @@ export declare class ReportsService {
             status: string;
         })[];
     }>;
+    getTheftLocationsReport(userId: number, fromStr: string, toStr: string): Promise<{
+        from: string;
+        to: string;
+        totalEvents: number;
+        events: {
+            imei: string;
+            name: string;
+            plateNumber: string;
+            at: string;
+            fuelBefore: number;
+            fuelAfter: number;
+            consumed: number;
+            lat: number;
+            lng: number;
+        }[];
+    }>;
     getTripsReport(userId: number, fromStr: string, toStr: string): Promise<{
         from: string;
         to: string;

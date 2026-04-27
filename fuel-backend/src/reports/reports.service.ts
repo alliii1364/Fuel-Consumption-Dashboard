@@ -768,7 +768,74 @@ export class ReportsService {
     };
   }
 
-  // ─── 10. Trips Report ─────────────────────────────────────────────────────
+  // ─── 10. Theft Locations Report (Python ground-truth + GPS lookup) ──────────
+
+  async getTheftLocationsReport(userId: number, fromStr: string, toStr: string) {
+    const { from, to } = this.parseDateRange(fromStr, toStr);
+    const vehicles = await this.getUserVehicles(userId);
+
+    const allEvents: Array<{
+      imei: string;
+      name: string;
+      plateNumber: string;
+      at: string;
+      fuelBefore: number;
+      fuelAfter: number;
+      consumed: number;
+      lat: number;
+      lng: number;
+    }> = [];
+
+    await Promise.all(
+      vehicles.map(async (v) => {
+        try {
+          const sensor = await this.sensorResolver.resolveFuelSensor(v.imei);
+          const unit   = sensor.units || 'L';
+          const alerts = await this.consumptionService.getPythonAlerts(v.imei, from, to, unit);
+
+          // For each alert, do a targeted GPS lookup: find the row whose
+          // dt_tracker is closest to the alert timestamp (should be exact match
+          // since fuel_drop_alerts.dt_tracker comes from the same GPS row).
+          await Promise.all(
+            alerts.map(async (alert) => {
+              const gpsPoint = await this.dynQuery.getNearestGpsPoint(
+                v.imei,
+                new Date(alert.at),
+                10, // ±10 minute window
+              );
+
+              if (!gpsPoint || !gpsPoint.lat || !gpsPoint.lng) return;
+
+              allEvents.push({
+                imei: v.imei,
+                name: v.name,
+                plateNumber: v.plate_number,
+                at: alert.at,
+                fuelBefore: alert.fuelBefore,
+                fuelAfter: alert.fuelAfter,
+                consumed: alert.consumed,
+                lat: gpsPoint.lat,
+                lng: gpsPoint.lng,
+              });
+            }),
+          );
+        } catch {
+          // Skip vehicles with no data
+        }
+      }),
+    );
+
+    allEvents.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+
+    return {
+      from: from.toISOString(),
+      to:   to.toISOString(),
+      totalEvents: allEvents.length,
+      events: allEvents,
+    };
+  }
+
+  // ─── 11. Trips Report ─────────────────────────────────────────────────────
 
   async getTripsReport(userId: number, fromStr: string, toStr: string) {
     const { from, to } = this.parseDateRange(fromStr, toStr);

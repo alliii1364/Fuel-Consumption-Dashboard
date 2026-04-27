@@ -140,6 +140,37 @@ export class DynamicTableQueryService {
   }
 
   /**
+   * Finds the GPS row closest to targetTs within ±windowMinutes.
+   * Only fetches lat/lng/dt_tracker — no params — so it's very lightweight.
+   * Returns null if no row exists within the window.
+   */
+  async getNearestGpsPoint(
+    imei: string,
+    targetTs: Date,
+    windowMinutes = 10,
+  ): Promise<{ lat: number; lng: number; dt_tracker: Date } | null> {
+    const exists = await this.tableExists(imei);
+    if (!exists) return null;
+
+    const tableName = this.getTableName(imei);
+    const windowMs  = windowMinutes * 60 * 1000;
+    const fromTs    = new Date(targetTs.getTime() - windowMs);
+    const toTs      = new Date(targetTs.getTime() + windowMs);
+
+    const rows: Array<{ lat: number; lng: number; dt_tracker: Date }> =
+      await this.dataSource.query(
+        `SELECT lat, lng, dt_tracker
+         FROM \`${tableName}\`
+         WHERE dt_tracker BETWEEN ? AND ?
+         ORDER BY ABS(TIMESTAMPDIFF(SECOND, dt_tracker, ?))
+         LIMIT 1`,
+        [fromTs, toTs, targetTs],
+      );
+
+    return rows[0] ?? null;
+  }
+
+  /**
    * DB-level bucketing: returns the LAST row in each time bucket.
    * bucketSeconds: 300 (5min), 900 (15min), 3600 (1h), 86400 (1day)
    * This avoids pulling millions of raw rows for long date ranges.

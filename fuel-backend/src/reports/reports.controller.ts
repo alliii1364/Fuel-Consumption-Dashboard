@@ -237,6 +237,31 @@ export class ReportsController {
   }
 
   /**
+   * GET /reports/theft-locations?from=&to=
+   * Fleet-wide confirmed theft events with GPS coordinates.
+   * Uses Python ground-truth fuel_drop_alerts table + nearest GPS row lookup.
+   */
+  @Get('theft-locations')
+  async getTheftLocations(
+    @Request() req: { user: { id: number } },
+    @Query() query: ReportRangeDto,
+  ) {
+    this.requireRange(query);
+    this.logger.log(
+      `GET /reports/theft-locations user=${req.user.id} from=${query.from} to=${query.to}`,
+    );
+    const data = await this.reportsService.getTheftLocationsReport(
+      req.user.id, query.from, query.to,
+    );
+    return {
+      success: true,
+      message: 'Theft locations report generated',
+      report: 'theft-locations',
+      data,
+    };
+  }
+
+  /**
    * GET /reports/trips?from=&to=
    * Per-vehicle trip analysis: detects trips from ignition on/off transitions.
    * Returns individual trips with distance, fuel consumed, duration, and efficiency.

@@ -31,6 +31,7 @@ import {
   HighSpeedWasteReportData,
   IdleWasteReportData,
   RefuelReportData,
+  TheftLocationsReportData,
   ThriftReportData,
   TripsReportData,
   VehicleStatusReportData,
@@ -48,6 +49,7 @@ import {
   getVehicleStatusReport,
   getFleetRanking,
   getTripsReport,
+  getTheftLocationsReport,
 } from "@/lib/api";
 import {
   exportReportToExcel,
@@ -70,7 +72,8 @@ type ReportType =
   | "engine-hours"
   | "vehicle-status"
   | "fleet-ranking"
-  | "trips";
+  | "trips"
+  | "theft-location";
 
 interface ReportConfig {
   id: ReportType;
@@ -87,6 +90,8 @@ interface ReportConfig {
 const REPORT_CONFIG: ReportConfig[] = [
   { id: "consumption", title: "Fuel Consumption", description: "Fleet fuel consumption analysis", icon: Fuel, color: "#E84040", requiresDateRange: true, category: "fuel" },
   { id: "refuels", title: "Refueling Log", description: "Track all refueling events", icon: TrendingUp, color: "#22c55e", requiresDateRange: true, category: "fuel" },
+  { id: "trips", title: "Trips", description: "Vehicle trip routes on map", icon: MapPin, color: "#3b82f6", requiresDateRange: true, category: "fuel" },
+  { id: "theft-location", title: "Theft Locations", description: "Map of confirmed fuel theft events", icon: MapPin, color: "#7c3aed", requiresDateRange: true, category: "fuel" },
   // { id: "
   // trips", title: "Trips", description: "Ignition ON/OFF with distance & fuel per trip", icon: MapPin, color: "#0ea5e9", requiresDateRange: true, category: "fuel" },
   // { id: "idle-waste", title: "Idle Analysis", description: "Fuel wasted while idling", icon: Timer, color: "#f59e0b", requiresDateRange: true, category: "performance" },
@@ -157,6 +162,7 @@ function ReportsPage() {
   const [vehicleStatusData, setVehicleStatusData] = useState<VehicleStatusReportData | null>(null);
   const [fleetRankingData, setFleetRankingData] = useState<FleetRankingData | null>(null);
   const [tripsData, setTripsData] = useState<TripsReportData | null>(null);
+  const [theftLocationData, setTheftLocationData] = useState<TheftLocationsReportData | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [vehiclesLoading, setVehiclesLoading] = useState(false);
@@ -209,7 +215,7 @@ function ReportsPage() {
     }
   }, [activeReport, consumptionData, refuelData, idleWasteData, highSpeedData,
     dailyTrendData, thriftData, engineHoursData, vehicleStatusData, fleetRankingData,
-    tripsData, range.from, range.to, exportState.isExporting]);
+    tripsData, theftLocationData, range.from, range.to, exportState.isExporting]);
 
   // ─── Load Vehicles ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -301,6 +307,13 @@ function ReportsPage() {
               setTripsData(data);
             }
             break;
+
+          case "theft-location":
+            {
+              const data = await getTheftLocationsReport(token, range.from, range.to);
+              setTheftLocationData(data);
+            }
+            break;
         }
       } catch (e) {
         if (e instanceof ApiError && e.statusCode === 401) handle401();
@@ -361,7 +374,7 @@ function ReportsPage() {
 
   // ─── Check if special full-width view ───────────────────────────────────────
   const isSpecialView = useMemo(() => {
-    return ["daily-trend", "refuels", "engine-hours", "vehicle-status", "trips"].includes(activeReport);
+    return ["daily-trend", "refuels", "engine-hours", "vehicle-status", "trips", "theft-location"].includes(activeReport);
   }, [activeReport]);
 
   // ─── Memoized Main Content ────────────────────────────────────────────────────
@@ -408,6 +421,7 @@ function ReportsPage() {
             engineHoursData={engineHoursData}
             vehicleStatusData={vehicleStatusData}
             tripsData={tripsData}
+            theftLocationData={theftLocationData}
             vehicles={vehicles}
           />
         ) : (
@@ -440,7 +454,7 @@ function ReportsPage() {
         )}
       </div>
     );
-  }, [error, activeReport, loading, consumptionData, idleWasteData, thriftData, fleetRankingData, highSpeedData, vehicles.length, isSpecialView, dailyTrendData, refuelData, engineHoursData, vehicleStatusData, tripsData, renderComparison, renderHeatmap]);
+  }, [error, activeReport, loading, consumptionData, idleWasteData, thriftData, fleetRankingData, highSpeedData, vehicles.length, isSpecialView, dailyTrendData, refuelData, engineHoursData, vehicleStatusData, tripsData, theftLocationData, renderComparison, renderHeatmap]);
 
   if (authLoading) {
     return (
