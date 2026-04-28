@@ -372,16 +372,16 @@ export default function RoutesPage() {
 
   // First derive the base fuel event categories
   const drops = fuelEvents.filter(e => e.type === "drop");
-  // Filter refuels: include if (a) not anomalous, OR (b) significant amount (>50L)
-  // The backend's anomaly detection is too aggressive - large refuels are typically real
+  // Filter refuels: include if (a) not anomalous, OR (b) significant amount (>=50L)
+  // The backend's anomaly detection is too aggressive - large refuels are typically real.
+  // A genuine 50L+ "fake_spike" is virtually impossible, so drop the anomaly-type exclusion
+  // for large fills so the routes page matches what the refueling log already shows.
   const isLegitimateRefuel = (e: FuelEvent) => {
     if (e.type !== "refuel") return false;
     // Always include non-anomalous refuels
     if (!e.isAnomaly) return true;
-    // For anomalous refuels, only include if significant (>50L) and not a fake spike
-    const amount = e.amount || 0;
-    const isFakeSpike = e.anomalyType === "fake_spike" || e.anomalyType === "voltage_glitch";
-    return amount >= 50 && !isFakeSpike;
+    // For anomalous refuels: trust any fill >= 50 L regardless of anomaly type
+    return (e.amount || 0) >= 50;
   };
   const refuels = fuelEvents.filter(isLegitimateRefuel);
   const filteredEvents = fuelEvents.filter(e => {
@@ -399,12 +399,18 @@ export default function RoutesPage() {
   const refuelCount       = refuels.length;
   const confirmedDropTotal= confirmedDrops.reduce((s, e) => s + e.amount, 0);
 
-  // Calculate total refueled from legitimate refuels only (anomalous already filtered out)
+  // Calculate total refueled from legitimate refuels only
   const totalRefueledFromEvents = refuels.reduce((s, e) => s + (e.amount || 0), 0);
-  // Fallback to API value if we have no refuel events
+  // consumption.refueled is recalculated by the anomaly middleware (verified-only sum),
+  // so it may undercount real fills. Use the raw events sum as the primary fallback.
+  const rawRefuelTotal = fuelEvents
+    .filter(e => e.type === "refuel")
+    .reduce((s, e) => s + (e.amount || 0), 0);
   const totalRefueled = totalRefueledFromEvents > 0
     ? totalRefueledFromEvents
-    : (consumption?.refueled ?? 0);
+    : rawRefuelTotal > 0
+      ? rawRefuelTotal
+      : (consumption?.refueled ?? 0);
   const firstFuel = consumption?.firstFuel ?? null;
   const lastFuel = consumption?.lastFuel ?? null;
 
