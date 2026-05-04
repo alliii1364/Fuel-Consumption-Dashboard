@@ -50,6 +50,8 @@ export interface RefuelEvent {
   fuelAfter: number;
   added: number;
   unit: string;
+  /** True for events sourced from the Python fuel_rise_alerts table — skip middleware re-validation. */
+  isPythonConfirmed?: boolean;
 }
 
 export interface DropEvent {
@@ -155,9 +157,9 @@ export class FuelConsumptionService {
       >(
         `SELECT alert_id, imei, previous_fuel, current_fuel, drop_amount, dt_tracker
          FROM fuel_drop_alerts
-         WHERE imei = ? AND dt_tracker BETWEEN ? AND ?
+         WHERE imei = ? AND dt_tracker BETWEEN ? AND ? AND drop_amount >= ?
          ORDER BY dt_tracker ASC`,
-        [imei, from, to],
+        [imei, from, to, DROP_ALERT_THRESHOLD],
       );
 
       return rows.map((r) => ({
@@ -175,6 +177,51 @@ export class FuelConsumptionService {
       return [];
     }
   }
+
+  /**
+   * Query fuel_rise_alerts (written by the Python monitoring script) for
+   * confirmed refuel events in the given UTC range.
+   * Only returns events with rise_amount >= DROP_ALERT_THRESHOLD (8L) to
+   * match the JS detection threshold and suppress sub-threshold noise.
+   */
+  async getPythonRefuels(
+    imei: string,
+    from: Date,
+    to: Date,
+    unit = 'Liters',
+  ): Promise<RefuelEvent[]> {
+    try {
+      const rows = await this.dataSource.query<{
+        alert_id: number;
+        imei: string;
+        previous_fuel: number;
+        current_fuel: number;
+        rise_amount: number;
+        dt_tracker: Date;
+      }[]>(
+        `SELECT alert_id, imei, previous_fuel, current_fuel, rise_amount, dt_tracker
+         FROM fuel_rise_alerts
+         WHERE imei = ? AND dt_tracker BETWEEN ? AND ? AND rise_amount >= ?
+         ORDER BY dt_tracker ASC`,
+        [imei, from, to, DROP_ALERT_THRESHOLD],
+      );
+
+      return rows.map((r) => ({
+        at: r.dt_tracker instanceof Date
+          ? r.dt_tracker.toISOString()
+          : new Date(r.dt_tracker).toISOString(),
+        fuelBefore: Math.round(r.previous_fuel * 100) / 100,
+        fuelAfter: Math.round(r.current_fuel * 100) / 100,
+        added: Math.round(r.rise_amount * 100) / 100,
+        unit,
+        isPythonConfirmed: true,
+      }));
+    } catch (err) {
+      this.logger.warn(`getPythonRefuels error for IMEI ${imei}: ${err}`);
+      return [];
+    }
+  }
+
   async getConsumption(
     imei: string,
     from: Date,
@@ -189,10 +236,20 @@ export class FuelConsumptionService {
     );
   
     const { drops: allDrops, refuels: allRefuels, readings } = this.analyzeRows(allRows, sensor, imei);
-  
+
     const fromIso = from.toISOString();
     const drops   = allDrops.filter((d) => d.at >= fromIso);
-    const refuels = allRefuels.filter((r) => r.at >= fromIso);
+    const jsRefuels = allRefuels.filter((r) => r.at >= fromIso);
+
+    // JS detection is the primary source — it uses a median filter + confirmation
+    // logic that rejects sensor noise better than the Python script.
+    // Python refuels (fuel_rise_alerts) are used ONLY when JS found zero refuels
+    // in the period, which happens when pre-refuel sensor noise prevents JS from
+    // detecting the rise (e.g. noisy driving before stopping to refuel).
+    const pythonRefuels = jsRefuels.length === 0
+      ? await this.getPythonRefuels(imei, from, to, sensor.units || 'L')
+      : [];
+    const refuels = jsRefuels.length > 0 ? jsRefuels : pythonRefuels;
   
     const actualReadings = readings.filter((r) => r.ts >= from);
     const firstFuel = actualReadings.length > 0 ? actualReadings[0].fuel : null;
@@ -272,7 +329,7 @@ export class FuelConsumptionService {
     // ── Step 2: index-based walk ──────────────────────────────────────────────
     let i = 0;
     while (i < transformed.length) {
-      const { ts, fuel } = transformed[i];
+      const { fuel } = transformed[i];
   
       if (firstFuel === null) firstFuel = fuel;
       lastFuel = fuel;

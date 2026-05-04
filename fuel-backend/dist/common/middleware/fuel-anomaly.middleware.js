@@ -127,6 +127,11 @@ let FuelAnomalyMiddleware = FuelAnomalyMiddleware_1 = class FuelAnomalyMiddlewar
                 fallbackAmount: 0,
             },
         };
+        if (refuel.isPythonConfirmed) {
+            this.logger.log(`[AnomalyMiddleware] ✅ Python-confirmed refuel at ${riseAt.toISOString()} — skipping re-validation`);
+            return { ...result, isAnomaly: false, anomalyType: 'none', confidence: 95,
+                reason: 'Python-confirmed refuel — skipping re-validation' };
+        }
         if (!readings || readings.length === 0) {
             this.logger.warn(`[AnomalyMiddleware] No readings available for refuel at ${riseAt.toISOString()} - passing through`);
             return { ...result, isAnomaly: false, anomalyType: 'none', confidence: 50,

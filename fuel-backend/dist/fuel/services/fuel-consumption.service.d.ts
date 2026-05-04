@@ -9,6 +9,7 @@ export interface RefuelEvent {
     fuelAfter: number;
     added: number;
     unit: string;
+    isPythonConfirmed?: boolean;
 }
 export interface DropEvent {
     at: string;
@@ -58,6 +59,7 @@ export declare class FuelConsumptionService {
     private readonly logger;
     constructor(transform: FuelTransformService, dynQuery: DynamicTableQueryService, dataSource: DataSource);
     getPythonAlerts(imei: string, from: Date, to: Date, unit?: string): Promise<PythonDropAlert[]>;
+    getPythonRefuels(imei: string, from: Date, to: Date, unit?: string): Promise<RefuelEvent[]>;
     getConsumption(imei: string, from: Date, to: Date, sensor: FuelSensor, fcrJson: string): Promise<ConsumptionResult>;
     private analyzeRows;
     private hasMovementDuringRefuelWindow;

@@ -228,6 +228,17 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
       },
     };
 
+    // Python-confirmed refuels have already been validated by the monitoring script.
+    // Skipping re-validation prevents raw sensor noise in the 1-5 min post-refuel
+    // window from generating false fake_spike positives.
+    if (refuel.isPythonConfirmed) {
+      this.logger.log(
+        `[AnomalyMiddleware] ✅ Python-confirmed refuel at ${riseAt.toISOString()} — skipping re-validation`,
+      );
+      return { ...result, isAnomaly: false, anomalyType: 'none', confidence: 95,
+        reason: 'Python-confirmed refuel — skipping re-validation' };
+    }
+
     // Without readings we cannot validate — pass through rather than false-positive.
     if (!readings || readings.length === 0) {
       this.logger.warn(

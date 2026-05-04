@@ -40,8 +40,8 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
         try {
             const rows = await this.dataSource.query(`SELECT alert_id, imei, previous_fuel, current_fuel, drop_amount, dt_tracker
          FROM fuel_drop_alerts
-         WHERE imei = ? AND dt_tracker BETWEEN ? AND ?
-         ORDER BY dt_tracker ASC`, [imei, from, to]);
+         WHERE imei = ? AND dt_tracker BETWEEN ? AND ? AND drop_amount >= ?
+         ORDER BY dt_tracker ASC`, [imei, from, to, fuel_drop_filter_util_1.DROP_ALERT_THRESHOLD]);
             return rows.map((r) => ({
                 at: r.dt_tracker instanceof Date
                     ? r.dt_tracker.toISOString()
@@ -58,6 +58,28 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
             return [];
         }
     }
+    async getPythonRefuels(imei, from, to, unit = 'Liters') {
+        try {
+            const rows = await this.dataSource.query(`SELECT alert_id, imei, previous_fuel, current_fuel, rise_amount, dt_tracker
+         FROM fuel_rise_alerts
+         WHERE imei = ? AND dt_tracker BETWEEN ? AND ? AND rise_amount >= ?
+         ORDER BY dt_tracker ASC`, [imei, from, to, fuel_drop_filter_util_1.DROP_ALERT_THRESHOLD]);
+            return rows.map((r) => ({
+                at: r.dt_tracker instanceof Date
+                    ? r.dt_tracker.toISOString()
+                    : new Date(r.dt_tracker).toISOString(),
+                fuelBefore: Math.round(r.previous_fuel * 100) / 100,
+                fuelAfter: Math.round(r.current_fuel * 100) / 100,
+                added: Math.round(r.rise_amount * 100) / 100,
+                unit,
+                isPythonConfirmed: true,
+            }));
+        }
+        catch (err) {
+            this.logger.warn(`getPythonRefuels error for IMEI ${imei}: ${err}`);
+            return [];
+        }
+    }
     async getConsumption(imei, from, to, sensor, fcrJson) {
         const warmupFrom = new Date(from.getTime() - WARMUP_HOURS * 60 * 60 * 1000);
         const allRows = await this.dynQuery.getRowsInRange(imei, warmupFrom, to);
@@ -65,7 +87,11 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
         const { drops: allDrops, refuels: allRefuels, readings } = this.analyzeRows(allRows, sensor, imei);
         const fromIso = from.toISOString();
         const drops = allDrops.filter((d) => d.at >= fromIso);
-        const refuels = allRefuels.filter((r) => r.at >= fromIso);
+        const jsRefuels = allRefuels.filter((r) => r.at >= fromIso);
+        const pythonRefuels = jsRefuels.length === 0
+            ? await this.getPythonRefuels(imei, from, to, sensor.units || 'L')
+            : [];
+        const refuels = jsRefuels.length > 0 ? jsRefuels : pythonRefuels;
         const actualReadings = readings.filter((r) => r.ts >= from);
         const firstFuel = actualReadings.length > 0 ? actualReadings[0].fuel : null;
         const lastFuel = actualReadings.length > 0 ? actualReadings[actualReadings.length - 1].fuel : null;
@@ -121,7 +147,7 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
         let lastFuel = null;
         let i = 0;
         while (i < transformed.length) {
-            const { ts, fuel } = transformed[i];
+            const { fuel } = transformed[i];
             if (firstFuel === null)
                 firstFuel = fuel;
             lastFuel = fuel;
