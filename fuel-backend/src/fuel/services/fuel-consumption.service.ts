@@ -235,7 +235,7 @@ export class FuelConsumptionService {
       `Consumption for IMEI ${imei}: fetched ${allRows.length} rows (${WARMUP_HOURS}h warmup from ${warmupFrom.toISOString()})`,
     );
   
-    const { drops: allDrops, refuels: allRefuels, readings } = this.analyzeRows(allRows, sensor, imei);
+    const { drops: allDrops, refuels: allRefuels, readings, rejectedRises } = this.analyzeRows(allRows, sensor, imei);
 
     const fromIso = from.toISOString();
     const drops   = allDrops.filter((d) => d.at >= fromIso);
@@ -246,9 +246,72 @@ export class FuelConsumptionService {
     // Python refuels (fuel_rise_alerts) are used ONLY when JS found zero refuels
     // in the period, which happens when pre-refuel sensor noise prevents JS from
     // detecting the rise (e.g. noisy driving before stopping to refuel).
-    const pythonRefuels = jsRefuels.length === 0
+    //
+    // Even then, Python entries that match a recent unconfirmed fake downward spike
+    // are filtered out — Python can record sensor oscillations during vehicle
+    // operation as "refuels", the same pattern the isFakeDropRecovery guard handles
+    // in analyzeRows (fake drop + rise-to-original-level = sensor noise, not refuel).
+    const rawPythonRefuels = jsRefuels.length === 0
       ? await this.getPythonRefuels(imei, from, to, sensor.units || 'L')
       : [];
+    this.logger.log(
+      `[PythonFilter] IMEI ${imei}: jsRefuels=${jsRefuels.length}, rawPythonRefuels=${rawPythonRefuels.length}, from=${from.toISOString()}, to=${to.toISOString()}`,
+    );
+    const pythonRefuels = rawPythonRefuels.filter((pr) => {
+      const prMs = new Date(pr.at).getTime();
+
+      // Reject if a nearby confirmed drop exists (theft/refuel pair — legitimate).
+      const hasNearbyConfirmedDrop = allDrops.some(
+        (d) => d.isConfirmedDrop &&
+          Math.abs(new Date(d.at).getTime() - prMs) < 60 * 60 * 1000,
+      );
+
+      // Filter A: matches a recent unconfirmed fake drop's dip/pre-drop levels.
+      const matchesFakeDrop = !hasNearbyConfirmedDrop && allDrops.some((d) => {
+        if (d.isConfirmedDrop) return false;
+        const dropAt = new Date(d.at).getTime();
+        return (
+          prMs - dropAt < 30 * 60 * 1000 &&
+          Math.abs(d.fuelAfter - pr.fuelBefore) < 5.0 &&
+          Math.abs(d.fuelBefore - pr.fuelAfter) < 10.0
+        );
+      });
+
+      // Filter B: majority-based raw-readings check.
+      // If ≥50% of calibrated readings in the 14 min before the Python-detected
+      // rise were already at/near pr.fuelAfter, the fuel was already high and
+      // this "rise" is a sensor spike recovery, not a real refuel.
+      // Uses a majority threshold (not any single reading) so brief upward sensor
+      // noise during a normal refuel approach does not trigger false rejections.
+      const preWindowMs = 2 * SPIKE_WINDOW_MINUTES * 60 * 1000;
+      const preRiseReadings = readings.filter(
+        (r) => r.ts.getTime() < prMs && r.ts.getTime() >= prMs - preWindowMs,
+      );
+      const highCount = preRiseReadings.filter(
+        (r) => r.fuel >= pr.fuelAfter - 5.0,
+      ).length;
+      const majorityWasHigh = !hasNearbyConfirmedDrop &&
+        preRiseReadings.length > 0 &&
+        highCount / preRiseReadings.length >= 0.5;
+
+      // Filter C: JS already analyzed and rejected a rise at the same time window.
+      // This catches spikes where median-filter dip level ≠ raw dip level (so Guard A
+      // misses), and where the spike lasted long enough for Guard B's majority to fail.
+      const JS_REJECT_WINDOW_MS = 15 * 60 * 1000;
+      const isRejectedByJS = !hasNearbyConfirmedDrop && rejectedRises.some(
+        (rt) => Math.abs(rt.getTime() - prMs) < JS_REJECT_WINDOW_MS,
+      );
+
+      this.logger.log(
+        `[PythonFilter] IMEI ${imei} pr.at=${pr.at} fuelBefore=${pr.fuelBefore} fuelAfter=${pr.fuelAfter} ` +
+        `hasNearbyConfirmedDrop=${hasNearbyConfirmedDrop} matchesFakeDrop=${matchesFakeDrop} ` +
+        `preRiseReadings=${preRiseReadings.length} highCount=${highCount} majorityWasHigh=${majorityWasHigh} ` +
+        `isRejectedByJS=${isRejectedByJS} ` +
+        `→ ${(!matchesFakeDrop && !majorityWasHigh && !isRejectedByJS) ? 'KEEP' : 'DISCARD'}`,
+      );
+
+      return !matchesFakeDrop && !majorityWasHigh && !isRejectedByJS;
+    });
     const refuels = jsRefuels.length > 0 ? jsRefuels : pythonRefuels;
   
     const actualReadings = readings.filter((r) => r.ts >= from);
@@ -302,7 +365,7 @@ export class FuelConsumptionService {
     rows: DataRow[],
     sensor: FuelSensor,
     imei: string,
-  ): { drops: DropEvent[]; refuels: RefuelEvent[]; firstFuel: number | null; lastFuel: number | null; readings: FuelReading[] } {
+  ): { drops: DropEvent[]; refuels: RefuelEvent[]; firstFuel: number | null; lastFuel: number | null; readings: FuelReading[]; rejectedRises: Date[] } {
     // ── Step 1: transform every row ──────────────────────────────────────────
     const raw: FuelReading[] = [];
     for (const row of rows) {
@@ -313,16 +376,20 @@ export class FuelConsumptionService {
       if (value === null) continue;
       raw.push({ ts, fuel: value, speed: row.speed });
     }
-  
+
     this.logger.log(
       `[DEBUG] IMEI ${imei} sensor param="${sensor.param}": ${rows.length} rows → ${raw.length} valid readings`,
     );
-  
+
     // ── Layer 1: Median Filter ────────────────────────────────────────────────
     const transformed = applyMedianFilter(raw, FUEL_MEDIAN_SAMPLES);
-  
+
     const drops: DropEvent[]   = [];
     const refuels: RefuelEvent[] = [];
+    // Timestamps of all rises that JS rejected (fakeRise, recoveryRise, postFallback,
+    // isFakeDropRecovery). Used by the Python fallback filter to discard Python-detected
+    // rises that JS already analyzed and rejected.
+    const rejectedRises: Date[] = [];
     let firstFuel: number | null = null;
     let lastFuel:  number | null = null;
   
@@ -433,18 +500,41 @@ export class FuelConsumptionService {
               `but fell back within consolidation window (< baselineFuel + ${RISE_THRESHOLD}L)`,
             );
           }
-  
-          const fakeRise = falledBackInConsolidation || isFakeRise(baselineTs, transformed);
-  
-          // Guard: if a confirmed drop was recorded within the last 60 minutes
-          // before this rise, the "fuel was already near peak" pattern is
-          // legitimate consumption followed by real refueling — skip recoveryRise.
+
+          // Compute early — used by both sensor-recovery guards and recoveryRise below.
           const recentConfirmedDrop = drops.some(
             (d) =>
               d.isConfirmedDrop &&
               d.at >= new Date(baselineTs.getTime() - 60 * 60 * 1000).toISOString() &&
               d.at <= baselineTs.toISOString(),
           );
+
+          // Guard A: fake-drop-record match — rise baseline ≈ a recorded unconfirmed
+          // spike's dip AND peak ≈ its pre-drop level. Catches sparse-data cases
+          // where the spike lasts >7 min (outside isFakeSpike window) but the drop
+          // record is still in allDrops.
+          const isFakeDropRecovery = !recentConfirmedDrop && drops.some((d) => {
+            const dropAt = new Date(d.at).getTime();
+            return (
+              !d.isConfirmedDrop &&
+              baselineTs.getTime() - dropAt < 30 * 60 * 1000 &&
+              Math.abs(d.fuelAfter  - baselineFuel) < 5.0 &&
+              Math.abs(d.fuelBefore - peakFuel)     < 10.0
+            );
+          });
+
+          if (isFakeDropRecovery) {
+            this.logger.log(
+              `[RISE] IMEI ${imei} at ${baselineTs.toISOString()}: ` +
+              `FAKE DROP RECOVERY — rise ${baselineFuel.toFixed(2)}→${peakFuel.toFixed(2)}L ` +
+              `matches recent unconfirmed downward spike, skipping refuel`,
+            );
+            rejectedRises.push(baselineTs);
+            i++;
+            continue;
+          }
+
+          const fakeRise = falledBackInConsolidation || isFakeRise(baselineTs, transformed);
   
           const recoveryRise =
             !fakeRise &&
@@ -521,15 +611,19 @@ export class FuelConsumptionService {
             continue;
           }
   
+          // Rise rejected — record its timestamp so the Python fallback filter
+          // can discard any Python-detected rise for the same spike event.
+          rejectedRises.push(baselineTs);
+
           // Rejected rise — do NOT skip to k. Advance one step so each
           // reading in the window gets re-examined individually.
         }
       }
-  
+
       i++;
     }
   
-    return { drops, refuels, firstFuel, lastFuel, readings: raw };
+    return { drops, refuels, firstFuel, lastFuel, readings: raw, rejectedRises };
   }
   private hasMovementDuringRefuelWindow(
     riseAt: Date,

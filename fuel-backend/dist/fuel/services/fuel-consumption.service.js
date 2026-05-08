@@ -84,13 +84,41 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
         const warmupFrom = new Date(from.getTime() - WARMUP_HOURS * 60 * 60 * 1000);
         const allRows = await this.dynQuery.getRowsInRange(imei, warmupFrom, to);
         this.logger.log(`Consumption for IMEI ${imei}: fetched ${allRows.length} rows (${WARMUP_HOURS}h warmup from ${warmupFrom.toISOString()})`);
-        const { drops: allDrops, refuels: allRefuels, readings } = this.analyzeRows(allRows, sensor, imei);
+        const { drops: allDrops, refuels: allRefuels, readings, rejectedRises } = this.analyzeRows(allRows, sensor, imei);
         const fromIso = from.toISOString();
         const drops = allDrops.filter((d) => d.at >= fromIso);
         const jsRefuels = allRefuels.filter((r) => r.at >= fromIso);
-        const pythonRefuels = jsRefuels.length === 0
+        const rawPythonRefuels = jsRefuels.length === 0
             ? await this.getPythonRefuels(imei, from, to, sensor.units || 'L')
             : [];
+        this.logger.log(`[PythonFilter] IMEI ${imei}: jsRefuels=${jsRefuels.length}, rawPythonRefuels=${rawPythonRefuels.length}, from=${from.toISOString()}, to=${to.toISOString()}`);
+        const pythonRefuels = rawPythonRefuels.filter((pr) => {
+            const prMs = new Date(pr.at).getTime();
+            const hasNearbyConfirmedDrop = allDrops.some((d) => d.isConfirmedDrop &&
+                Math.abs(new Date(d.at).getTime() - prMs) < 60 * 60 * 1000);
+            const matchesFakeDrop = !hasNearbyConfirmedDrop && allDrops.some((d) => {
+                if (d.isConfirmedDrop)
+                    return false;
+                const dropAt = new Date(d.at).getTime();
+                return (prMs - dropAt < 30 * 60 * 1000 &&
+                    Math.abs(d.fuelAfter - pr.fuelBefore) < 5.0 &&
+                    Math.abs(d.fuelBefore - pr.fuelAfter) < 10.0);
+            });
+            const preWindowMs = 2 * fuel_drop_filter_util_1.SPIKE_WINDOW_MINUTES * 60 * 1000;
+            const preRiseReadings = readings.filter((r) => r.ts.getTime() < prMs && r.ts.getTime() >= prMs - preWindowMs);
+            const highCount = preRiseReadings.filter((r) => r.fuel >= pr.fuelAfter - 5.0).length;
+            const majorityWasHigh = !hasNearbyConfirmedDrop &&
+                preRiseReadings.length > 0 &&
+                highCount / preRiseReadings.length >= 0.5;
+            const JS_REJECT_WINDOW_MS = 15 * 60 * 1000;
+            const isRejectedByJS = !hasNearbyConfirmedDrop && rejectedRises.some((rt) => Math.abs(rt.getTime() - prMs) < JS_REJECT_WINDOW_MS);
+            this.logger.log(`[PythonFilter] IMEI ${imei} pr.at=${pr.at} fuelBefore=${pr.fuelBefore} fuelAfter=${pr.fuelAfter} ` +
+                `hasNearbyConfirmedDrop=${hasNearbyConfirmedDrop} matchesFakeDrop=${matchesFakeDrop} ` +
+                `preRiseReadings=${preRiseReadings.length} highCount=${highCount} majorityWasHigh=${majorityWasHigh} ` +
+                `isRejectedByJS=${isRejectedByJS} ` +
+                `→ ${(!matchesFakeDrop && !majorityWasHigh && !isRejectedByJS) ? 'KEEP' : 'DISCARD'}`);
+            return !matchesFakeDrop && !majorityWasHigh && !isRejectedByJS;
+        });
         const refuels = jsRefuels.length > 0 ? jsRefuels : pythonRefuels;
         const actualReadings = readings.filter((r) => r.ts >= from);
         const firstFuel = actualReadings.length > 0 ? actualReadings[0].fuel : null;
@@ -143,6 +171,7 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
         const transformed = (0, fuel_drop_filter_util_1.applyMedianFilter)(raw, fuel_drop_filter_util_1.FUEL_MEDIAN_SAMPLES);
         const drops = [];
         const refuels = [];
+        const rejectedRises = [];
         let firstFuel = null;
         let lastFuel = null;
         let i = 0;
@@ -235,10 +264,25 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
                             `FAKE SPIKE — fuel rose ${totalAdded.toFixed(2)}L to peak=${peakFuel.toFixed(2)} ` +
                             `but fell back within consolidation window (< baselineFuel + ${fuel_drop_filter_util_1.RISE_THRESHOLD}L)`);
                     }
-                    const fakeRise = falledBackInConsolidation || (0, fuel_drop_filter_util_1.isFakeRise)(baselineTs, transformed);
                     const recentConfirmedDrop = drops.some((d) => d.isConfirmedDrop &&
                         d.at >= new Date(baselineTs.getTime() - 60 * 60 * 1000).toISOString() &&
                         d.at <= baselineTs.toISOString());
+                    const isFakeDropRecovery = !recentConfirmedDrop && drops.some((d) => {
+                        const dropAt = new Date(d.at).getTime();
+                        return (!d.isConfirmedDrop &&
+                            baselineTs.getTime() - dropAt < 30 * 60 * 1000 &&
+                            Math.abs(d.fuelAfter - baselineFuel) < 5.0 &&
+                            Math.abs(d.fuelBefore - peakFuel) < 10.0);
+                    });
+                    if (isFakeDropRecovery) {
+                        this.logger.log(`[RISE] IMEI ${imei} at ${baselineTs.toISOString()}: ` +
+                            `FAKE DROP RECOVERY — rise ${baselineFuel.toFixed(2)}→${peakFuel.toFixed(2)}L ` +
+                            `matches recent unconfirmed downward spike, skipping refuel`);
+                        rejectedRises.push(baselineTs);
+                        i++;
+                        continue;
+                    }
+                    const fakeRise = falledBackInConsolidation || (0, fuel_drop_filter_util_1.isFakeRise)(baselineTs, transformed);
                     const recoveryRise = !fakeRise &&
                         !recentConfirmedDrop &&
                         ((0, fuel_drop_filter_util_1.isRecoveryRise)(baselineTs, baselineFuel, peakFuel, transformed) ||
@@ -284,11 +328,12 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
                         i = k;
                         continue;
                     }
+                    rejectedRises.push(baselineTs);
                 }
             }
             i++;
         }
-        return { drops, refuels, firstFuel, lastFuel, readings: raw };
+        return { drops, refuels, firstFuel, lastFuel, readings: raw, rejectedRises };
     }
     hasMovementDuringRefuelWindow(riseAt, consolidationEndAt, readings) {
         const maxSpeed = readings
