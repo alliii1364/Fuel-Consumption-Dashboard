@@ -42,7 +42,29 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
          FROM fuel_drop_alerts
          WHERE imei = ? AND dt_tracker BETWEEN ? AND ? AND drop_amount >= ?
          ORDER BY dt_tracker ASC`, [imei, from, to, fuel_drop_filter_util_1.DROP_ALERT_THRESHOLD]);
-            return rows.map((r) => ({
+            const SPIKE_RECOVERY_RATIO = 0.5;
+            const SPIKE_RECOVERY_MAX_MS = 30 * 60 * 1000;
+            const filtered = rows.filter((r, idx) => {
+                const next = rows[idx + 1];
+                if (!next)
+                    return true;
+                const gapMs = new Date(next.dt_tracker).getTime() - new Date(r.dt_tracker).getTime();
+                if (gapMs > SPIKE_RECOVERY_MAX_MS)
+                    return true;
+                const dropMagnitude = r.previous_fuel - r.current_fuel;
+                if (dropMagnitude <= 0)
+                    return true;
+                const recoveryAmount = next.previous_fuel - r.current_fuel;
+                const recovered = recoveryAmount / dropMagnitude > SPIKE_RECOVERY_RATIO;
+                if (recovered) {
+                    this.logger.log(`[DropAlerts] IMEI ${imei} at ${new Date(r.dt_tracker).toISOString()}: ` +
+                        `SPIKE RECOVERY — drop ${r.previous_fuel.toFixed(1)}→${r.current_fuel.toFixed(1)}L ` +
+                        `(${dropMagnitude.toFixed(1)}L) but next drop starts at ${next.previous_fuel.toFixed(1)}L ` +
+                        `(${(recoveryAmount / dropMagnitude * 100).toFixed(0)}% recovery), skipping`);
+                }
+                return !recovered;
+            });
+            return filtered.map((r) => ({
                 at: r.dt_tracker instanceof Date
                     ? r.dt_tracker.toISOString()
                     : new Date(r.dt_tracker).toISOString(),

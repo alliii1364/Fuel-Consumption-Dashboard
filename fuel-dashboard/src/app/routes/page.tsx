@@ -338,9 +338,49 @@ export default function RoutesPage() {
             isConfirmedDrop: true,
           }));
 
+        // Merge all drop sources then filter out sensor oscillations.
+        // Pattern: sensor dips then recovers → next drop starts from HIGHER fuel
+        // than current drop's endpoint. If recovery > 50% of drop magnitude
+        // within 30 min → the drop was a spike, not a real loss.
+        const allDropEvents = [...confirmedDropEvents, ...nestDropEvents]
+          .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime()); // ASC for filter
+
+        const RECOVERY_RATIO    = 0.5;   // ≥50% recovery between drops = spike
+        const RECOVERY_MAX_MS   = 30 * 60 * 1000;
+        const PREDROP_NOISE_L   = 3.0;   // allow up to 3L sensor drift between drops
+        const PREDROP_RATIO     = 0.30;  // upward spike > 30% of drop magnitude = fake
+        const PREDROP_MAX_MS    = 60 * 60 * 1000;
+
+        // Pass 1: filter drops whose fuel recovered before the next drop (oscillations)
+        const pass1 = allDropEvents.filter((d, idx) => {
+          const next = allDropEvents[idx + 1];
+          if (!next) return true;
+          const gapMs = new Date(next.at).getTime() - new Date(d.at).getTime();
+          if (gapMs > RECOVERY_MAX_MS) return true;
+          const dropMag = d.fuelBefore - d.fuelAfter;
+          if (dropMag <= 0) return true;
+          const recovery = next.fuelBefore - d.fuelAfter;
+          return recovery / dropMag <= RECOVERY_RATIO;
+        });
+
+        // Pass 2: filter drops whose fuelBefore is inflated by a pre-drop upward spike.
+        // If fuel apparently went UP between the previous drop's endpoint and this drop's
+        // start (no refuel in between), the starting reading is sensor noise, and if the
+        // spike accounts for >30% of the apparent drop magnitude → fake.
+        const filteredDropEvents = pass1.filter((d, idx) => {
+          if (idx === 0) return true;
+          const prev = pass1[idx - 1];
+          const gapMs = new Date(d.at).getTime() - new Date(prev.at).getTime();
+          if (gapMs > PREDROP_MAX_MS) return true;
+          const upwardSpike = d.fuelBefore - prev.fuelAfter;
+          if (upwardSpike <= PREDROP_NOISE_L) return true; // within noise → real
+          const dropMag = d.fuelBefore - d.fuelAfter;
+          if (dropMag <= 0) return true;
+          return upwardSpike / dropMag <= PREDROP_RATIO;
+        });
+
         const events: FuelEvent[] = [
-          ...confirmedDropEvents,
-          ...nestDropEvents,
+          ...filteredDropEvents,
           ...refuelEvents,
         ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()); // Latest first
         setFuelEvents(events);
