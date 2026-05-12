@@ -351,9 +351,26 @@ export default function RoutesPage() {
         const PREDROP_RATIO     = 0.30;  // upward spike > 30% of drop magnitude = fake
         const PREDROP_MAX_MS    = 60 * 60 * 1000;
 
+        // Pass 0: filter drops that recovered to near pre-drop level in raw readings
+        // within 15 minutes — catches V-shaped sensor spikes where the recovery
+        // happens via a RISE (not another drop), so Pass 1 can't see it.
+        const SPIKE_RECOVERY_WINDOW_MS = 15 * 60 * 1000;
+        const SPIKE_RECOVERY_FUEL_TOL  = 5.0; // within 5L of pre-drop level = recovered
+        const rawReadings: Array<{ ts: string; fuel: number }> = (c as any).readings ?? [];
+        const pass0 = allDropEvents.filter((d) => {
+          const dropAt = new Date(d.at).getTime();
+          const recovered = rawReadings.some((r) => {
+            const rMs = new Date(r.ts).getTime();
+            return rMs > dropAt &&
+                   rMs <= dropAt + SPIKE_RECOVERY_WINDOW_MS &&
+                   r.fuel >= d.fuelBefore - SPIKE_RECOVERY_FUEL_TOL;
+          });
+          return !recovered;
+        });
+
         // Pass 1: filter drops whose fuel recovered before the next drop (oscillations)
-        const pass1 = allDropEvents.filter((d, idx) => {
-          const next = allDropEvents[idx + 1];
+        const pass1 = pass0.filter((d, idx) => {
+          const next = pass0[idx + 1];
           if (!next) return true;
           const gapMs = new Date(next.at).getTime() - new Date(d.at).getTime();
           if (gapMs > RECOVERY_MAX_MS) return true;

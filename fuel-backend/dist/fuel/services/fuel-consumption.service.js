@@ -132,14 +132,36 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
             const majorityWasHigh = !hasNearbyConfirmedDrop &&
                 preRiseReadings.length > 0 &&
                 highCount / preRiseReadings.length >= 0.5;
-            const JS_REJECT_WINDOW_MS = 15 * 60 * 1000;
-            const isRejectedByJS = !hasNearbyConfirmedDrop && rejectedRises.some((rt) => Math.abs(rt.getTime() - prMs) < JS_REJECT_WINDOW_MS);
+            const JS_REJECT_WINDOW_MS = hasNearbyConfirmedDrop
+                ? 5 * 60 * 1000
+                : 15 * 60 * 1000;
+            const isRejectedByJS = rejectedRises.some((rt) => Math.abs(rt.getTime() - prMs) < JS_REJECT_WINDOW_MS);
+            const PREDIP_WINDOW_MS = 20 * 60 * 1000;
+            const PREDIP_TOLERANCE_L = 5.0;
+            let hasPrecedingRawSpike = false;
+            if (!hasNearbyConfirmedDrop) {
+                const predipReadings = readings.filter((r) => r.ts.getTime() >= prMs - PREDIP_WINDOW_MS && r.ts.getTime() <= prMs);
+                for (let ri = 0; ri + 1 < predipReadings.length; ri++) {
+                    const dipDelta = predipReadings[ri].fuel - predipReadings[ri + 1].fuel;
+                    if (dipDelta >= fuel_drop_filter_util_1.DROP_ALERT_THRESHOLD) {
+                        const levelBeforeDip = predipReadings[ri].fuel;
+                        if (Math.abs(pr.fuelAfter - levelBeforeDip) <= PREDIP_TOLERANCE_L) {
+                            hasPrecedingRawSpike = true;
+                            this.logger.log(`[PythonFilter] IMEI ${imei} pr.at=${pr.at}: PRECEDING RAW SPIKE — ` +
+                                `dip ${levelBeforeDip.toFixed(1)}→${predipReadings[ri + 1].fuel.toFixed(1)}L ` +
+                                `(${dipDelta.toFixed(1)}L drop), pr.fuelAfter=${pr.fuelAfter.toFixed(1)}L ` +
+                                `≈ pre-dip level (within ${PREDIP_TOLERANCE_L}L) → DISCARD`);
+                            break;
+                        }
+                    }
+                }
+            }
             this.logger.log(`[PythonFilter] IMEI ${imei} pr.at=${pr.at} fuelBefore=${pr.fuelBefore} fuelAfter=${pr.fuelAfter} ` +
                 `hasNearbyConfirmedDrop=${hasNearbyConfirmedDrop} matchesFakeDrop=${matchesFakeDrop} ` +
                 `preRiseReadings=${preRiseReadings.length} highCount=${highCount} majorityWasHigh=${majorityWasHigh} ` +
-                `isRejectedByJS=${isRejectedByJS} ` +
-                `→ ${(!matchesFakeDrop && !majorityWasHigh && !isRejectedByJS) ? 'KEEP' : 'DISCARD'}`);
-            return !matchesFakeDrop && !majorityWasHigh && !isRejectedByJS;
+                `isRejectedByJS=${isRejectedByJS}(window=${JS_REJECT_WINDOW_MS / 60000}min) hasPrecedingRawSpike=${hasPrecedingRawSpike} ` +
+                `→ ${(!matchesFakeDrop && !majorityWasHigh && !isRejectedByJS && !hasPrecedingRawSpike) ? 'KEEP' : 'DISCARD'}`);
+            return !matchesFakeDrop && !majorityWasHigh && !isRejectedByJS && !hasPrecedingRawSpike;
         });
         const refuels = jsRefuels.length > 0 ? jsRefuels : pythonRefuels;
         const actualReadings = readings.filter((r) => r.ts >= from);

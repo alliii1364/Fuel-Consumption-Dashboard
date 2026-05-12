@@ -326,20 +326,55 @@ export class FuelConsumptionService {
       // Filter C: JS already analyzed and rejected a rise at the same time window.
       // This catches spikes where median-filter dip level ≠ raw dip level (so Guard A
       // misses), and where the spike lasted long enough for Guard B's majority to fail.
-      const JS_REJECT_WINDOW_MS = 15 * 60 * 1000;
-      const isRejectedByJS = !hasNearbyConfirmedDrop && rejectedRises.some(
+      // When a confirmed real drop is nearby, sensor oscillations create many rejected
+      // rises — use a tight 5-min window so we only match the exact same spike event,
+      // not unrelated post-theft noise. Normal (no nearby drop) uses 15 min.
+      const JS_REJECT_WINDOW_MS = hasNearbyConfirmedDrop
+        ? 5 * 60 * 1000   // tight: only catch the same spike event
+        : 15 * 60 * 1000; // normal: broader window for isolated spikes
+      const isRejectedByJS = rejectedRises.some(
         (rt) => Math.abs(rt.getTime() - prMs) < JS_REJECT_WINDOW_MS,
       );
+
+      // Filter D: very-short raw dip preceding this Python rise (< 3 readings, so
+      // median filter erased it entirely and JS never saw it). If raw data shows a
+      // sudden drop ≥ DROP_ALERT_THRESHOLD within 20 min before the Python rise, and
+      // the level before that dip ≈ pr.fuelAfter, the Python rise is just detecting
+      // the spike recovery — not a real refuel.
+      const PREDIP_WINDOW_MS   = 20 * 60 * 1000;
+      const PREDIP_TOLERANCE_L = 5.0;
+      let hasPrecedingRawSpike = false;
+      if (!hasNearbyConfirmedDrop) {
+        const predipReadings = readings.filter(
+          (r) => r.ts.getTime() >= prMs - PREDIP_WINDOW_MS && r.ts.getTime() <= prMs,
+        );
+        for (let ri = 0; ri + 1 < predipReadings.length; ri++) {
+          const dipDelta = predipReadings[ri].fuel - predipReadings[ri + 1].fuel;
+          if (dipDelta >= DROP_ALERT_THRESHOLD) {
+            const levelBeforeDip = predipReadings[ri].fuel;
+            if (Math.abs(pr.fuelAfter - levelBeforeDip) <= PREDIP_TOLERANCE_L) {
+              hasPrecedingRawSpike = true;
+              this.logger.log(
+                `[PythonFilter] IMEI ${imei} pr.at=${pr.at}: PRECEDING RAW SPIKE — ` +
+                `dip ${levelBeforeDip.toFixed(1)}→${predipReadings[ri + 1].fuel.toFixed(1)}L ` +
+                `(${dipDelta.toFixed(1)}L drop), pr.fuelAfter=${pr.fuelAfter.toFixed(1)}L ` +
+                `≈ pre-dip level (within ${PREDIP_TOLERANCE_L}L) → DISCARD`,
+              );
+              break;
+            }
+          }
+        }
+      }
 
       this.logger.log(
         `[PythonFilter] IMEI ${imei} pr.at=${pr.at} fuelBefore=${pr.fuelBefore} fuelAfter=${pr.fuelAfter} ` +
         `hasNearbyConfirmedDrop=${hasNearbyConfirmedDrop} matchesFakeDrop=${matchesFakeDrop} ` +
         `preRiseReadings=${preRiseReadings.length} highCount=${highCount} majorityWasHigh=${majorityWasHigh} ` +
-        `isRejectedByJS=${isRejectedByJS} ` +
-        `→ ${(!matchesFakeDrop && !majorityWasHigh && !isRejectedByJS) ? 'KEEP' : 'DISCARD'}`,
+        `isRejectedByJS=${isRejectedByJS}(window=${JS_REJECT_WINDOW_MS / 60000}min) hasPrecedingRawSpike=${hasPrecedingRawSpike} ` +
+        `→ ${(!matchesFakeDrop && !majorityWasHigh && !isRejectedByJS && !hasPrecedingRawSpike) ? 'KEEP' : 'DISCARD'}`,
       );
 
-      return !matchesFakeDrop && !majorityWasHigh && !isRejectedByJS;
+      return !matchesFakeDrop && !majorityWasHigh && !isRejectedByJS && !hasPrecedingRawSpike;
     });
     const refuels = jsRefuels.length > 0 ? jsRefuels : pythonRefuels;
   
