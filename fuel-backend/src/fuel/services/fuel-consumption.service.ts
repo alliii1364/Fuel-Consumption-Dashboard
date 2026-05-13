@@ -319,7 +319,7 @@ export class FuelConsumptionService {
       const highCount = preRiseReadings.filter(
         (r) => r.fuel >= pr.fuelAfter - 5.0,
       ).length;
-      const majorityWasHigh = !hasNearbyConfirmedDrop &&
+      const majorityWasHigh =
         preRiseReadings.length > 0 &&
         highCount / preRiseReadings.length >= 0.5;
 
@@ -344,25 +344,48 @@ export class FuelConsumptionService {
       const PREDIP_WINDOW_MS   = 20 * 60 * 1000;
       const PREDIP_TOLERANCE_L = 5.0;
       let hasPrecedingRawSpike = false;
-      if (!hasNearbyConfirmedDrop) {
-        const predipReadings = readings.filter(
-          (r) => r.ts.getTime() >= prMs - PREDIP_WINDOW_MS && r.ts.getTime() <= prMs,
-        );
-        for (let ri = 0; ri + 1 < predipReadings.length; ri++) {
-          const dipDelta = predipReadings[ri].fuel - predipReadings[ri + 1].fuel;
-          if (dipDelta >= DROP_ALERT_THRESHOLD) {
-            const levelBeforeDip = predipReadings[ri].fuel;
-            if (Math.abs(pr.fuelAfter - levelBeforeDip) <= PREDIP_TOLERANCE_L) {
-              hasPrecedingRawSpike = true;
-              this.logger.log(
-                `[PythonFilter] IMEI ${imei} pr.at=${pr.at}: PRECEDING RAW SPIKE — ` +
-                `dip ${levelBeforeDip.toFixed(1)}→${predipReadings[ri + 1].fuel.toFixed(1)}L ` +
-                `(${dipDelta.toFixed(1)}L drop), pr.fuelAfter=${pr.fuelAfter.toFixed(1)}L ` +
-                `≈ pre-dip level (within ${PREDIP_TOLERANCE_L}L) → DISCARD`,
-              );
-              break;
-            }
+      const predipReadings = readings.filter(
+        (r) => r.ts.getTime() >= prMs - PREDIP_WINDOW_MS && r.ts.getTime() <= prMs,
+      );
+      for (let ri = 0; ri + 1 < predipReadings.length; ri++) {
+        const dipDelta = predipReadings[ri].fuel - predipReadings[ri + 1].fuel;
+        if (dipDelta >= DROP_ALERT_THRESHOLD) {
+          const levelBeforeDip = predipReadings[ri].fuel;
+          if (Math.abs(pr.fuelAfter - levelBeforeDip) <= PREDIP_TOLERANCE_L) {
+            hasPrecedingRawSpike = true;
+            this.logger.log(
+              `[PythonFilter] IMEI ${imei} pr.at=${pr.at}: PRECEDING RAW SPIKE — ` +
+              `dip ${levelBeforeDip.toFixed(1)}→${predipReadings[ri + 1].fuel.toFixed(1)}L ` +
+              `(${dipDelta.toFixed(1)}L drop), pr.fuelAfter=${pr.fuelAfter.toFixed(1)}L ` +
+              `≈ pre-dip level (within ${PREDIP_TOLERANCE_L}L) → DISCARD`,
+            );
+            break;
           }
+        }
+      }
+
+      // Filter E: post-rise stability.
+      // A real refuel keeps fuel elevated for at least 10-30 min. A sensor spike
+      // falls back toward the pre-spike level. Check the minimum raw fuel reading
+      // in the [+10, +30] min window after pr.at: if it drops below the midpoint
+      // of the rise, the rise did not sustain → fake.
+      // Skip if < 3 readings are available (event too recent to verify).
+      const POST_START_MS = 10 * 60 * 1000;
+      const POST_END_MS   = 30 * 60 * 1000;
+      const sustainThreshold = pr.fuelBefore + 0.5 * (pr.fuelAfter - pr.fuelBefore);
+      const postReadings = readings.filter(
+        (r) => r.ts.getTime() > prMs + POST_START_MS && r.ts.getTime() <= prMs + POST_END_MS,
+      );
+      let riseDidNotSustain = false;
+      if (postReadings.length >= 3) {
+        const minPostFuel = Math.min(...postReadings.map((r) => r.fuel));
+        if (minPostFuel < sustainThreshold) {
+          riseDidNotSustain = true;
+          this.logger.log(
+            `[PythonFilter] IMEI ${imei} pr.at=${pr.at}: RISE NOT SUSTAINED — ` +
+            `min post-rise fuel (+10-30min) = ${minPostFuel.toFixed(1)}L < ` +
+            `midpoint ${sustainThreshold.toFixed(1)}L → DISCARD`,
+          );
         }
       }
 
@@ -371,10 +394,11 @@ export class FuelConsumptionService {
         `hasNearbyConfirmedDrop=${hasNearbyConfirmedDrop} matchesFakeDrop=${matchesFakeDrop} ` +
         `preRiseReadings=${preRiseReadings.length} highCount=${highCount} majorityWasHigh=${majorityWasHigh} ` +
         `isRejectedByJS=${isRejectedByJS}(window=${JS_REJECT_WINDOW_MS / 60000}min) hasPrecedingRawSpike=${hasPrecedingRawSpike} ` +
-        `→ ${(!matchesFakeDrop && !majorityWasHigh && !isRejectedByJS && !hasPrecedingRawSpike) ? 'KEEP' : 'DISCARD'}`,
+        `riseDidNotSustain=${riseDidNotSustain}(postN=${postReadings.length},threshold=${sustainThreshold.toFixed(1)}L) ` +
+        `→ ${(!matchesFakeDrop && !majorityWasHigh && !isRejectedByJS && !hasPrecedingRawSpike && !riseDidNotSustain) ? 'KEEP' : 'DISCARD'}`,
       );
 
-      return !matchesFakeDrop && !majorityWasHigh && !isRejectedByJS && !hasPrecedingRawSpike;
+      return !matchesFakeDrop && !majorityWasHigh && !isRejectedByJS && !hasPrecedingRawSpike && !riseDidNotSustain;
     });
     const refuels = jsRefuels.length > 0 ? jsRefuels : pythonRefuels;
   
