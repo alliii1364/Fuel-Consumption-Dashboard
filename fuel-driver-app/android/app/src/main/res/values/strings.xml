@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">FuelIQ Driver</string>
+    <string name="title_activity_main">FuelIQ Driver</string>
+    <string name="package_name">com.iteck.fueliqdriver</string>
+    <string name="custom_url_scheme">com.iteck.fueliqdriver</string>
+</resources>

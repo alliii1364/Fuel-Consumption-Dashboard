@@ -192,7 +192,7 @@ const fmtTime = (iso: string) => fmtDateTime(iso);
 
 function FuelEventsList({ events }: { events: FuelEvent[] }) {
   if (events.length === 0) return (
-    <p style={{ fontSize: 11, color: "#9CA3AF", marginTop: 6 }}>No fuel events in this period.</p>
+    <p style={{ fontSize: 11, color: "var(--color-text-3)", marginTop: 6 }}>No fuel events in this period.</p>
   );
   return (
     <div style={{ maxHeight: 200, overflowY: "auto", marginTop: 8 }}>
@@ -207,9 +207,9 @@ function FuelEventsList({ events }: { events: FuelEvent[] }) {
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
                 <span style={{ fontSize: 10, fontWeight: 700, color: col }}>{isDrop ? "▼ Drop" : "▲ Refuel"}</span>
-                <span style={{ fontSize: 12, fontWeight: 800, color: "#1A1A2E" }}>{isDrop ? "−" : "+"}{(ev.amount ?? 0).toFixed(1)} L</span>
+                <span style={{ fontSize: 12, fontWeight: 800, color: "var(--color-text-1)" }}>{isDrop ? "−" : "+"}{(ev.amount ?? 0).toFixed(1)} L</span>
               </div>
-              <p style={{ fontSize: 10, color: "#9CA3AF" }}>{(ev.fuelBefore ?? 0).toFixed(1)} → {(ev.fuelAfter ?? 0).toFixed(1)} L · {fmtTime(ev.at)}</p>
+              <p style={{ fontSize: 10, color: "var(--color-text-3)" }}>{(ev.fuelBefore ?? 0).toFixed(1)} → {(ev.fuelAfter ?? 0).toFixed(1)} L · {fmtTime(ev.at)}</p>
             </div>
           </div>
         );
@@ -301,10 +301,10 @@ export default function RouteMap({
                     </svg>
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontWeight: 700, fontSize: 14, color: "#1A1A2E" }}>{v.name}</p>
-                    <p style={{ fontSize: 10, color: "#9CA3AF" }}>{v.plateNumber} · {v.model || v.device}</p>
+                    <p style={{ fontWeight: 700, fontSize: 14, color: "var(--color-text-1)" }}>{v.name}</p>
+                    <p style={{ fontSize: 10, color: "var(--color-text-3)" }}>{v.plateNumber} · {v.model || v.device}</p>
                   </div>
-                  <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 12, flexShrink: 0, background: v.status === "online" ? "rgba(34,197,94,0.1)" : "rgba(107,114,128,0.1)", color: v.status === "online" ? "#16a34a" : "#6B7280" }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 12, flexShrink: 0, background: v.status === "online" ? "rgba(34,197,94,0.1)" : "rgba(107,114,128,0.1)", color: v.status === "online" ? "#16a34a" : "var(--color-text-2)" }}>
                     {v.status === "online" ? "● Online" : "● Offline"}
                   </span>
                 </div>
@@ -313,12 +313,12 @@ export default function RouteMap({
                 {isSelected && currentFuel && (
                   <div style={{ background: "#F9F9F9", borderRadius: 10, padding: "8px 10px", marginBottom: 8 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                      <span style={{ fontSize: 10, fontWeight: 600, color: "#9CA3AF" }}>Current Fuel Level</span>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: "var(--color-text-3)" }}>Current Fuel Level</span>
                       <span style={{ fontSize: 12, fontWeight: 800, color: fuelColor(fuelPct ?? 0) }}>
                         {(currentFuel.fuel ?? 0).toFixed(1)} L
                       </span>
                     </div>
-                    <div style={{ height: 6, background: "#EBEBEB", borderRadius: 3, overflow: "hidden" }}>
+                    <div style={{ height: 6, background: "var(--color-border-input)", borderRadius: 3, overflow: "hidden" }}>
                       <div style={{ height: "100%", width: `${fuelPct ?? 0}%`, background: fuelColor(fuelPct ?? 0), borderRadius: 3, transition: "width 0.4s" }} />
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3 }}>
@@ -331,12 +331,12 @@ export default function RouteMap({
                 {/* Status chips */}
                 <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
                   {v.speed > 0 && (
-                    <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 12, background: "rgba(232,64,64,0.08)", color: "#E84040" }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 12, background: "rgba(var(--color-primary-rgb), 0.08)", color: "var(--color-primary)" }}>
                       🚀 {v.speed} km/h
                     </span>
                   )}
                   {currentFuel && currentFuel.speed === 0 && (
-                    <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 12, background: "#F5F4F4", color: "#9CA3AF" }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 12, background: "var(--color-bg)", color: "var(--color-text-3)" }}>
                       Parked
                     </span>
                   )}
@@ -358,7 +358,7 @@ export default function RouteMap({
                 </p>
 
                 {/* Last seen */}
-                <p style={{ fontSize: 10, color: "#9CA3AF", marginBottom: 8 }}>
+                <p style={{ fontSize: 10, color: "var(--color-text-3)", marginBottom: 8 }}>
                   Last seen: {fmtTime(v.lastSeen)}
                 </p>
 
@@ -366,7 +366,7 @@ export default function RouteMap({
                 {isSelected && vehicleEvents.length > 0 && !hasGpsEvents && (
                   <>
                     <div style={{ borderTop: "1px solid #F0F0F0", paddingTop: 8, marginTop: 4 }}>
-                      <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                      <p style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-3)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
                         Fuel Events · {vehicleEvents.length} total
                       </p>
                     </div>
@@ -375,7 +375,7 @@ export default function RouteMap({
                 )}
 
                 {!isSelected && (
-                  <button onClick={() => onSelectVehicle(v.imei)} style={{ width: "100%", background: "#E84040", color: "white", border: "none", borderRadius: 8, padding: "7px 0", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                  <button onClick={() => onSelectVehicle(v.imei)} style={{ width: "100%", background: "var(--color-primary)", color: "white", border: "none", borderRadius: 8, padding: "7px 0", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
                     Select &amp; View Fuel Events
                   </button>
                 )}
@@ -404,13 +404,13 @@ export default function RouteMap({
                     <div style={{ width: 8, height: 8, borderRadius: "50%", background: col }} />
                     <span style={{ fontSize: 11, fontWeight: 700, color: col }}>{isDrop ? "Fuel Drop" : "Refuel"}</span>
                   </div>
-                  <p style={{ fontSize: 18, fontWeight: 800, color: "#1A1A2E", lineHeight: 1.1, marginBottom: 4 }}>
+                  <p style={{ fontSize: 18, fontWeight: 800, color: "var(--color-text-1)", lineHeight: 1.1, marginBottom: 4 }}>
                     {isDrop ? "−" : "+"}{(ev.amount ?? 0).toFixed(1)} L
                   </p>
-                  <p style={{ fontSize: 11, color: "#9CA3AF" }}>
+                  <p style={{ fontSize: 11, color: "var(--color-text-3)" }}>
                     Before: <b>{(ev.fuelBefore ?? 0).toFixed(1)} L</b> → After: <b>{(ev.fuelAfter ?? 0).toFixed(1)} L</b>
                   </p>
-                  <p style={{ fontSize: 11, color: "#9CA3AF", marginTop: 4 }}>{fmtTime(ev.at)}</p>
+                  <p style={{ fontSize: 11, color: "var(--color-text-3)", marginTop: 4 }}>{fmtTime(ev.at)}</p>
                 </div>
               </Popup>
             </Marker>

@@ -1,0 +1,207 @@
+"use client";
+
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Loader2, ArrowLeft, MapPin, Flag, Camera, CheckCircle2, WifiOff } from "lucide-react";
+import { getMyJob, updateMyJobStatus, uploadProof, Assignment, RouteDetail } from "@/lib/dispatch";
+import { getDriverToken } from "@/lib/driverSession";
+import { storeGet, storeSet, cacheKeys } from "@/lib/native/store";
+import { capturePhoto } from "@/lib/native/camera";
+import { startTracking, stopTracking } from "@/lib/native/location";
+
+// Driver-facing forward transitions.
+const NEXT: Record<string, { to: string; label: string } | null> = {
+  assigned: { to: "accepted", label: "Accept job" },
+  accepted: { to: "en_route", label: "Start driving" },
+  en_route: { to: "arrived", label: "Mark arrived" },
+  arrived: { to: "completed", label: "Complete job" },
+  completed: null,
+  cancelled: null,
+};
+
+type JobData = { assignment: Assignment; route: RouteDetail };
+
+function DriverJobDetailInner() {
+  const search = useSearchParams();
+  const router = useRouter();
+  const id = Number(search.get("id"));
+  const [token, setToken] = useState<string | null>(null);
+  const [data, setData] = useState<JobData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [offline, setOffline] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [podBusy, setPodBusy] = useState(false);
+  const [podDone, setPodDone] = useState(false);
+  const tracking = useRef(false);
+
+  useEffect(() => {
+    const t = getDriverToken();
+    if (!t) { router.replace("/driver"); return; }
+    setToken(t);
+  }, [router]);
+
+  const load = useCallback(async () => {
+    if (!token || !id) return;
+    try {
+      const fresh = await getMyJob(token, id);
+      setData(fresh);
+      setOffline(false);
+      setError(null);
+      void storeSet(cacheKeys.job(id), fresh); // cache for offline
+    } catch (e: any) {
+      // Offline / server unreachable — fall back to the cached copy.
+      const cached = await storeGet<JobData>(cacheKeys.job(id));
+      if (cached) { setData(cached); setOffline(true); setError(null); }
+      else setError(e?.message || "Failed to load job");
+    }
+  }, [token, id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Report location to the manager while the job is in progress.
+  useEffect(() => {
+    const status = data?.assignment.status;
+    if (!token) return;
+    if (status === "en_route" && !tracking.current) {
+      tracking.current = true;
+      void startTracking(token, id);
+    } else if (status && status !== "en_route" && tracking.current) {
+      tracking.current = false;
+      void stopTracking();
+    }
+    return () => { if (tracking.current) { tracking.current = false; void stopTracking(); } };
+  }, [data?.assignment.status, token, id]);
+
+  async function advance(to: string) {
+    if (!token) return;
+    setBusy(true);
+    try {
+      await updateMyJobStatus(token, id, to);
+      await load();
+    } catch (e: any) {
+      setError(e?.message || "Update failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function captureProof() {
+    if (!token) return;
+    setPodBusy(true);
+    setError(null);
+    try {
+      const photo = await capturePhoto();
+      if (!photo) { setPodBusy(false); return; }
+      // Attach current position if the browser/device offers it quickly.
+      const pos = await new Promise<GeolocationPosition | null>((resolve) => {
+        if (typeof navigator === "undefined" || !navigator.geolocation) return resolve(null);
+        navigator.geolocation.getCurrentPosition((p) => resolve(p), () => resolve(null), { timeout: 5000 });
+      });
+      await uploadProof(token, id, {
+        photo: photo.blob,
+        lat: pos?.coords.latitude,
+        lng: pos?.coords.longitude,
+      });
+      setPodDone(true);
+    } catch (e: any) {
+      setError(e?.message || "Proof upload failed");
+    } finally {
+      setPodBusy(false);
+    }
+  }
+
+  if (!data) {
+    if (error) return <div className="min-h-screen flex items-center justify-center p-6 text-center text-sm text-red-600">{error}</div>;
+    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
+  }
+
+  const { assignment: a, route } = data;
+  const next = NEXT[a.status];
+  const canCapturePod = a.status === "en_route" || a.status === "arrived";
+
+  return (
+    <div className="max-w-md mx-auto p-4 pb-28">
+      <button onClick={() => router.push("/driver")} className="flex items-center gap-1 text-sm text-gray-500 mb-3">
+        <ArrowLeft size={16} /> Back
+      </button>
+
+      {offline && (
+        <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+          <WifiOff size={14} /> Offline — showing the last saved copy of this job.
+        </div>
+      )}
+
+      <div className="bg-white rounded-xl p-4 shadow-sm mb-3">
+        <h1 className="font-bold text-gray-800">{route.name}</h1>
+        <p className="text-xs text-gray-500">{a.vehicleName || a.imei} · {a.priority} priority</p>
+        <div className="mt-2 inline-block text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ background: "#7c3aed" }}>
+          {a.status}
+        </div>
+        {route.totalDistanceKm != null && (
+          <p className="text-xs text-gray-500 mt-2">
+            {route.totalDistanceKm.toFixed(1)} km
+            {route.totalDurationS ? ` · ~${Math.round(route.totalDurationS / 60)} min` : ""}
+          </p>
+        )}
+      </div>
+
+      <div className="bg-white rounded-xl p-4 shadow-sm">
+        <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Stops ({route.stops.length})</p>
+        <div className="flex flex-col gap-2">
+          {route.stops.map((s, i) => (
+            <div key={s.stopId ?? i} className="flex items-start gap-2.5">
+              <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5" style={{ background: i === route.stops.length - 1 ? "#16a34a" : "var(--color-primary)" }}>
+                {i === route.stops.length - 1 ? <Flag size={12} /> : i + 1}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-800">{s.name || `Stop ${i + 1}`}</p>
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-blue-600 flex items-center gap-1"
+                >
+                  <MapPin size={11} /> Navigate
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {canCapturePod && (
+        <button
+          onClick={captureProof}
+          disabled={podBusy}
+          className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border disabled:opacity-50"
+          style={{ borderColor: podDone ? "#16a34a" : "var(--color-border)", color: podDone ? "#16a34a" : "#374151", background: "#fff" }}
+        >
+          {podDone ? <><CheckCircle2 size={16} /> Proof captured</> : <><Camera size={16} /> {podBusy ? "Uploading…" : "Capture proof of delivery"}</>}
+        </button>
+      )}
+
+      {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
+
+      {next && (
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t" style={{ borderColor: "var(--color-border)" }}>
+          <button
+            onClick={() => advance(next.to)}
+            disabled={busy}
+            className="w-full max-w-md mx-auto block py-3 rounded-xl text-sm font-bold text-white disabled:opacity-50"
+            style={{ background: "var(--color-primary)" }}
+          >
+            {busy ? "Updating…" : next.label}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function DriverJobDetail() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>}>
+      <DriverJobDetailInner />
+    </Suspense>
+  );
+}

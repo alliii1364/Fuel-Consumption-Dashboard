@@ -61,14 +61,16 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
       // Check if this is a fuel consumption/history response
       if (this.isFuelResponse(body)) {
         const imei = body.imei || body.data?.imei || 'unknown';
-        const refuelCount = body.refuels?.length || body.data?.refuels?.length || 0;
+        const refuelCount =
+          body.refuels?.length || body.data?.refuels?.length || 0;
         this.logger.log(
           `[AnomalyMiddleware] Processing fuel response for IMEI=${imei}, refuels=${refuelCount}`,
         );
 
         try {
           const processedBody = this.processFuelResponse(body);
-          const anomalousCount = processedBody._anomalyMeta?.summary?.anomalous || 0;
+          const anomalousCount =
+            processedBody._anomalyMeta?.summary?.anomalous || 0;
           if (anomalousCount > 0) {
             this.logger.warn(
               `[AnomalyMiddleware] ⚠️ Detected ${anomalousCount} anomalous refuel(s) for IMEI=${imei}`,
@@ -150,7 +152,10 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
     const verifiedRefuels = validatedRefuels.filter((r: any) => r.isVerified);
     const verifiedRefueled =
       Math.round(
-        verifiedRefuels.reduce((sum: number, r: any) => sum + (r.added || 0), 0) * 100,
+        verifiedRefuels.reduce(
+          (sum: number, r: any) => sum + (r.added || 0),
+          0,
+        ) * 100,
       ) / 100;
     const anomalyMeta = {
       summary: anomalySummary,
@@ -186,7 +191,10 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
     }
 
     // Log anomalies for debugging
-    this.logAnomalies(body.imei || body.data?.imei || 'unknown', validatedRefuels);
+    this.logAnomalies(
+      body.imei || body.data?.imei || 'unknown',
+      validatedRefuels,
+    );
 
     return processed;
   }
@@ -237,8 +245,7 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
         isAnomaly: true,
         anomalyType: 'no_stationary_period',
         confidence: 50,
-        reason:
-          'Insufficient data to validate refuel - treating as suspicious',
+        reason: 'Insufficient data to validate refuel - treating as suspicious',
       };
     }
 
@@ -255,7 +262,8 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
         isAnomaly: true,
         anomalyType: 'fake_spike',
         confidence: 90,
-        reason: `Fuel spiked +${added.toFixed(1)}L but dropped ${quickSpikeCheck.fallbackAmount.toFixed(1)}L ` +
+        reason:
+          `Fuel spiked +${added.toFixed(1)}L but dropped ${quickSpikeCheck.fallbackAmount.toFixed(1)}L ` +
           `within ${Math.round(quickSpikeCheck.minutes)} minutes - sensor jerk detected`,
       };
     }
@@ -398,10 +406,7 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
     const beforeRise = windowReadings.filter((r) => r.ts <= riseAt);
     const afterRise = windowReadings.filter((r) => r.ts > riseAt);
 
-    const maxSpeedDuring = Math.max(
-      ...beforeRise.map((r) => r.speed ?? 0),
-      0,
-    );
+    const maxSpeedDuring = Math.max(...beforeRise.map((r) => r.speed ?? 0), 0);
     const maxSpeedAfter = Math.max(...afterRise.map((r) => r.speed ?? 0), 0);
 
     return {
@@ -455,28 +460,34 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
     riseAt: Date,
     peakFuel: number,
     readings: FuelReading[],
-  ): { didFallback: boolean; finalFuel: number; fallbackAmount: number; windowChecked: string } {
+  ): {
+    didFallback: boolean;
+    finalFuel: number;
+    fallbackAmount: number;
+    windowChecked: string;
+  } {
     // Check 1: Immediate fallback (within 2-7 minutes) - for quick spikes
     const immediateWindowMs = 2 * 60 * 1000; // Start after 2 min
-    const immediateEndMs = 7 * 60 * 1000;    // End at 7 min
+    const immediateEndMs = 7 * 60 * 1000; // End at 7 min
     const immediateReadings = readings.filter(
-      (r) => r.ts > new Date(riseAt.getTime() + immediateWindowMs) && 
-             r.ts <= new Date(riseAt.getTime() + immediateEndMs),
+      (r) =>
+        r.ts > new Date(riseAt.getTime() + immediateWindowMs) &&
+        r.ts <= new Date(riseAt.getTime() + immediateEndMs),
     );
 
     if (immediateReadings.length > 0) {
-      const minFuelInWindow = Math.min(...immediateReadings.map(r => r.fuel));
+      const minFuelInWindow = Math.min(...immediateReadings.map((r) => r.fuel));
       const immediateFallback = peakFuel - minFuelInWindow;
-      
+
       if (immediateFallback > this.FALLBACK_EPSILON_LITERS) {
         this.logger.debug(
           `[AnomalyMiddleware] ⚠️ Immediate fallback detected: ${immediateFallback.toFixed(1)}L drop within 2-7 min`,
         );
-        return { 
-          didFallback: true, 
-          finalFuel: minFuelInWindow, 
+        return {
+          didFallback: true,
+          finalFuel: minFuelInWindow,
           fallbackAmount: immediateFallback,
-          windowChecked: 'immediate (2-7min)'
+          windowChecked: 'immediate (2-7min)',
         };
       }
     }
@@ -492,7 +503,7 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
 
     if (postReadings.length === 0) {
       // No readings in standard window, check any reading after 7 min
-      const anyAfter = readings.filter(r => r.ts > postStart);
+      const anyAfter = readings.filter((r) => r.ts > postStart);
       if (anyAfter.length > 0) {
         const finalFuel = anyAfter[anyAfter.length - 1].fuel;
         const fallbackAmount = peakFuel - finalFuel;
@@ -503,7 +514,12 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
           windowChecked: 'any-after-7min',
         };
       }
-      return { didFallback: false, finalFuel: peakFuel, fallbackAmount: 0, windowChecked: 'no-readings' };
+      return {
+        didFallback: false,
+        finalFuel: peakFuel,
+        fallbackAmount: 0,
+        windowChecked: 'no-readings',
+      };
     }
 
     const finalFuel = postReadings[postReadings.length - 1].fuel;
@@ -557,11 +573,12 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
   ): { isQuickSpike: boolean; fallbackAmount: number; minutes: number } {
     // Look at readings from 1 minute after rise up to 5 minutes
     const startMs = 1 * 60 * 1000; // 1 minute after
-    const endMs = 5 * 60 * 1000;   // 5 minutes after
-    
+    const endMs = 5 * 60 * 1000; // 5 minutes after
+
     const windowReadings = readings.filter(
-      (r) => r.ts > new Date(riseAt.getTime() + startMs) && 
-             r.ts <= new Date(riseAt.getTime() + endMs),
+      (r) =>
+        r.ts > new Date(riseAt.getTime() + startMs) &&
+        r.ts <= new Date(riseAt.getTime() + endMs),
     );
 
     if (windowReadings.length === 0) {
@@ -569,12 +586,12 @@ export class FuelAnomalyMiddleware implements NestMiddleware {
     }
 
     // Find minimum fuel in this window
-    const minFuel = Math.min(...windowReadings.map(r => r.fuel));
+    const minFuel = Math.min(...windowReadings.map((r) => r.fuel));
     const fallbackAmount = peakFuel - minFuel;
-    
+
     // Find when the minimum occurred
-    const minReading = windowReadings.find(r => r.fuel === minFuel);
-    const minutes = minReading 
+    const minReading = windowReadings.find((r) => r.fuel === minFuel);
+    const minutes = minReading
       ? (minReading.ts.getTime() - riseAt.getTime()) / (60 * 1000)
       : 0;
 

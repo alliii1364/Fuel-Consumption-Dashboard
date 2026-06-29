@@ -24,7 +24,7 @@ import {
   Fuel,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
 import DateRangePicker from "@/components/DateRangePicker";
 import { fmtDateTime } from "@/lib/dateUtils";
 import {
@@ -39,7 +39,6 @@ import {
   VehicleStatusReportData,
   TheftReportData,
   FleetTheftReportData,
-  FuelHistoryData,
   FuelBucket,
 } from "@/lib/types";
 import {
@@ -148,7 +147,6 @@ function AnalyticsPage() {
   const [highSpeedData, setHighSpeedData] = useState<HighSpeedWasteReportData | null>(null);
   const [vehicleStatusData, setVehicleStatusData] = useState<VehicleStatusReportData | null>(null);
   const [fleetTheftData, setFleetTheftData] = useState<FleetTheftReportData | null>(null);
-  const [fuelHistoryCache, setFuelHistoryCache] = useState<Map<string, FuelHistoryData>>(new Map());
   const [detectionResults, setDetectionResults] = useState<Map<string, HistoryAnalysisResult>>(new Map());
 
   const [loading, setLoading] = useState(false);
@@ -307,7 +305,6 @@ function AnalyticsPage() {
         });
         setPythonAlertsMap(newPythonMap);
 
-        const newCache = new Map<string, FuelHistoryData>();
         const newResults = new Map<string, HistoryAnalysisResult>();
 
         histories.forEach((history, index) => {
@@ -316,7 +313,6 @@ function AnalyticsPage() {
           // Always add an entry to detectionResults so the vehicle shows up
           // even without history — Python alerts will be shown regardless.
           if (history && history.buckets.length > 0) {
-            newCache.set(imei, history);
             const result = processHistory(imei, history.buckets);
             newResults.set(imei, result);
           } else {
@@ -335,7 +331,6 @@ function AnalyticsPage() {
           }
         });
 
-        setFuelHistoryCache(newCache);
         setDetectionResults(newResults);
       } catch (e) {
         console.error("[Analytics] Failed to load fuel history:", e);
@@ -928,84 +923,6 @@ function AnalyticsPage() {
         </div>
       )}
 
-      {/* DEBUG: Raw Bucket Data */}
-      {fuelHistoryCache.size > 0 && (
-        <div className="bg-gray-900 rounded-2xl p-5 text-gray-100 font-mono text-xs">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-white">Debug: Raw Fuel History Buckets</h3>
-            <span className="text-gray-400">Helps troubleshoot missing drops</span>
-          </div>
-          {Array.from(fuelHistoryCache.entries()).map(([imei, history]) => {
-            const vehicle = vehicles.find((v) => v.imei === imei);
-            const drops = detectionResults.get(imei)?.drops || [];
-            
-            // Find the biggest drop in the data
-            const biggestDrop = drops.length > 0 
-              ? drops.reduce((max, d) => d.consumed > max.consumed ? d : max, drops[0])
-              : null;
-
-            return (
-              <div key={imei} className="mb-6">
-                <p className="text-green-400 mb-2">
-                  {vehicle?.name || imei} ({history.buckets.length} buckets, {drops.length} drops detected)
-                </p>
-                
-                {biggestDrop && (
-                  <p className="text-yellow-400 mb-2">
-                    Biggest Drop: {biggestDrop.consumed.toFixed(2)}L at {new Date(biggestDrop.at).toLocaleTimeString()}
-                    {biggestDrop.isConfirmedDrop ? " ✓ CONFIRMED" : " (not confirmed)"}
-                  </p>
-                )}
-                
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className="text-gray-500 border-b border-gray-700">
-                        <th className="py-1">Time</th>
-                        <th className="py-1">Fuel</th>
-                        <th className="py-1">Change</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {history.buckets.slice(0, 20).map((bucket, idx) => {
-                        const prevFuel = idx > 0 ? history.buckets[idx - 1].fuel : bucket.fuel;
-                        const change = bucket.fuel - prevFuel;
-                        const isDrop = change < -1;
-                        const isBigDrop = change <= -DROP_THRESHOLD;
-                        
-                        return (
-                          <tr 
-                            key={idx} 
-                            className={`border-b border-gray-800 ${
-                              isBigDrop ? "bg-red-900/30" : isDrop ? "bg-yellow-900/20" : ""
-                            }`}
-                          >
-                            <td className="py-1 text-gray-400">
-                              {new Date(bucket.dt).toLocaleTimeString()}
-                            </td>
-                            <td className="py-1">{bucket.fuel.toFixed(2)}L</td>
-                            <td className={`py-1 ${
-                              isBigDrop ? "text-red-400 font-bold" : 
-                              isDrop ? "text-yellow-400" : 
-                              change > 0 ? "text-green-400" : "text-gray-500"
-                            }`}>
-                              {change > 0 ? "+" : ""}{change.toFixed(2)}L
-                              {isBigDrop && " ⚠️ DROP"}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                  {history.buckets.length > 20 && (
-                    <p className="text-gray-500 mt-2">... {history.buckets.length - 20} more buckets</p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 
@@ -1067,17 +984,14 @@ function AnalyticsPage() {
 
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="flex items-center justify-center h-screen" style={{ background: "var(--color-bg)" }}>
         <Loader2 size={40} className="text-red-500 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100">
-      <Sidebar />
-
-      <div className="flex-1 flex flex-col overflow-hidden">
+    <AppShell>
         {/* Premium Header */}
         <div className="flex-shrink-0 px-6 py-4 flex items-center justify-between bg-white/95 backdrop-blur-xl border-b border-gray-100">
           <div className="flex items-center gap-4">
@@ -1163,8 +1077,7 @@ function AnalyticsPage() {
             {renderContent()}
           </div>
         </div>
-      </div>
-    </div>
+    </AppShell>
   );
 }
 

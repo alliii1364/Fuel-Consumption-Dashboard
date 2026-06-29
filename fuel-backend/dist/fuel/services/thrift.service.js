@@ -72,8 +72,10 @@ let ThriftService = ThriftService_1 = class ThriftService {
             try {
                 const p = JSON.parse(row.params);
                 ignition =
-                    p['acc'] === '1' || p['acc'] === 1 ||
-                        p['io1'] === '1' || p['io1'] === 1;
+                    p['acc'] === '1' ||
+                        p['acc'] === 1 ||
+                        p['io1'] === '1' ||
+                        p['io1'] === 1;
             }
             catch {
             }
@@ -118,7 +120,9 @@ let ThriftService = ThriftService_1 = class ThriftService {
         const dLat = this.toRad(lat2 - lat1);
         const dLng = this.toRad(lng2 - lng1);
         const a = Math.sin(dLat / 2) ** 2 +
-            Math.cos(this.toRad(lat1)) * Math.cos(this.toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+            Math.cos(this.toRad(lat1)) *
+                Math.cos(this.toRad(lat2)) *
+                Math.sin(dLng / 2) ** 2;
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
     toRad(deg) {
@@ -139,7 +143,9 @@ let ThriftService = ThriftService_1 = class ThriftService {
             prevFuel = row.fuel;
         }
         liters = Math.round(liters * 100) / 100;
-        const percentage = totalConsumed > 0 ? Math.round((liters / totalConsumed) * 100 * 10) / 10 : 0;
+        const percentage = totalConsumed > 0
+            ? Math.round((liters / totalConsumed) * 100 * 10) / 10
+            : 0;
         return { liters, percentage };
     }
     calcHighSpeedDrain(rows, totalConsumed) {
@@ -161,7 +167,9 @@ let ThriftService = ThriftService_1 = class ThriftService {
             prevSpeed = row.speed;
         }
         liters = Math.round(liters * 100) / 100;
-        const percentage = totalConsumed > 0 ? Math.round((liters / totalConsumed) * 100 * 10) / 10 : 0;
+        const percentage = totalConsumed > 0
+            ? Math.round((liters / totalConsumed) * 100 * 10) / 10
+            : 0;
         return { liters, percentage, events };
     }
     calcDailyTrend(rows, from, to, unit) {

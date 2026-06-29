@@ -30,11 +30,18 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
         this.dataSource = dataSource;
     }
     async validate(payload) {
+        if (payload.role === 'driver') {
+            const rows = await this.dataSource.query(`SELECT driver_id FROM fd_driver_credentials WHERE driver_id = ? AND active = 1 LIMIT 1`, [payload.driverId]);
+            if (!rows.length) {
+                throw new common_1.UnauthorizedException('Driver not found or inactive');
+            }
+            return payload;
+        }
         const rows = await this.dataSource.query(`SELECT id FROM gs_users WHERE id = ? AND active = 'true' LIMIT 1`, [payload.id]);
         if (!rows.length) {
             throw new common_1.UnauthorizedException('User not found or inactive');
         }
-        return payload;
+        return { ...payload, role: 'manager' };
     }
 };
 exports.JwtStrategy = JwtStrategy;

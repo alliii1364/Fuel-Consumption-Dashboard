@@ -20,7 +20,7 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
 import DateRangePicker from "@/components/DateRangePicker";
 import {
   ApiError,
@@ -119,7 +119,7 @@ const ReportTabButton = memo(({ config, isActive, onClick }: ReportTabButtonProp
       className="flex items-center justify-center gap-2 flex-1 px-4 py-3 rounded-lg text-sm font-semibold transition-all"
       style={{
         background: isActive ? config.color : "rgba(255, 255, 255, 0.9)",
-        color: isActive ? "white" : "#6B7280",
+        color: isActive ? "white" : "var(--color-text-2)",
         border: isActive ? "none" : "1px solid rgba(229, 231, 235, 0.8)",
         boxShadow: isActive ? `0 4px 12px ${config.color}50` : "0 1px 3px rgba(0,0,0,0.05)",
       }}
@@ -371,12 +371,12 @@ function ReportsPage() {
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ background: "#FEF2F2" }}>
             <AlertCircle size={32} style={{ color: "#ef4444" }} />
           </div>
-          <h3 className="text-lg font-semibold mb-2" style={{ color: "#1A1A2E" }}>Failed to Load Report</h3>
-          <p className="text-sm mb-4" style={{ color: "#9CA3AF" }}>{error}</p>
+          <h3 className="text-lg font-semibold mb-2" style={{ color: "var(--color-text-1)" }}>Failed to Load Report</h3>
+          <p className="text-sm mb-4" style={{ color: "var(--color-text-3)" }}>{error}</p>
           <button
             onClick={() => window.location.reload()}
             className="px-4 py-2 rounded-lg text-sm font-medium"
-            style={{ background: "#E84040", color: "white" }}
+            style={{ background: "var(--color-primary)", color: "white" }}
           >
             Retry
           </button>
@@ -443,17 +443,14 @@ function ReportsPage() {
 
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center h-screen" style={{ background: "linear-gradient(135deg, #F8FAFC, #F1F5F9)" }}>
-        <Loader2 size={40} style={{ color: "#E84040" }} className="animate-spin" />
+      <div className="flex items-center justify-center h-screen" style={{ background: "var(--color-bg)" }}>
+        <Loader2 size={40} style={{ color: "var(--color-primary)" }} className="animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: "linear-gradient(135deg, #F8FAFC, #F1F5F9)" }}>
-      <Sidebar />
-
-      <div className="flex-1 flex flex-col overflow-hidden">
+    <AppShell>
         {/* Premium Header */}
         <div
           className="flex-shrink-0 px-4 py-3 flex items-center justify-between"
@@ -467,17 +464,17 @@ function ReportsPage() {
             <button
               onClick={() => router.push("/")}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-gray-100"
-              style={{ color: "#6B7280" }}
+              style={{ color: "var(--color-text-2)" }}
             >
               <ChevronLeft size={16} />
               Dashboard
             </button>
             <div className="h-5 w-px" style={{ background: "#E5E7EB" }} />
             <div>
-              <h1 className="text-lg font-bold tracking-tight" style={{ color: "#1A1A2E" }}>
+              <h1 className="text-lg font-bold tracking-tight" style={{ color: "var(--color-text-1)" }}>
                 Reports & Analytics
               </h1>
-              <p className="text-[10px]" style={{ color: "#9CA3AF" }}>
+              <p className="text-[10px]" style={{ color: "var(--color-text-3)" }}>
                 {currentConfig.description}
               </p>
             </div>
@@ -495,8 +492,8 @@ function ReportsPage() {
               disabled={exportState.isExporting || loading}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
               style={{
-                background: exportState.isExporting ? "#FEF2F2" : "#E84040",
-                color: exportState.isExporting ? "#E84040" : "white",
+                background: exportState.isExporting ? "#FEF2F2" : "var(--color-primary)",
+                color: exportState.isExporting ? "var(--color-primary)" : "white",
                 boxShadow: exportState.isExporting ? "none" : "0 2px 8px rgba(226, 63, 63, 0.25)",
               }}
             >
@@ -545,8 +542,7 @@ function ReportsPage() {
             {renderContent}
           </div>
         </div>
-      </div>
-    </div>
+    </AppShell>
   );
 }
 

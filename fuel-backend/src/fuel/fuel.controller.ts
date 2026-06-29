@@ -9,10 +9,16 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ImeiOwnershipGuard } from '../common/guards/imei-ownership.guard';
-import { FuelSensor, FuelSensorResolverService } from './services/fuel-sensor-resolver.service';
+import {
+  FuelSensor,
+  FuelSensorResolverService,
+} from './services/fuel-sensor-resolver.service';
 import { FuelTransformService } from './services/fuel-transform.service';
 import { DynamicTableQueryService } from './services/dynamic-table-query.service';
-import { FuelHistoryService, FuelInterval } from './services/fuel-history.service';
+import {
+  FuelHistoryService,
+  FuelInterval,
+} from './services/fuel-history.service';
 import { FuelConsumptionService } from './services/fuel-consumption.service';
 import { FuelStatsService } from './services/fuel-stats.service';
 import { ThriftService } from './services/thrift.service';
@@ -78,16 +84,24 @@ export class FuelController {
     @Param('imei') imei: string,
     @Query('sensorId') sensorIdStr?: string,
   ) {
-    this.logger.log(`GET /vehicles/${imei}/fuel/current sensorId=${sensorIdStr}`);
+    this.logger.log(
+      `GET /vehicles/${imei}/fuel/current sensorId=${sensorIdStr}`,
+    );
 
     const row = await this.dynQuery.getLatestRow(imei);
     const ts = row ? new Date(row.dt_tracker).toISOString() : null;
 
     if (sensorIdStr) {
       const sensorId = parseInt(sensorIdStr, 10);
-      if (isNaN(sensorId)) throw new BadRequestException('sensorId must be a number');
-      const sensor = await this.sensorResolver.resolveSensorById(imei, sensorId);
-      const value = row ? this.readSensorValue(row.params, sensor, imei, ts!) : null;
+      if (isNaN(sensorId))
+        throw new BadRequestException('sensorId must be a number');
+      const sensor = await this.sensorResolver.resolveSensorById(
+        imei,
+        sensorId,
+      );
+      const value = row
+        ? this.readSensorValue(row.params, sensor, imei, ts!)
+        : null;
       return {
         success: true,
         message: 'Current fuel level fetched',
@@ -109,7 +123,9 @@ export class FuelController {
     // Multiple sensors: return each tank + combined total
     const sensors = await this.sensorResolver.resolveAllFuelSensors(imei);
     const tanks = sensors.map((sensor) => {
-      const value = row ? this.readSensorValue(row.params, sensor, imei, ts!) : null;
+      const value = row
+        ? this.readSensorValue(row.params, sensor, imei, ts!)
+        : null;
       return {
         sensorId: sensor.sensorId,
         sensorName: sensor.name,
@@ -193,16 +209,36 @@ export class FuelController {
 
     if (sensorIdStr) {
       const sensor = await this.resolveSensor(imei, sensorIdStr);
-      const result = await this.consumptionService.getConsumption(imei, from, to, sensor, fcrJson);
-      return { success: true, message: 'Fuel consumption calculated', data: result };
+      const result = await this.consumptionService.getConsumption(
+        imei,
+        from,
+        to,
+        sensor,
+        fcrJson,
+      );
+      return {
+        success: true,
+        message: 'Fuel consumption calculated',
+        data: result,
+      };
     }
 
     // Multiple sensors: sum across all tanks
     const sensors = await this.sensorResolver.resolveAllFuelSensors(imei);
 
     if (sensors.length === 1) {
-      const result = await this.consumptionService.getConsumption(imei, from, to, sensors[0], fcrJson);
-      return { success: true, message: 'Fuel consumption calculated', data: result };
+      const result = await this.consumptionService.getConsumption(
+        imei,
+        from,
+        to,
+        sensors[0],
+        fcrJson,
+      );
+      return {
+        success: true,
+        message: 'Fuel consumption calculated',
+        data: result,
+      };
     }
 
     // Multi-tank: calculate per tank then aggregate
@@ -212,14 +248,14 @@ export class FuelController {
       ),
     );
 
-    const totalConsumed = Math.round(
-      tankResults.reduce((s, r) => s + r.consumed, 0) * 100,
-    ) / 100;
-    const totalRefueled = Math.round(
-      tankResults.reduce((s, r) => s + r.refueled, 0) * 100,
-    ) / 100;
+    const totalConsumed =
+      Math.round(tankResults.reduce((s, r) => s + r.consumed, 0) * 100) / 100;
+    const totalRefueled =
+      Math.round(tankResults.reduce((s, r) => s + r.refueled, 0) * 100) / 100;
     const totalCost = tankResults.every((r) => r.estimatedCost !== null)
-      ? Math.round(tankResults.reduce((s, r) => s + (r.estimatedCost ?? 0), 0) * 100) / 100
+      ? Math.round(
+          tankResults.reduce((s, r) => s + (r.estimatedCost ?? 0), 0) * 100,
+        ) / 100
       : null;
 
     // Merge and de-duplicate drops/refuels across all tanks.
@@ -303,9 +339,19 @@ export class FuelController {
     }> = [];
 
     for (const sensor of sensors) {
-      const result = await this.consumptionService.getConsumption(imei, from, to, sensor, fcrJson);
+      const result = await this.consumptionService.getConsumption(
+        imei,
+        from,
+        to,
+        sensor,
+        fcrJson,
+      );
       for (const r of result.refuels) {
-        allRefuels.push({ sensorId: sensor.sensorId, sensorName: sensor.name, ...r });
+        allRefuels.push({
+          sensorId: sensor.sensorId,
+          sensorName: sensor.name,
+          ...r,
+        });
       }
     }
 
@@ -342,7 +388,12 @@ export class FuelController {
 
     const samples = rows.map((row) => {
       const ts = new Date(row.dt_tracker).toISOString();
-      const rawValue = this.transform.extractRawValue(row.params, sensor.param, imei, ts);
+      const rawValue = this.transform.extractRawValue(
+        row.params,
+        sensor.param,
+        imei,
+        ts,
+      );
       const { value, method } =
         rawValue !== null
           ? this.transform.transform(rawValue, sensor)
@@ -351,7 +402,13 @@ export class FuelController {
     });
 
     const fcrJson = await this.getFcr(imei);
-    const result = await this.consumptionService.getConsumption(imei, from, to, sensor, fcrJson);
+    const result = await this.consumptionService.getConsumption(
+      imei,
+      from,
+      to,
+      sensor,
+      fcrJson,
+    );
 
     return {
       success: true,
@@ -423,7 +480,13 @@ export class FuelController {
     const fcrJson = await this.getFcr(imei);
     const pricePerLiter = this.parsePricePerLiter(fcrJson, from);
 
-    const result = await this.statsService.getStats(imei, from, to, sensor, pricePerLiter);
+    const result = await this.statsService.getStats(
+      imei,
+      from,
+      to,
+      sensor,
+      pricePerLiter,
+    );
 
     return {
       success: true,
@@ -447,7 +510,12 @@ export class FuelController {
     );
     const { from, to } = this.parseDateRange(query.from, query.to);
     const unit = 'Liters';
-    const alerts = await this.consumptionService.getPythonAlerts(imei, from, to, unit);
+    const alerts = await this.consumptionService.getPythonAlerts(
+      imei,
+      from,
+      to,
+      unit,
+    );
     return {
       success: true,
       message: `${alerts.length} confirmed drop alert(s) found`,
@@ -479,7 +547,12 @@ export class FuelController {
     const { from, to } = this.parseDateRange(query.from, query.to);
     const sensor = await this.resolveSensor(imei, sensorIdStr);
 
-    const result = await this.theftDetectionService.detectTheft(imei, from, to, sensor);
+    const result = await this.theftDetectionService.detectTheft(
+      imei,
+      from,
+      to,
+      sensor,
+    );
 
     return {
       success: true,
@@ -490,10 +563,14 @@ export class FuelController {
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
-  private async resolveSensor(imei: string, sensorIdStr?: string): Promise<FuelSensor> {
+  private async resolveSensor(
+    imei: string,
+    sensorIdStr?: string,
+  ): Promise<FuelSensor> {
     if (sensorIdStr) {
       const sensorId = parseInt(sensorIdStr, 10);
-      if (isNaN(sensorId)) throw new BadRequestException('sensorId must be a number');
+      if (isNaN(sensorId))
+        throw new BadRequestException('sensorId must be a number');
       return this.sensorResolver.resolveSensorById(imei, sensorId);
     }
     return this.sensorResolver.resolveFuelSensor(imei);
@@ -505,12 +582,20 @@ export class FuelController {
     imei: string,
     ts: string,
   ) {
-    const rawValue = this.transform.extractRawValue(paramsJson, sensor.param, imei, ts);
+    const rawValue = this.transform.extractRawValue(
+      paramsJson,
+      sensor.param,
+      imei,
+      ts,
+    );
     if (rawValue === null) return null;
     return this.transform.transform(rawValue, sensor);
   }
 
-  private parseDateRange(fromStr: string, toStr: string): { from: Date; to: Date } {
+  private parseDateRange(
+    fromStr: string,
+    toStr: string,
+  ): { from: Date; to: Date } {
     const from = new Date(fromStr);
     const to = new Date(toStr);
 
@@ -539,7 +624,9 @@ export class FuelController {
         const rates = parsed as Array<{ from: string; pricePerLiter: number }>;
         const sorted = rates
           .filter((r) => new Date(r.from) <= from)
-          .sort((a, b) => new Date(b.from).getTime() - new Date(a.from).getTime());
+          .sort(
+            (a, b) => new Date(b.from).getTime() - new Date(a.from).getTime(),
+          );
         return sorted[0]?.pricePerLiter ?? null;
       }
       const obj = parsed as { cost?: string };

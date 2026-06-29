@@ -54,7 +54,7 @@ export function ComparisonCard({
     const isPositive = lowerIsBetter ? diff < 0 : diff > 0;
 
     if (Math.abs(diff) < 0.01) {
-      return <Minus size={16} style={{ color: "#9CA3AF" }} />;
+      return <Minus size={16} style={{ color: "var(--color-text-3)" }} />;
     }
 
     return isPositive ? (
@@ -74,7 +74,7 @@ export function ComparisonCard({
         boxShadow: "0 2px 12px rgba(0, 0, 0, 0.03)",
       }}
     >
-      <h3 className="font-semibold text-base mb-5" style={{ color: "#1A1A2E" }}>
+      <h3 className="font-semibold text-base mb-5" style={{ color: "var(--color-text-1)" }}>
         {title}
       </h3>
 
@@ -127,7 +127,7 @@ export function ComparisonCard({
               </div>
 
               <div className="flex-1 text-center">
-                <p className="text-xs font-medium mb-1" style={{ color: "#6B7280" }}>
+                <p className="text-xs font-medium mb-1" style={{ color: "var(--color-text-2)" }}>
                   {metric.label}
                 </p>
                 <div

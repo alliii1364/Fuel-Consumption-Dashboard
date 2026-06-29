@@ -25,23 +25,23 @@ export default function QuickCalendar() {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <CalendarDays size={15} style={{ color: "#E84040" }} />
-          <span className="text-sm font-bold" style={{ color: "#1A1A2E" }}>{MONTHS[vm]} {vy}</span>
+          <CalendarDays size={15} style={{ color: "var(--color-primary)" }} />
+          <span className="text-sm font-bold" style={{ color: "var(--color-text-1)" }}>{MONTHS[vm]} {vy}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <button
             onClick={prevMonth}
             className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors"
-            style={{ background: "#F5F4F4", border: "1px solid #EBEBEB" }}
+            style={{ background: "var(--color-bg)", border: "1px solid var(--color-border-input)" }}
           >
-            <ChevronLeft size={13} style={{ color: "#6B7280" }} />
+            <ChevronLeft size={13} style={{ color: "var(--color-text-2)" }} />
           </button>
           <button
             onClick={nextMonth}
             className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors"
-            style={{ background: "#F5F4F4", border: "1px solid #EBEBEB" }}
+            style={{ background: "var(--color-bg)", border: "1px solid var(--color-border-input)" }}
           >
-            <ChevronRight size={13} style={{ color: "#6B7280" }} />
+            <ChevronRight size={13} style={{ color: "var(--color-text-2)" }} />
           </button>
         </div>
       </div>
@@ -49,7 +49,7 @@ export default function QuickCalendar() {
       {/* Day headers */}
       <div className="grid grid-cols-7 mb-1">
         {DAYS.map(d => (
-          <div key={d} className="text-center text-xs font-semibold py-1" style={{ color: "#9CA3AF" }}>{d}</div>
+          <div key={d} className="text-center text-xs font-semibold py-1" style={{ color: "var(--color-text-3)" }}>{d}</div>
         ))}
       </div>
 
@@ -64,16 +64,16 @@ export default function QuickCalendar() {
               <button
                 className="w-8 h-8 rounded-lg text-xs font-medium transition-all"
                 style={{
-                  background: isToday ? "#E84040" : "transparent",
-                  color: isToday ? "#FFF" : "#1A1A2E",
-                  boxShadow: isToday ? "0 4px 12px rgba(232,64,64,0.3)" : "none",
+                  background: isToday ? "var(--color-primary)" : "transparent",
+                  color: isToday ? "#FFF" : "var(--color-text-1)",
+                  boxShadow: isToday ? "0 4px 12px rgba(var(--color-primary-rgb), 0.3)" : "none",
                   fontWeight: isToday ? 700 : 500,
                 }}
               >
                 {day}
               </button>
               {hasEvent && !isToday && (
-                <div className="w-1 h-1 rounded-full mt-0.5" style={{ background: "#E84040" }} />
+                <div className="w-1 h-1 rounded-full mt-0.5" style={{ background: "var(--color-primary)" }} />
               )}
             </div>
           );
@@ -83,15 +83,15 @@ export default function QuickCalendar() {
       {/* Upcoming event */}
       <div
         className="mt-4 rounded-xl p-3.5 flex items-center gap-3"
-        style={{ background: "rgba(232,64,64,0.05)", border: "1px solid rgba(232,64,64,0.15)" }}
+        style={{ background: "rgba(var(--color-primary-rgb), 0.05)", border: "1px solid rgba(var(--color-primary-rgb), 0.15)" }}
       >
         <div
           className="w-1.5 h-10 rounded-full flex-shrink-0"
-          style={{ background: "#E84040" }}
+          style={{ background: "var(--color-primary)" }}
         />
         <div>
-          <p className="text-sm font-semibold" style={{ color: "#1A1A2E" }}>Fleet Maintenance Day</p>
-          <p className="text-xs mt-0.5" style={{ color: "#9CA3AF" }}>Today · 2:00 PM — 6 vehicles</p>
+          <p className="text-sm font-semibold" style={{ color: "var(--color-text-1)" }}>Fleet Maintenance Day</p>
+          <p className="text-xs mt-0.5" style={{ color: "var(--color-text-3)" }}>Today · 2:00 PM — 6 vehicles</p>
         </div>
       </div>
     </div>

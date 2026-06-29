@@ -32,16 +32,20 @@ let FuelStatsService = FuelStatsService_1 = class FuelStatsService {
         const allRows = await this.dynQuery.getRowsInRange(imei, warmupFrom, to);
         this.logger.log(`Stats for IMEI ${imei}: fetched ${allRows.length} rows (${WARMUP_HOURS}h warmup from ${warmupFrom.toISOString()})`);
         const allTransformedRows = this.transformRows(allRows, sensor, imei);
-        const { drops: allDrops, refuels: allRefuels, readings: allReadings } = this.detectEvents(allTransformedRows, sensor.units || 'L');
+        const { drops: allDrops, refuels: allRefuels, readings: allReadings, } = this.detectEvents(allTransformedRows, sensor.units || 'L');
         const fromIso = from.toISOString();
         const drops = allDrops.filter((d) => d.at >= fromIso);
         const refuels = allRefuels.filter((r) => r.at >= fromIso);
         const readings = allReadings.filter((r) => r.ts >= from);
         const rows = allRows.filter((r) => new Date(r.dt_tracker) >= from);
         const transformedRows = allTransformedRows.filter((r) => r.ts >= from);
-        const consumed = Math.round(drops.filter((d) => !d.isSensorJump).reduce((s, d) => s + d.consumed, 0) * 100) / 100;
+        const consumed = Math.round(drops
+            .filter((d) => !d.isSensorJump)
+            .reduce((s, d) => s + d.consumed, 0) * 100) / 100;
         const refueled = Math.round(refuels.reduce((s, r) => s + r.added, 0) * 100) / 100;
-        const estimatedCost = pricePerLiter !== null ? Math.round(consumed * pricePerLiter * 100) / 100 : null;
+        const estimatedCost = pricePerLiter !== null
+            ? Math.round(consumed * pricePerLiter * 100) / 100
+            : null;
         const rangeDays = Math.max((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24), 1);
         const avgDailyConsumption = Math.round((consumed / rangeDays) * 100) / 100;
         const efficiency = this.calcEfficiency(rows, consumed);
@@ -71,15 +75,28 @@ let FuelStatsService = FuelStatsService_1 = class FuelStatsService {
         return rows.map((row) => {
             const ts = new Date(row.dt_tracker);
             const rawValue = this.transform.extractRawValue(row.params, sensor.param, imei, ts.toISOString());
-            const fuel = rawValue !== null ? (this.transform.transform(rawValue, sensor).value ?? null) : null;
-            return { ts, fuel, lat: row.lat, lng: row.lng, speed: row.speed, params: row.params };
+            const fuel = rawValue !== null
+                ? (this.transform.transform(rawValue, sensor).value ?? null)
+                : null;
+            return {
+                ts,
+                fuel,
+                lat: row.lat,
+                lng: row.lng,
+                speed: row.speed,
+                params: row.params,
+            };
         });
     }
     detectEvents(rows, unit) {
         const drops = [];
         const refuels = [];
         const rawValid = rows.filter((r) => r.fuel !== null);
-        const fuelReadings = rawValid.map((r) => ({ ts: r.ts, fuel: r.fuel, speed: r.speed }));
+        const fuelReadings = rawValid.map((r) => ({
+            ts: r.ts,
+            fuel: r.fuel,
+            speed: r.speed,
+        }));
         const validRows = (0, fuel_drop_filter_util_1.applyMedianFilter)(fuelReadings, fuel_drop_filter_util_1.FUEL_MEDIAN_SAMPLES);
         let i = 0;
         while (i < validRows.length) {
@@ -98,7 +115,8 @@ let FuelStatsService = FuelStatsService_1 = class FuelStatsService {
                     const windowEndMs = baselineTs.getTime() + fuel_drop_filter_util_1.SPIKE_WINDOW_MINUTES * 60 * 1000;
                     let verifiedFuel = row.fuel;
                     let j = i + 1;
-                    while (j < validRows.length && validRows[j].ts.getTime() <= windowEndMs) {
+                    while (j < validRows.length &&
+                        validRows[j].ts.getTime() <= windowEndMs) {
                         const nextFuel = validRows[j].fuel;
                         if (nextFuel > baselineFuel - fuel_drop_filter_util_1.DROP_ALERT_THRESHOLD)
                             break;
@@ -109,8 +127,10 @@ let FuelStatsService = FuelStatsService_1 = class FuelStatsService {
                     }
                     const totalConsumed = baselineFuel - verifiedFuel;
                     const verifyPassed = (0, fuel_drop_filter_util_1.isDropConfirmedAfterDelay)(row.ts, baselineFuel, validRows);
-                    const fake = !verifyPassed || (0, fuel_drop_filter_util_1.isFakeSpike)(baselineTs, validRows, fuel_drop_filter_util_1.SPIKE_WINDOW_MINUTES, fuel_drop_filter_util_1.DROP_ALERT_THRESHOLD);
-                    const postRecovery = !fake && (0, fuel_drop_filter_util_1.isPostDropRecovery)(baselineTs, baselineFuel, validRows, fuel_drop_filter_util_1.SPIKE_WINDOW_MINUTES);
+                    const fake = !verifyPassed ||
+                        (0, fuel_drop_filter_util_1.isFakeSpike)(baselineTs, validRows, fuel_drop_filter_util_1.SPIKE_WINDOW_MINUTES, fuel_drop_filter_util_1.DROP_ALERT_THRESHOLD);
+                    const postRecovery = !fake &&
+                        (0, fuel_drop_filter_util_1.isPostDropRecovery)(baselineTs, baselineFuel, validRows, fuel_drop_filter_util_1.SPIKE_WINDOW_MINUTES);
                     const isConfirmedDrop = totalConsumed >= fuel_drop_filter_util_1.DROP_ALERT_THRESHOLD && !fake && !postRecovery;
                     drops.push({
                         at: baselineTs.toISOString(),
@@ -143,7 +163,8 @@ let FuelStatsService = FuelStatsService_1 = class FuelStatsService {
                 let peakFuel = row.fuel;
                 let k = i + 1;
                 let falledBackInConsolidation = false;
-                while (k < validRows.length && validRows[k].ts.getTime() <= consolidationEndMs) {
+                while (k < validRows.length &&
+                    validRows[k].ts.getTime() <= consolidationEndMs) {
                     const nextFuel = validRows[k].fuel;
                     if (nextFuel > peakFuel) {
                         peakFuel = nextFuel;
@@ -159,7 +180,8 @@ let FuelStatsService = FuelStatsService_1 = class FuelStatsService {
                 const totalAdded = peakFuel - baselineFuel;
                 if (totalAdded >= fuel_drop_filter_util_1.RISE_THRESHOLD) {
                     const fakeRise = falledBackInConsolidation || (0, fuel_drop_filter_util_1.isFakeRise)(baselineTs, validRows);
-                    const recoveryRise = !fakeRise && (0, fuel_drop_filter_util_1.isRecoveryRise)(baselineTs, baselineFuel, peakFuel, validRows);
+                    const recoveryRise = !fakeRise &&
+                        (0, fuel_drop_filter_util_1.isRecoveryRise)(baselineTs, baselineFuel, peakFuel, validRows);
                     const postFallback = !fakeRise &&
                         !recoveryRise &&
                         (0, fuel_drop_filter_util_1.isPostRefuelFallback)(baselineTs, peakFuel, validRows);
@@ -203,7 +225,9 @@ let FuelStatsService = FuelStatsService_1 = class FuelStatsService {
         const dLat = this.toRad(lat2 - lat1);
         const dLng = this.toRad(lng2 - lng1);
         const a = Math.sin(dLat / 2) ** 2 +
-            Math.cos(this.toRad(lat1)) * Math.cos(this.toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+            Math.cos(this.toRad(lat1)) *
+                Math.cos(this.toRad(lat2)) *
+                Math.sin(dLng / 2) ** 2;
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
     toRad(deg) {
@@ -219,7 +243,11 @@ let FuelStatsService = FuelStatsService_1 = class FuelStatsService {
             let ignition = false;
             try {
                 const p = JSON.parse(row.params);
-                ignition = p['acc'] === '1' || p['acc'] === 1 || p['io1'] === '1' || p['io1'] === 1;
+                ignition =
+                    p['acc'] === '1' ||
+                        p['acc'] === 1 ||
+                        p['io1'] === '1' ||
+                        p['io1'] === 1;
             }
             catch {
             }
@@ -244,7 +272,7 @@ let FuelStatsService = FuelStatsService_1 = class FuelStatsService {
         return { liters: idleLiters, percentage };
     }
     calcTimeline(drops, refuels, transformedRows, unit) {
-        const confirmedDrops = drops.filter(d => d.isConfirmedDrop);
+        const confirmedDrops = drops.filter((d) => d.isConfirmedDrop);
         const dropPool = confirmedDrops.length > 0 ? confirmedDrops : drops;
         const biggestDrop = dropPool.length > 0
             ? dropPool.reduce((max, d) => (d.consumed > max.consumed ? d : max))
@@ -254,10 +282,10 @@ let FuelStatsService = FuelStatsService_1 = class FuelStatsService {
             : null;
         const validRows = transformedRows.filter((r) => r.fuel !== null);
         const lowestRow = validRows.length > 0
-            ? validRows.reduce((min, r) => ((r.fuel ?? Infinity) < (min.fuel ?? Infinity) ? r : min))
+            ? validRows.reduce((min, r) => (r.fuel ?? Infinity) < (min.fuel ?? Infinity) ? r : min)
             : null;
         const highestRow = validRows.length > 0
-            ? validRows.reduce((max, r) => ((r.fuel ?? -Infinity) > (max.fuel ?? -Infinity) ? r : max))
+            ? validRows.reduce((max, r) => (r.fuel ?? -Infinity) > (max.fuel ?? -Infinity) ? r : max)
             : null;
         return {
             biggestDrop: biggestDrop
@@ -267,10 +295,18 @@ let FuelStatsService = FuelStatsService_1 = class FuelStatsService {
                 ? { at: biggestRefuel.at, added: biggestRefuel.added, unit }
                 : null,
             lowestLevel: lowestRow
-                ? { at: lowestRow.ts.toISOString(), fuel: Math.round((lowestRow.fuel ?? 0) * 100) / 100, unit }
+                ? {
+                    at: lowestRow.ts.toISOString(),
+                    fuel: Math.round((lowestRow.fuel ?? 0) * 100) / 100,
+                    unit,
+                }
                 : null,
             highestLevel: highestRow
-                ? { at: highestRow.ts.toISOString(), fuel: Math.round((highestRow.fuel ?? 0) * 100) / 100, unit }
+                ? {
+                    at: highestRow.ts.toISOString(),
+                    fuel: Math.round((highestRow.fuel ?? 0) * 100) / 100,
+                    unit,
+                }
                 : null,
         };
     }

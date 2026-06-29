@@ -14,7 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getVehicles, getFuelConsumption, getCurrentFuel, getFuelStats, getFuelDropAlerts } from "@/lib/api";
 import { Vehicle, FuelConsumptionData, FuelCurrentData, FuelStatsData, ApiError, FuelDropDetail } from "@/lib/types";
 import { logAnomalies } from "@/lib/fuelAnomalyUtils";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
 import { FuelEvent } from "@/components/RouteMap";
 import { fmtDateDisplay, fmtDateTime, toLocalMidnight } from "@/lib/dateUtils";
 
@@ -99,9 +99,9 @@ function InlineCalendar({ from, to, onFromChange, onToChange, onClose }: Calenda
     const inRange = day > fromDate && day < effectiveTo;
     const isToday = day.getTime() === new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
     const base: React.CSSProperties = { width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 500, borderRadius: 8, cursor: "pointer", userSelect: "none" };
-    if (isFrom || isTo) return { ...base, background: "#E84040", color: "#fff", fontWeight: 700, boxShadow: "0 2px 8px rgba(232,64,64,0.35)" };
-    if (inRange)  return { ...base, background: "rgba(232,64,64,0.09)", color: "#E84040", fontWeight: 600, borderRadius: 0 };
-    if (isToday)  return { ...base, border: "1.5px solid #E84040", color: "#E84040", fontWeight: 600 };
+    if (isFrom || isTo) return { ...base, background: "var(--color-primary)", color: "#fff", fontWeight: 700, boxShadow: "0 2px 8px rgba(var(--color-primary-rgb),0.35)" };
+    if (inRange)  return { ...base, background: "rgba(var(--color-primary-rgb),0.09)", color: "var(--color-primary)", fontWeight: 600, borderRadius: 0 };
+    if (isToday)  return { ...base, border: "1.5px solid var(--color-primary)", color: "var(--color-primary)", fontWeight: 600 };
     return { ...base, color: "#374151" };
   }
 
@@ -111,24 +111,24 @@ function InlineCalendar({ from, to, onFromChange, onToChange, onClose }: Calenda
   return (
     <div style={{
       position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 9999,
-      background: "#fff", border: "1px solid #F0EFEF", borderRadius: 18,
+      background: "#fff", border: "1px solid var(--color-border-soft)", borderRadius: 18,
       boxShadow: "0 20px 60px rgba(0,0,0,0.15)", padding: 16, minWidth: 296,
     }}>
       {/* Month nav */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <button onClick={prev} style={{ width: 26, height: 26, borderRadius: 8, border: "1px solid #F0EFEF", background: "#FAFAFA", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-          <ChevronLeft size={12} style={{ color: "#6B7280" }} />
+        <button onClick={prev} style={{ width: 26, height: 26, borderRadius: 8, border: "1px solid var(--color-border-soft)", background: "var(--color-surface-2)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+          <ChevronLeft size={12} style={{ color: "var(--color-text-2)" }} />
         </button>
-        <span style={{ fontSize: 13, fontWeight: 700, color: "#1A1A2E" }}>{MONTHS_FULL[viewMonth]} {viewYear}</span>
-        <button onClick={next} style={{ width: 26, height: 26, borderRadius: 8, border: "1px solid #F0EFEF", background: "#FAFAFA", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-          <ChevronRight size={12} style={{ color: "#6B7280" }} />
+        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-1)" }}>{MONTHS_FULL[viewMonth]} {viewYear}</span>
+        <button onClick={next} style={{ width: 26, height: 26, borderRadius: 8, border: "1px solid var(--color-border-soft)", background: "var(--color-surface-2)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+          <ChevronRight size={12} style={{ color: "var(--color-text-2)" }} />
         </button>
       </div>
 
       {/* Day headers */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 4 }}>
         {DAYS_SHORT.map(d => (
-          <div key={d} style={{ textAlign: "center", fontSize: 9, fontWeight: 700, color: "#9CA3AF", padding: "3px 0", textTransform: "uppercase" }}>{d}</div>
+          <div key={d} style={{ textAlign: "center", fontSize: 9, fontWeight: 700, color: "var(--color-text-3)", padding: "3px 0", textTransform: "uppercase" }}>{d}</div>
         ))}
       </div>
 
@@ -149,24 +149,24 @@ function InlineCalendar({ from, to, onFromChange, onToChange, onClose }: Calenda
       ))}
 
       {/* Footer */}
-      <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid #F5F4F4", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--color-bg)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div>
-            <p style={{ fontSize: 9, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", marginBottom: 2 }}>From</p>
-            <p style={{ fontSize: 11, fontWeight: 700, color: "#E84040" }}>{fmtDisplay(from)}</p>
+            <p style={{ fontSize: 9, fontWeight: 700, color: "var(--color-text-3)", textTransform: "uppercase", marginBottom: 2 }}>From</p>
+            <p style={{ fontSize: 11, fontWeight: 700, color: "var(--color-primary)" }}>{fmtDisplay(from)}</p>
           </div>
           <span style={{ color: "#D1D5DB" }}>→</span>
           <div>
-            <p style={{ fontSize: 9, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", marginBottom: 2 }}>To</p>
-            <p style={{ fontSize: 11, fontWeight: 700, color: "#E84040" }}>{fmtDisplay(to)}</p>
+            <p style={{ fontSize: 9, fontWeight: 700, color: "var(--color-text-3)", textTransform: "uppercase", marginBottom: 2 }}>To</p>
+            <p style={{ fontSize: 11, fontWeight: 700, color: "var(--color-primary)" }}>{fmtDisplay(to)}</p>
           </div>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
-          <p style={{ fontSize: 9, color: "#9CA3AF", textAlign: "right", maxWidth: 100, lineHeight: 1.4 }}>
+          <p style={{ fontSize: 9, color: "var(--color-text-3)", textAlign: "right", maxWidth: 100, lineHeight: 1.4 }}>
             {selecting === "from" ? "Click start date" : "Click end date"}
           </p>
-          <button onClick={onClose} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid #EBEBEB", background: "#F5F4F4", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-            <X size={11} style={{ color: "#6B7280" }} />
+          <button onClick={onClose} style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid var(--color-border-input)", background: "var(--color-bg)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            <X size={11} style={{ color: "var(--color-text-2)" }} />
           </button>
         </div>
       </div>
@@ -438,31 +438,30 @@ export default function RoutesPage() {
   ];
 
   if (authLoading) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#F5F4F4" }}>
-      <Loader2 size={26} style={{ color: "#E84040" }} className="animate-spin" />
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "var(--color-bg)" }}>
+      <Loader2 size={26} style={{ color: "var(--color-primary)" }} className="animate-spin" />
     </div>
   );
 
   return (
-    <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: "#F5F4F4" }}>
-      <Sidebar />
+    <AppShell>
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
         {/* ── Top bar ──────────────────────────────────────────────────── */}
         <div style={{
-          flexShrink: 0, background: "#FFFFFF", borderBottom: "1px solid #F0EFEF",
+          flexShrink: 0, background: "#FFFFFF", borderBottom: "1px solid var(--color-border-soft)",
           padding: "12px 24px", display: "flex", alignItems: "center",
           justifyContent: "space-between", gap: 16, zIndex: 40,
         }}>
           {/* Left: back + title */}
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button onClick={() => router.push("/")} style={{ display: "flex", alignItems: "center", gap: 6, background: "#F5F4F4", border: "1px solid #EBEBEB", borderRadius: 10, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#6B7280" }}>
+            <button onClick={() => router.push("/")} style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--color-bg)", border: "1px solid var(--color-border-input)", borderRadius: 10, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--color-text-2)" }}>
               <ArrowLeft size={13} /> Dashboard
             </button>
             <div>
-              <h1 style={{ fontSize: 15, fontWeight: 700, color: "#1A1A2E" }}>Fleet Routes &amp; Fuel Events</h1>
-              <p style={{ fontSize: 11, color: "#9CA3AF" }}>
+              <h1 style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-1)" }}>Fleet Routes &amp; Fuel Events</h1>
+              <p style={{ fontSize: 11, color: "var(--color-text-3)" }}>
                 {fmtDisplay(range.from)} → {fmtDisplay(range.to)}
               </p>
             </div>
@@ -477,9 +476,9 @@ export default function RoutesPage() {
                   style={{
                     padding: "7px 16px", borderRadius: 20, fontSize: 12, fontWeight: 600,
                     cursor: "pointer", border: "none", transition: "all 0.15s",
-                    background: preset === p.key ? "#E84040" : "#F5F4F4",
-                    color:      preset === p.key ? "#FFFFFF" : "#6B7280",
-                    boxShadow:  preset === p.key ? "0 4px 12px rgba(232,64,64,0.3)" : "none",
+                    background: preset === p.key ? "var(--color-primary)" : "var(--color-bg)",
+                    color:      preset === p.key ? "#FFFFFF" : "var(--color-text-2)",
+                    boxShadow:  preset === p.key ? "0 4px 12px rgba(var(--color-primary-rgb),0.3)" : "none",
                     display: "flex", alignItems: "center", gap: 5,
                   }}
                 >
@@ -508,9 +507,9 @@ export default function RoutesPage() {
                 onClick={() => setActiveFilter(f)}
                 style={{
                   padding: "6px 14px", borderRadius: 20, fontSize: 11, fontWeight: 600,
-                  cursor: "pointer", border: `1px solid ${activeFilter === f ? "#E84040" : "#EBEBEB"}`,
-                  background: activeFilter === f ? "rgba(232,64,64,0.08)" : "#FFFFFF",
-                  color:      activeFilter === f ? "#E84040" : "#9CA3AF",
+                  cursor: "pointer", border: `1px solid ${activeFilter === f ? "var(--color-primary)" : "var(--color-border-input)"}`,
+                  background: activeFilter === f ? "rgba(var(--color-primary-rgb),0.08)" : "#FFFFFF",
+                  color:      activeFilter === f ? "var(--color-primary)" : "var(--color-text-3)",
                   transition: "all 0.15s",
                 }}
               >
@@ -524,10 +523,10 @@ export default function RoutesPage() {
         <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
 
           {/* LEFT: vehicles + stats */}
-          <div style={{ width: 272, flexShrink: 0, background: "#FFFFFF", borderRight: "1px solid #F0EFEF", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div style={{ width: 272, flexShrink: 0, background: "#FFFFFF", borderRight: "1px solid var(--color-border-soft)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
             {/* Stats */}
-            <div style={{ padding: "14px 14px 10px", borderBottom: "1px solid #F5F4F4" }}>
+            <div style={{ padding: "14px 14px 10px", borderBottom: "1px solid var(--color-bg)" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
                 <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 12, padding: "10px 12px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
@@ -535,7 +534,7 @@ export default function RoutesPage() {
                     <span style={{ fontSize: 9, fontWeight: 700, color: "#ef4444", textTransform: "uppercase", letterSpacing: "0.06em" }}>Dropped</span>
                   </div>
 {/* <p style={{ fontSize: 20, fontWeight: 800, color: "#1A1A2E", lineHeight: 1 }}>{totalDropped.toFixed(1)}</p> */}
-                  <p style={{ fontSize: 20, color: "#9CA3AF", marginTop: 2 }}>
+                  <p style={{ fontSize: 20, color: "var(--color-text-3)", marginTop: 2 }}>
                     {confirmedDropCount > 0
                       ? <><span style={{ color: "#ef4444", fontWeight: 700 }}>{confirmedDropCount} alert{confirmedDropCount > 1 ? "s" : ""}</span> · {confirmedDropTotal.toFixed(1)} L</>
                       : "No drops"}
@@ -546,8 +545,8 @@ export default function RoutesPage() {
                     <TrendingUp size={11} style={{ color: "#22c55e" }} />
                     <span style={{ fontSize: 9, fontWeight: 700, color: "#22c55e", textTransform: "uppercase", letterSpacing: "0.06em" }}>Refueled</span>
                   </div>
-                  <p style={{ fontSize: 20, fontWeight: 800, color: "#1A1A2E", lineHeight: 1 }}>{totalRefueled.toFixed(1)}</p>
-                  <p style={{ fontSize: 9, color: "#9CA3AF", marginTop: 2 }}>
+                  <p style={{ fontSize: 20, fontWeight: 800, color: "var(--color-text-1)", lineHeight: 1 }}>{totalRefueled.toFixed(1)}</p>
+                  <p style={{ fontSize: 9, color: "var(--color-text-3)", marginTop: 2 }}>
                     litres this period
                   </p>
                 </div>
@@ -557,32 +556,32 @@ export default function RoutesPage() {
 
             {/* Vehicle list */}
             <div style={{ padding: "10px 14px 4px" }}>
-              <p style={{ fontSize: 9, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              <p style={{ fontSize: 9, fontWeight: 700, color: "var(--color-text-3)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                 {loadingVehicles ? "Loading…" : `${vehicles.length} Vehicles`}
               </p>
             </div>
             <div style={{ flex: 1, overflowY: "auto" }}>
               {loadingVehicles
-                ? <div style={{ display: "flex", justifyContent: "center", padding: 24 }}><Loader2 size={16} style={{ color: "#E84040" }} className="animate-spin" /></div>
+                ? <div style={{ display: "flex", justifyContent: "center", padding: 24 }}><Loader2 size={16} style={{ color: "var(--color-primary)" }} className="animate-spin" /></div>
                 : vehicles.map(v => {
                   const isSel  = v.imei === selectedImei;
                   const online = v.status === "online";
                   return (
                     <div key={v.imei} onClick={() => setSelectedImei(v.imei)}
-                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", cursor: "pointer", background: isSel ? "rgba(232,64,64,0.05)" : "transparent", borderLeft: `3px solid ${isSel ? "#E84040" : "transparent"}`, transition: "background 0.12s" }}
-                      onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLDivElement).style.background = "#FAFAFA"; }}
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", cursor: "pointer", background: isSel ? "rgba(var(--color-primary-rgb),0.05)" : "transparent", borderLeft: `3px solid ${isSel ? "var(--color-primary)" : "transparent"}`, transition: "background 0.12s" }}
+                      onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLDivElement).style.background = "var(--color-surface-2)"; }}
                       onMouseLeave={e => { if (!isSel) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
                     >
-                      <div style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, background: isSel ? "#E84040" : "#F5F4F4", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <Truck size={14} style={{ color: isSel ? "white" : "#9CA3AF" }} />
+                      <div style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, background: isSel ? "var(--color-primary)" : "var(--color-bg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <Truck size={14} style={{ color: isSel ? "white" : "var(--color-text-3)" }} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: 12, fontWeight: 600, color: "#1A1A2E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.name}</p>
-                        <p style={{ fontSize: 10, color: "#9CA3AF" }}>{v.plateNumber}</p>
+                        <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.name}</p>
+                        <p style={{ fontSize: 10, color: "var(--color-text-3)" }}>{v.plateNumber}</p>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
-                        {online ? <Wifi size={11} style={{ color: "#22c55e" }} /> : <WifiOff size={11} style={{ color: "#E84040" }} />}
-                        <span style={{ fontSize: 9, fontWeight: 700, color: online ? "#22c55e" : "#E84040" }}>
+                        {online ? <Wifi size={11} style={{ color: "#22c55e" }} /> : <WifiOff size={11} style={{ color: "var(--color-primary)" }} />}
+                        <span style={{ fontSize: 9, fontWeight: 700, color: online ? "#22c55e" : "var(--color-primary)" }}>
                           {online ? "Online" : "Offline"}
                         </span>
                       </div>
@@ -609,14 +608,14 @@ export default function RoutesPage() {
               <div style={{
                 position: "absolute", top: 14, right: 14, zIndex: 999,
                 background: "rgba(255,255,255,0.97)", backdropFilter: "blur(16px)",
-                border: "1px solid #F0EFEF", borderRadius: 16,
+                border: "1px solid var(--color-border-soft)", borderRadius: 16,
                 boxShadow: "0 8px 32px rgba(0,0,0,0.12)", width: 240,
                 fontFamily: "system-ui, sans-serif", overflow: "hidden",
               }}>
                 {/* Card header */}
-                <div style={{ background: "#1A1A2E", padding: "12px 14px" }}>
+                <div style={{ background: "var(--color-text-1)", padding: "12px 14px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: 8, background: "#E84040", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 8, background: "var(--color-primary)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                       <Truck size={12} color="white" />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -657,8 +656,8 @@ export default function RoutesPage() {
                   {/* Speed / movement */}
                   {currentFuel && (
                     <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#F9F9F9", borderRadius: 8, padding: "6px 8px" }}>
-                      <Navigation size={11} style={{ color: currentFuel.speed > 0 ? "#E84040" : "#9CA3AF" }} />
-                      <span style={{ fontSize: 11, fontWeight: 700, color: currentFuel.speed > 0 ? "#1A1A2E" : "#9CA3AF" }}>
+                      <Navigation size={11} style={{ color: currentFuel.speed > 0 ? "var(--color-primary)" : "var(--color-text-3)" }} />
+                      <span style={{ fontSize: 11, fontWeight: 700, color: currentFuel.speed > 0 ? "var(--color-text-1)" : "var(--color-text-3)" }}>
                         {currentFuel.speed > 0 ? `${currentFuel.speed} km/h` : "Parked / Idle"}
                       </span>
                     </div>
@@ -666,7 +665,7 @@ export default function RoutesPage() {
 
                   {/* Period stats */}
                   <div>
-                    <p style={{ fontSize: 9, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+                    <p style={{ fontSize: 9, fontWeight: 700, color: "var(--color-text-3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
                       {preset === "today" ? "Today" : preset === "week" ? "This Week" : preset === "month" ? "This Month" : "Custom"} · Fuel Events
                     </p>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
@@ -687,14 +686,14 @@ export default function RoutesPage() {
                           <TrendingUp size={9} style={{ color: "#22c55e" }} />
                           <span style={{ fontSize: 8, fontWeight: 700, color: "#22c55e", textTransform: "uppercase" }}>Refuels</span>
                         </div>
-                        <p style={{ fontSize: 14, fontWeight: 800, color: "#1A1A2E" }}>{refuelCount}</p>
+                        <p style={{ fontSize: 14, fontWeight: 800, color: "var(--color-text-1)" }}>{refuelCount}</p>
                         <p style={{ fontSize: 9, color: "#22c55e", fontWeight: 700 }}>
                           +{totalRefueled.toFixed(1)} L
                         </p>
                       </div>
                     </div>
-                    <div style={{ marginTop: 6, background: "#F5F4F4", borderRadius: 8, padding: "6px 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: 9, color: "#9CA3AF", fontWeight: 600 }}>Net change</span>
+                    <div style={{ marginTop: 6, background: "var(--color-bg)", borderRadius: 8, padding: "6px 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: 9, color: "var(--color-text-3)", fontWeight: 600 }}>Net change</span>
                       <span style={{ fontSize: 12, fontWeight: 800, color: netChange >= 0 ? "#22c55e" : "#ef4444" }}>
                         {netChange >= 0 ? "+" : ""}{netChange.toFixed(1)} L
                       </span>
@@ -704,25 +703,25 @@ export default function RoutesPage() {
                   {/* Efficiency stats (from getFuelStats) */}
                   {fuelStats && (
                     <div>
-                      <p style={{ fontSize: 9, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Performance</p>
+                      <p style={{ fontSize: 9, fontWeight: 700, color: "var(--color-text-3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Performance</p>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 5 }}>
                         <div style={{ textAlign: "center", background: "#F9F9F9", borderRadius: 8, padding: "6px 4px" }}>
-                          <p style={{ fontSize: 11, fontWeight: 800, color: "#1A1A2E" }}>{(fuelStats.efficiency?.kmPerLiter ?? 0).toFixed(1)}</p>
-                          <p style={{ fontSize: 8, color: "#9CA3AF" }}>km/L</p>
+                          <p style={{ fontSize: 11, fontWeight: 800, color: "var(--color-text-1)" }}>{(fuelStats.efficiency?.kmPerLiter ?? 0).toFixed(1)}</p>
+                          <p style={{ fontSize: 8, color: "var(--color-text-3)" }}>km/L</p>
                         </div>
                         <div style={{ textAlign: "center", background: "#F9F9F9", borderRadius: 8, padding: "6px 4px" }}>
-                          <p style={{ fontSize: 11, fontWeight: 800, color: "#1A1A2E" }}>{(fuelStats.avgDailyConsumption ?? 0).toFixed(1)}</p>
-                          <p style={{ fontSize: 8, color: "#9CA3AF" }}>L/day</p>
+                          <p style={{ fontSize: 11, fontWeight: 800, color: "var(--color-text-1)" }}>{(fuelStats.avgDailyConsumption ?? 0).toFixed(1)}</p>
+                          <p style={{ fontSize: 8, color: "var(--color-text-3)" }}>L/day</p>
                         </div>
                         <div style={{ textAlign: "center", background: fuelStats.idleDrain?.percentage > 15 ? "#FEF2F2" : "#F9F9F9", borderRadius: 8, padding: "6px 4px" }}>
-                          <p style={{ fontSize: 11, fontWeight: 800, color: fuelStats.idleDrain?.percentage > 15 ? "#ef4444" : "#1A1A2E" }}>
+                          <p style={{ fontSize: 11, fontWeight: 800, color: fuelStats.idleDrain?.percentage > 15 ? "#ef4444" : "var(--color-text-1)" }}>
                             {(fuelStats.idleDrain?.percentage ?? 0).toFixed(0)}%
                           </p>
-                          <p style={{ fontSize: 8, color: "#9CA3AF" }}>idle</p>
+                          <p style={{ fontSize: 8, color: "var(--color-text-3)" }}>idle</p>
                         </div>
                       </div>
                       {fuelStats.efficiency?.totalDistanceKm > 0 && (
-                        <p style={{ fontSize: 9, color: "#9CA3AF", marginTop: 4, textAlign: "center" }}>
+                        <p style={{ fontSize: 9, color: "var(--color-text-3)", marginTop: 4, textAlign: "center" }}>
                           Total distance: {(fuelStats.efficiency?.totalDistanceKm ?? 0).toFixed(1)} km
                         </p>
                       )}
@@ -735,7 +734,7 @@ export default function RoutesPage() {
                       <AlertTriangle size={12} style={{ color: "#ef4444", flexShrink: 0, marginTop: 1 }} />
                       <div>
                         <p style={{ fontSize: 10, fontWeight: 700, color: "#ef4444" }}>High Drop Rate</p>
-                        <p style={{ fontSize: 9, color: "#9CA3AF" }}>{confirmedDropCount} confirmed drops detected — check for fuel theft or sensor issues.</p>
+                        <p style={{ fontSize: 9, color: "var(--color-text-3)" }}>{confirmedDropCount} confirmed drops detected — check for fuel theft or sensor issues.</p>
                       </div>
                     </div>
                   )}
@@ -744,8 +743,8 @@ export default function RoutesPage() {
             )}
 
             {/* Legend */}
-            <div style={{ position: "absolute", bottom: 20, left: 16, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(12px)", border: "1px solid #F0EFEF", borderRadius: 12, padding: "10px 14px", boxShadow: "0 4px 20px rgba(0,0,0,0.10)", display: "flex", flexDirection: "column", gap: 5, zIndex: 999 }}>
-              <p style={{ fontSize: 9, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 }}>Legend</p>
+            <div style={{ position: "absolute", bottom: 20, left: 16, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(12px)", border: "1px solid var(--color-border-soft)", borderRadius: 12, padding: "10px 14px", boxShadow: "0 4px 20px rgba(0,0,0,0.10)", display: "flex", flexDirection: "column", gap: 5, zIndex: 999 }}>
+              <p style={{ fontSize: 9, fontWeight: 700, color: "var(--color-text-3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 }}>Legend</p>
               {[
                 { color: "#22c55e", label: "Online vehicle" },
                 { color: "#6B7280", label: "Offline vehicle" },
@@ -755,36 +754,36 @@ export default function RoutesPage() {
               ].map(({ color, label }) => (
                 <div key={label} style={{ display: "flex", alignItems: "center", gap: 7 }}>
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
-                  <span style={{ fontSize: 10, color: "#6B7280" }}>{label}</span>
+                  <span style={{ fontSize: 10, color: "var(--color-text-2)" }}>{label}</span>
                 </div>
               ))}
             </div>
 
             {/* Loading pill */}
             {loading && (
-              <div style={{ position: "absolute", top: 14, left: "50%", transform: "translateX(-50%)", background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", border: "1px solid #F0EFEF", borderRadius: 20, padding: "7px 16px", display: "flex", alignItems: "center", gap: 8, boxShadow: "0 4px 16px rgba(0,0,0,0.1)", zIndex: 999 }}>
-                <Loader2 size={13} style={{ color: "#E84040" }} className="animate-spin" />
-                <span style={{ fontSize: 12, fontWeight: 600, color: "#6B7280" }}>Loading fuel events…</span>
+              <div style={{ position: "absolute", top: 14, left: "50%", transform: "translateX(-50%)", background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", border: "1px solid var(--color-border-soft)", borderRadius: 20, padding: "7px 16px", display: "flex", alignItems: "center", gap: 8, boxShadow: "0 4px 16px rgba(0,0,0,0.1)", zIndex: 999 }}>
+                <Loader2 size={13} style={{ color: "var(--color-primary)" }} className="animate-spin" />
+                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-2)" }}>Loading fuel events…</span>
               </div>
             )}
           </div>
 
           {/* RIGHT: timeline */}
-          <div style={{ width: 296, flexShrink: 0, background: "#FFFFFF", borderLeft: "1px solid #F0EFEF", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-            <div style={{ padding: "14px 14px 10px", borderBottom: "1px solid #F5F4F4" }}>
+          <div style={{ width: 296, flexShrink: 0, background: "#FFFFFF", borderLeft: "1px solid var(--color-border-soft)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <div style={{ padding: "14px 14px 10px", borderBottom: "1px solid var(--color-bg)" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: "#1A1A2E" }}>{selectedVehicle?.name ?? "Fuel Events"}</p>
-                  <p style={{ fontSize: 10, color: "#9CA3AF" }}>{filteredEvents.length} events · {preset === "today" ? "Today" : preset === "week" ? "This Week" : preset === "month" ? "This Month" : "Custom range"}</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-1)" }}>{selectedVehicle?.name ?? "Fuel Events"}</p>
+                  <p style={{ fontSize: 10, color: "var(--color-text-3)" }}>{filteredEvents.length} events · {preset === "today" ? "Today" : preset === "week" ? "This Week" : preset === "month" ? "This Month" : "Custom range"}</p>
                 </div>
-                <button onClick={() => setSelectedImei(v => v)} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid #EBEBEB", background: "#F5F4F4", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                  <RefreshCw size={12} style={{ color: "#6B7280" }} />
+                <button onClick={() => setSelectedImei(v => v)} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid var(--color-border-input)", background: "var(--color-bg)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                  <RefreshCw size={12} style={{ color: "var(--color-text-2)" }} />
                 </button>
               </div>
               {error && (
-                <div style={{ marginTop: 8, background: "rgba(232,64,64,0.06)", border: "1px solid rgba(232,64,64,0.2)", borderRadius: 10, padding: "7px 10px", display: "flex", gap: 7 }}>
-                  <AlertTriangle size={12} style={{ color: "#E84040", flexShrink: 0, marginTop: 1 }} />
-                  <p style={{ fontSize: 11, color: "#E84040" }}>{error}</p>
+                <div style={{ marginTop: 8, background: "rgba(var(--color-primary-rgb),0.06)", border: "1px solid rgba(var(--color-primary-rgb),0.2)", borderRadius: 10, padding: "7px 10px", display: "flex", gap: 7 }}>
+                  <AlertTriangle size={12} style={{ color: "var(--color-primary)", flexShrink: 0, marginTop: 1 }} />
+                  <p style={{ fontSize: 11, color: "var(--color-primary)" }}>{error}</p>
                 </div>
               )}
             </div>
@@ -793,17 +792,17 @@ export default function RoutesPage() {
             <div style={{ flex: 1, overflowY: "auto", padding: "10px 0" }}>
               {loading ? (
                 <div style={{ display: "flex", justifyContent: "center", padding: 32 }}>
-                  <Loader2 size={18} style={{ color: "#E84040" }} className="animate-spin" />
+                  <Loader2 size={18} style={{ color: "var(--color-primary)" }} className="animate-spin" />
                 </div>
               ) : filteredEvents.length === 0 ? (
                 <div style={{ padding: 24, textAlign: "center" }}>
                   <Droplets size={28} style={{ color: "#DBEAFE", margin: "0 auto 8px" }} />
-                  <p style={{ fontSize: 12, color: "#9CA3AF" }}>No events for this period</p>
+                  <p style={{ fontSize: 12, color: "var(--color-text-3)" }}>No events for this period</p>
                   <p style={{ fontSize: 11, color: "#D1D5DB", marginTop: 4 }}>Try "This Month" or Custom</p>
                 </div>
               ) : (
                 <div style={{ position: "relative", padding: "0 14px" }}>
-                  <div style={{ position: "absolute", left: 26, top: 0, bottom: 0, width: 2, background: "#F0EFEF" }} />
+                  <div style={{ position: "absolute", left: 26, top: 0, bottom: 0, width: 2, background: "var(--color-border-soft)" }} />
                   {filteredEvents.map((ev, i) => {
                     const isDrop      = ev.type === "drop";
                     const isAlert     = isDrop && ev.isConfirmedDrop; // >= 8 L, stayed low 7 min
@@ -828,18 +827,18 @@ export default function RoutesPage() {
                                 {isAlert ? "⚠ Fuel Drop Alert" : isSmallDrop ? "Fuel Drop" : "Refuel"}
                               </span>
                             </div>
-                            <span style={{ fontSize: 9, color: "#9CA3AF" }}>{fmtTime(ev.at)}</span>
+                            <span style={{ fontSize: 9, color: "var(--color-text-3)" }}>{fmtTime(ev.at)}</span>
                           </div>
-                          <p style={{ fontSize: 15, fontWeight: 800, color: "#1A1A2E", lineHeight: 1.1 }}>
+                          <p style={{ fontSize: 15, fontWeight: 800, color: "var(--color-text-1)", lineHeight: 1.1 }}>
                             {isDrop ? "−" : "+"}{(ev.amount ?? 0).toFixed(1)} L
                           </p>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 2 }}>
-                            <span style={{ fontSize: 10, color: "#9CA3AF" }}>
+                            <span style={{ fontSize: 10, color: "var(--color-text-3)" }}>
                               {(ev.fuelBefore ?? 0).toFixed(1)} → {(ev.fuelAfter ?? 0).toFixed(1)} L
                             </span>
 
                             {isSmallDrop && (
-                              <span style={{ fontSize: 8, color: "#9CA3AF", fontStyle: "italic" }}>noise / consumption</span>
+                              <span style={{ fontSize: 8, color: "var(--color-text-3)", fontStyle: "italic" }}>noise / consumption</span>
                             )}
                           </div>
 
@@ -853,8 +852,8 @@ export default function RoutesPage() {
 
             {/* Summary bar */}
             {consumption && (
-              <div style={{ padding: "10px 14px", borderTop: "1px solid #F5F4F4" }}>
-                <div style={{ background: "#E84040", borderRadius: 12, padding: "11px 14px" }}>
+              <div style={{ padding: "10px 14px", borderTop: "1px solid var(--color-bg)" }}>
+                <div style={{ background: "var(--color-primary)", borderRadius: 12, padding: "11px 14px" }}>
                   <p style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Period Summary</p>
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
                     <div>
@@ -874,6 +873,6 @@ export default function RoutesPage() {
 
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }

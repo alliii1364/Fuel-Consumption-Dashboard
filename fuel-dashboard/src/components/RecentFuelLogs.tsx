@@ -40,8 +40,8 @@ export default function RecentFuelLogs({ refuelEvents, currentFuel, loading }: P
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Droplets size={15} style={{ color: "#E84040" }} />
-          <span className="text-sm font-bold" style={{ color: "#1A1A2E" }}>Fuel Logs</span>
+          <Droplets size={15} style={{ color: "var(--color-primary)" }} />
+          <span className="text-sm font-bold" style={{ color: "var(--color-text-1)" }}>Fuel Logs</span>
         </div>
         {refuelEvents.length > 0 && (
           <span className="badge-count">{refuelEvents.length}</span>
@@ -52,23 +52,23 @@ export default function RecentFuelLogs({ refuelEvents, currentFuel, loading }: P
       {currentFuel && (
         <div
           className="flex items-center gap-3 rounded-xl p-3.5 mb-4"
-          style={{ background: "rgba(232,64,64,0.05)", border: "1px solid rgba(232,64,64,0.15)" }}
+          style={{ background: "rgba(var(--color-primary-rgb), 0.05)", border: "1px solid rgba(var(--color-primary-rgb), 0.15)" }}
         >
           <div
             className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: "#E84040" }}
+            style={{ background: "var(--color-primary)" }}
           >
             <Fuel size={16} className="text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold" style={{ color: "#1A1A2E" }}>Current Fuel Level</p>
-            <p className="text-xs mt-0.5" style={{ color: "#9CA3AF" }}>
+            <p className="text-sm font-bold" style={{ color: "var(--color-text-1)" }}>Current Fuel Level</p>
+            <p className="text-xs mt-0.5" style={{ color: "var(--color-text-3)" }}>
               {currentFuel.speed > 0 ? `Moving · ${currentFuel.speed} km/h` : "Vehicle parked"}
             </p>
           </div>
           <div className="text-right flex-shrink-0">
-            <p className="text-xl font-bold" style={{ color: "#E84040" }}>{(currentFuel.fuel ?? 0).toFixed(1)}</p>
-            <p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>litres</p>
+            <p className="text-xl font-bold" style={{ color: "var(--color-primary)" }}>{(currentFuel.fuel ?? 0).toFixed(1)}</p>
+            <p className="text-xs font-medium" style={{ color: "var(--color-text-3)" }}>litres</p>
           </div>
         </div>
       )}
@@ -82,11 +82,11 @@ export default function RecentFuelLogs({ refuelEvents, currentFuel, loading }: P
           >
             <div
               className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: "#F5F4F4" }}
+              style={{ background: "var(--color-bg)" }}
             >
-              <Plus size={14} style={{ color: "#9CA3AF" }} />
+              <Plus size={14} style={{ color: "var(--color-text-3)" }} />
             </div>
-            <span className="text-sm" style={{ color: "#9CA3AF" }}>No refuel events in this period</span>
+            <span className="text-sm" style={{ color: "var(--color-text-3)" }}>No refuel events in this period</span>
           </div>
         ) : (
           refuelEvents.slice(0, 4).map((ev, i) => {
@@ -101,14 +101,14 @@ export default function RecentFuelLogs({ refuelEvents, currentFuel, loading }: P
                   <Truck size={13} className="text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate" style={{ color: "#1A1A2E" }}>
+                  <p className="text-sm font-semibold truncate" style={{ color: "var(--color-text-1)" }}>
                     +{(ev.added ?? 0).toFixed(1)} L refueled
                   </p>
-                  <p className="text-xs truncate" style={{ color: "#9CA3AF" }}>{label}</p>
+                  <p className="text-xs truncate" style={{ color: "var(--color-text-3)" }}>{label}</p>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-bold" style={{ color: "#1A1A2E" }}>{(ev.fuelAfter ?? 0).toFixed(1)} L</p>
-                  <p className="text-xs" style={{ color: "#9CA3AF" }}>after</p>
+                  <p className="text-sm font-bold" style={{ color: "var(--color-text-1)" }}>{(ev.fuelAfter ?? 0).toFixed(1)} L</p>
+                  <p className="text-xs" style={{ color: "var(--color-text-3)" }}>after</p>
                 </div>
               </div>
             );

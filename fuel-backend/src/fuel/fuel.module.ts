@@ -43,17 +43,15 @@ import { FuelAnomalyMiddleware } from '../common/middleware/fuel-anomaly.middlew
 })
 export class FuelModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(FuelAnomalyMiddleware)
-      .forRoutes(
-        // Apply to all fuel-related routes under vehicles/:imei/fuel/
-        { path: 'vehicles/:imei/fuel/consumption', method: RequestMethod.GET },
-        { path: 'vehicles/:imei/fuel/history', method: RequestMethod.GET },
-        { path: 'vehicles/:imei/fuel/stats', method: RequestMethod.GET },
-        { path: 'vehicles/:imei/fuel/refuels', method: RequestMethod.GET },
-        { path: 'vehicles/:imei/fuel/debug', method: RequestMethod.GET },
-        { path: 'vehicles/:imei/fuel/thrift', method: RequestMethod.GET },
-        { path: 'vehicles/:imei/fuel/theft', method: RequestMethod.GET },
-      );
+    consumer.apply(FuelAnomalyMiddleware).forRoutes(
+      // Apply to all fuel-related routes under vehicles/:imei/fuel/
+      { path: 'vehicles/:imei/fuel/consumption', method: RequestMethod.GET },
+      { path: 'vehicles/:imei/fuel/history', method: RequestMethod.GET },
+      { path: 'vehicles/:imei/fuel/stats', method: RequestMethod.GET },
+      { path: 'vehicles/:imei/fuel/refuels', method: RequestMethod.GET },
+      { path: 'vehicles/:imei/fuel/debug', method: RequestMethod.GET },
+      { path: 'vehicles/:imei/fuel/thrift', method: RequestMethod.GET },
+      { path: 'vehicles/:imei/fuel/theft', method: RequestMethod.GET },
+    );
   }
 }

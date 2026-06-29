@@ -6,6 +6,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
 import { FuelModule } from './fuel/fuel.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ReportsModule } from './reports/reports.module';
+import { DispatchModule } from './dispatch/dispatch.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -18,6 +19,7 @@ import { AppService } from './app.service';
     FuelModule,
     DashboardModule,
     ReportsModule,
+    DispatchModule,
   ],
   controllers: [AppController],
   providers: [AppService],

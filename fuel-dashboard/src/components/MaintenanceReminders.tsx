@@ -15,9 +15,9 @@ const INIT: Task[] = [
 ];
 
 const PRIORITY_COLOR: Record<Priority, string> = {
-  high: "#E84040",
+  high: "var(--color-primary)",
   med:  "#F59E0B",
-  low:  "#9CA3AF",
+  low:  "var(--color-text-3)",
 };
 
 export default function MaintenanceReminders() {
@@ -29,8 +29,8 @@ export default function MaintenanceReminders() {
     <div className="card p-5 anim-4">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Wrench size={15} style={{ color: "#E84040" }} />
-          <span className="text-sm font-bold" style={{ color: "#1A1A2E" }}>Reminders</span>
+          <Wrench size={15} style={{ color: "var(--color-primary)" }} />
+          <span className="text-sm font-bold" style={{ color: "var(--color-text-1)" }}>Reminders</span>
         </div>
         {pending > 0 && <span className="badge-count">{pending}</span>}
       </div>
@@ -52,7 +52,7 @@ export default function MaintenanceReminders() {
               className="flex-1 text-sm leading-snug"
               style={{
                 textDecoration: task.done ? "line-through" : "none",
-                color: task.done ? "#9CA3AF" : "#1A1A2E",
+                color: task.done ? "var(--color-text-3)" : "var(--color-text-1)",
                 fontWeight: task.done ? 400 : 500,
               }}
             >

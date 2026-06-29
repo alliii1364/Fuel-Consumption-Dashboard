@@ -89,7 +89,9 @@ export class ReportsService {
         const rates = parsed as Array<{ from: string; pricePerLiter: number }>;
         const sorted = rates
           .filter((r) => new Date(r.from) <= from)
-          .sort((a, b) => new Date(b.from).getTime() - new Date(a.from).getTime());
+          .sort(
+            (a, b) => new Date(b.from).getTime() - new Date(a.from).getTime(),
+          );
         return sorted[0]?.pricePerLiter ?? null;
       }
       const obj = parsed as { cost?: string };
@@ -117,16 +119,21 @@ export class ReportsService {
           const sensor = await this.sensorResolver.resolveFuelSensor(v.imei);
           const fcrJson = v.fcr ?? '';
           const result = await this.consumptionService.getConsumption(
-            v.imei, from, to, sensor, fcrJson,
+            v.imei,
+            from,
+            to,
+            sensor,
+            fcrJson,
           );
 
           // Align with Routes page mass-balance:
           // consumed = (firstFuel + refueled) - lastFuel
           // i.e. refueled + netDrop, clamped at zero.
           // This matches the period summary users see on Routes.
-          const consumed = result.netDrop !== null
-            ? Math.max(0, result.refueled + result.netDrop)
-            : result.consumed;
+          const consumed =
+            result.netDrop !== null
+              ? Math.max(0, result.refueled + result.netDrop)
+              : result.consumed;
 
           totalConsumed += consumed;
           totalRefueled += result.refueled;
@@ -146,7 +153,9 @@ export class ReportsService {
             status: 'ok',
           };
         } catch (err) {
-          this.logger.warn(`Consumption report skip IMEI ${v.imei}: ${String(err)}`);
+          this.logger.warn(
+            `Consumption report skip IMEI ${v.imei}: ${String(err)}`,
+          );
           return {
             imei: v.imei,
             name: v.name,
@@ -196,7 +205,11 @@ export class ReportsService {
         try {
           const sensor = await this.sensorResolver.resolveFuelSensor(v.imei);
           const result = await this.consumptionService.getConsumption(
-            v.imei, from, to, sensor, v.fcr ?? '',
+            v.imei,
+            from,
+            to,
+            sensor,
+            v.fcr ?? '',
           );
           for (const r of result.refuels) {
             allEvents.push({
@@ -218,7 +231,8 @@ export class ReportsService {
       from: from.toISOString(),
       to: to.toISOString(),
       totalEvents: allEvents.length,
-      totalAdded: Math.round(allEvents.reduce((s, e) => s + e.added, 0) * 100) / 100,
+      totalAdded:
+        Math.round(allEvents.reduce((s, e) => s + e.added, 0) * 100) / 100,
       events: allEvents,
     };
   }
@@ -247,7 +261,10 @@ export class ReportsService {
           for (const row of rows) {
             const ts = new Date(row.dt_tracker);
             const rawValue = this.transform.extractRawValue(
-              row.params, sensor.param, v.imei, ts.toISOString(),
+              row.params,
+              sensor.param,
+              v.imei,
+              ts.toISOString(),
             );
             if (rawValue === null) continue;
             const { value } = this.transform.transform(rawValue, sensor);
@@ -255,11 +272,24 @@ export class ReportsService {
 
             let ignition = false;
             try {
-              const p = JSON.parse(row.params) as Record<string, string | number>;
-              ignition = p['acc'] === '1' || p['acc'] === 1 || p['io1'] === '1' || p['io1'] === 1;
-            } catch { /* no ignition field */ }
+              const p = JSON.parse(row.params) as Record<
+                string,
+                string | number
+              >;
+              ignition =
+                p['acc'] === '1' ||
+                p['acc'] === 1 ||
+                p['io1'] === '1' ||
+                p['io1'] === 1;
+            } catch {
+              /* no ignition field */
+            }
 
-            if (prevFuel !== null && prevSpeed !== null && prevIgnition !== null) {
+            if (
+              prevFuel !== null &&
+              prevSpeed !== null &&
+              prevIgnition !== null
+            ) {
               const delta = value - prevFuel;
               if (delta < -NOISE_THRESHOLD) {
                 totalConsumed += Math.abs(delta);
@@ -276,9 +306,10 @@ export class ReportsService {
 
           idleLiters = Math.round(idleLiters * 100) / 100;
           totalConsumed = Math.round(totalConsumed * 100) / 100;
-          const percentage = totalConsumed > 0
-            ? Math.round((idleLiters / totalConsumed) * 100 * 10) / 10
-            : 0;
+          const percentage =
+            totalConsumed > 0
+              ? Math.round((idleLiters / totalConsumed) * 100 * 10) / 10
+              : 0;
 
           fleetIdleLiters += idleLiters;
           fleetConsumed += totalConsumed;
@@ -296,16 +327,23 @@ export class ReportsService {
         } catch (err) {
           this.logger.warn(`Idle waste skip IMEI ${v.imei}: ${String(err)}`);
           return {
-            imei: v.imei, name: v.name, plateNumber: v.plate_number,
-            totalConsumed: 0, idleLiters: 0, idlePercentage: 0, unit: 'L', status: 'no_data',
+            imei: v.imei,
+            name: v.name,
+            plateNumber: v.plate_number,
+            totalConsumed: 0,
+            idleLiters: 0,
+            idlePercentage: 0,
+            unit: 'L',
+            status: 'no_data',
           };
         }
       }),
     );
 
-    const fleetIdlePercentage = fleetConsumed > 0
-      ? Math.round((fleetIdleLiters / fleetConsumed) * 100 * 10) / 10
-      : 0;
+    const fleetIdlePercentage =
+      fleetConsumed > 0
+        ? Math.round((fleetIdleLiters / fleetConsumed) * 100 * 10) / 10
+        : 0;
 
     return {
       from: from.toISOString(),
@@ -344,7 +382,10 @@ export class ReportsService {
           for (const row of rows) {
             const ts = new Date(row.dt_tracker);
             const rawValue = this.transform.extractRawValue(
-              row.params, sensor.param, v.imei, ts.toISOString(),
+              row.params,
+              sensor.param,
+              v.imei,
+              ts.toISOString(),
             );
             if (rawValue === null) continue;
             const { value } = this.transform.transform(rawValue, sensor);
@@ -367,9 +408,10 @@ export class ReportsService {
 
           highSpeedLiters = Math.round(highSpeedLiters * 100) / 100;
           totalConsumed = Math.round(totalConsumed * 100) / 100;
-          const percentage = totalConsumed > 0
-            ? Math.round((highSpeedLiters / totalConsumed) * 100 * 10) / 10
-            : 0;
+          const percentage =
+            totalConsumed > 0
+              ? Math.round((highSpeedLiters / totalConsumed) * 100 * 10) / 10
+              : 0;
 
           fleetHighSpeedLiters += highSpeedLiters;
           fleetConsumed += totalConsumed;
@@ -388,17 +430,24 @@ export class ReportsService {
         } catch (err) {
           this.logger.warn(`High speed skip IMEI ${v.imei}: ${String(err)}`);
           return {
-            imei: v.imei, name: v.name, plateNumber: v.plate_number,
-            totalConsumed: 0, highSpeedLiters: 0, highSpeedPercentage: 0,
-            highSpeedEvents: 0, unit: 'L', status: 'no_data',
+            imei: v.imei,
+            name: v.name,
+            plateNumber: v.plate_number,
+            totalConsumed: 0,
+            highSpeedLiters: 0,
+            highSpeedPercentage: 0,
+            highSpeedEvents: 0,
+            unit: 'L',
+            status: 'no_data',
           };
         }
       }),
     );
 
-    const fleetHighSpeedPercentage = fleetConsumed > 0
-      ? Math.round((fleetHighSpeedLiters / fleetConsumed) * 100 * 10) / 10
-      : 0;
+    const fleetHighSpeedPercentage =
+      fleetConsumed > 0
+        ? Math.round((fleetHighSpeedLiters / fleetConsumed) * 100 * 10) / 10
+        : 0;
 
     return {
       from: from.toISOString(),
@@ -423,7 +472,12 @@ export class ReportsService {
       vehicles.map(async (v) => {
         try {
           const sensor = await this.sensorResolver.resolveFuelSensor(v.imei);
-          const thrift = await this.thriftService.getThrift(v.imei, from, to, sensor);
+          const thrift = await this.thriftService.getThrift(
+            v.imei,
+            from,
+            to,
+            sensor,
+          );
           return {
             imei: v.imei,
             name: v.name,
@@ -436,8 +490,13 @@ export class ReportsService {
         } catch (err) {
           this.logger.warn(`Daily trend skip IMEI ${v.imei}: ${String(err)}`);
           return {
-            imei: v.imei, name: v.name, plateNumber: v.plate_number,
-            unit: 'L', totalConsumed: 0, dailyTrend: [], status: 'no_data',
+            imei: v.imei,
+            name: v.name,
+            plateNumber: v.plate_number,
+            unit: 'L',
+            totalConsumed: 0,
+            dailyTrend: [],
+            status: 'no_data',
           };
         }
       }),
@@ -479,7 +538,12 @@ export class ReportsService {
       vehicles.map(async (v) => {
         try {
           const sensor = await this.sensorResolver.resolveFuelSensor(v.imei);
-          const thrift = await this.thriftService.getThrift(v.imei, from, to, sensor);
+          const thrift = await this.thriftService.getThrift(
+            v.imei,
+            from,
+            to,
+            sensor,
+          );
           return {
             imei: v.imei,
             name: v.name,
@@ -501,11 +565,22 @@ export class ReportsService {
         } catch (err) {
           this.logger.warn(`Thrift report skip IMEI ${v.imei}: ${String(err)}`);
           return {
-            imei: v.imei, name: v.name, plateNumber: v.plate_number,
-            consumed: 0, unit: 'L', kmPerLiter: null, litersPer100km: null,
-            totalDistanceKm: 0, idleLiters: 0, idlePercentage: 0,
-            highSpeedLiters: 0, highSpeedPercentage: 0,
-            thriftScore: 0, thriftRating: 'poor', breakdown: null, status: 'no_data',
+            imei: v.imei,
+            name: v.name,
+            plateNumber: v.plate_number,
+            consumed: 0,
+            unit: 'L',
+            kmPerLiter: null,
+            litersPer100km: null,
+            totalDistanceKm: 0,
+            idleLiters: 0,
+            idlePercentage: 0,
+            highSpeedLiters: 0,
+            highSpeedPercentage: 0,
+            thriftScore: 0,
+            thriftRating: 'poor',
+            breakdown: null,
+            status: 'no_data',
           };
         }
       }),
@@ -518,9 +593,12 @@ export class ReportsService {
     return {
       from: from.toISOString(),
       to: to.toISOString(),
-      fleetAvgScore: ranked.length > 0
-        ? Math.round(ranked.reduce((s, r) => s + r.thriftScore, 0) / ranked.length)
-        : null,
+      fleetAvgScore:
+        ranked.length > 0
+          ? Math.round(
+              ranked.reduce((s, r) => s + r.thriftScore, 0) / ranked.length,
+            )
+          : null,
       bestVehicle: ranked[0] ?? null,
       worstVehicle: ranked[ranked.length - 1] ?? null,
       vehicles: results.sort((a, b) => b.thriftScore - a.thriftScore),
@@ -546,9 +624,18 @@ export class ReportsService {
             const ts = new Date(row.dt_tracker);
             let ignition = false;
             try {
-              const p = JSON.parse(row.params) as Record<string, string | number>;
-              ignition = p['acc'] === '1' || p['acc'] === 1 || p['io1'] === '1' || p['io1'] === 1;
-            } catch { /* no ignition */ }
+              const p = JSON.parse(row.params) as Record<
+                string,
+                string | number
+              >;
+              ignition =
+                p['acc'] === '1' ||
+                p['acc'] === 1 ||
+                p['io1'] === '1' ||
+                p['io1'] === 1;
+            } catch {
+              /* no ignition */
+            }
 
             if (prevTs !== null && prevIgnition) {
               const gapMs = ts.getTime() - prevTs.getTime();
@@ -564,9 +651,11 @@ export class ReportsService {
 
           const engineOnHours = Math.round((engineOnMs / 3600000) * 100) / 100;
           const rangeDays = Math.max(
-            (to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24), 1,
+            (to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24),
+            1,
           );
-          const avgHoursPerDay = Math.round((engineOnHours / rangeDays) * 100) / 100;
+          const avgHoursPerDay =
+            Math.round((engineOnHours / rangeDays) * 100) / 100;
 
           return {
             imei: v.imei,
@@ -580,8 +669,13 @@ export class ReportsService {
         } catch (err) {
           this.logger.warn(`Engine hours skip IMEI ${v.imei}: ${String(err)}`);
           return {
-            imei: v.imei, name: v.name, plateNumber: v.plate_number,
-            engineOnHours: 0, avgHoursPerDay: 0, totalSamples: 0, status: 'no_data',
+            imei: v.imei,
+            name: v.name,
+            plateNumber: v.plate_number,
+            engineOnHours: 0,
+            avgHoursPerDay: 0,
+            totalSamples: 0,
+            status: 'no_data',
           };
         }
       }),
@@ -590,9 +684,9 @@ export class ReportsService {
     return {
       from: from.toISOString(),
       to: to.toISOString(),
-      fleetTotalEngineHours: Math.round(
-        results.reduce((s, r) => s + r.engineOnHours, 0) * 100,
-      ) / 100,
+      fleetTotalEngineHours:
+        Math.round(results.reduce((s, r) => s + r.engineOnHours, 0) * 100) /
+        100,
       vehicles: results.sort((a, b) => b.engineOnHours - a.engineOnHours),
     };
   }
@@ -628,7 +722,8 @@ export class ReportsService {
       vehicleRows.map(async (v) => {
         const lastSeenDate = this.safeDate(v.dt_tracker);
         const staleMs = staleMinutes * 60 * 1000;
-        const isOnline = lastSeenDate !== null && now - lastSeenDate.getTime() < staleMs;
+        const isOnline =
+          lastSeenDate !== null && now - lastSeenDate.getTime() < staleMs;
         const minutesSinceLastSeen = lastSeenDate
           ? Math.round((now - lastSeenDate.getTime()) / 60000)
           : null;
@@ -643,14 +738,19 @@ export class ReportsService {
           if (latestRow) {
             const ts = new Date(latestRow.dt_tracker).toISOString();
             const rawValue = this.transform.extractRawValue(
-              latestRow.params, sensor.param, v.imei, ts,
+              latestRow.params,
+              sensor.param,
+              v.imei,
+              ts,
             );
             if (rawValue !== null) {
               const { value } = this.transform.transform(rawValue, sensor);
               currentFuel = value;
             }
           }
-        } catch { /* no sensor configured */ }
+        } catch {
+          /* no sensor configured */
+        }
 
         return {
           imei: v.imei,
@@ -685,7 +785,11 @@ export class ReportsService {
 
   // ─── 9. Theft Detection Report ────────────────────────────────────────────
 
-  async getTheftDetectionReport(userId: number, fromStr: string, toStr: string) {
+  async getTheftDetectionReport(
+    userId: number,
+    fromStr: string,
+    toStr: string,
+  ) {
     const { from, to } = this.parseDateRange(fromStr, toStr);
     const vehicles = await this.getUserVehicles(userId);
 
@@ -700,7 +804,12 @@ export class ReportsService {
       vehicles.map(async (v) => {
         try {
           const sensor = await this.sensorResolver.resolveFuelSensor(v.imei);
-          const detection = await this.theftDetectionService.detectTheft(v.imei, from, to, sensor);
+          const detection = await this.theftDetectionService.detectTheft(
+            v.imei,
+            from,
+            to,
+            sensor,
+          );
 
           fleetTotalDrops += detection.summary.totalDrops;
           fleetSuspiciousDrops += detection.summary.suspiciousDrops;
@@ -722,7 +831,9 @@ export class ReportsService {
             status: 'ok',
           };
         } catch (err) {
-          this.logger.warn(`Theft detection skip IMEI ${v.imei}: ${String(err)}`);
+          this.logger.warn(
+            `Theft detection skip IMEI ${v.imei}: ${String(err)}`,
+          );
           return {
             imei: v.imei,
             name: v.name,
@@ -748,8 +859,16 @@ export class ReportsService {
     );
 
     // Calculate fleet risk level based on total theft events
-    const fleetRiskLevel = fleetTheftDrops > 0 ? 'high' : fleetSuspiciousDrops > 5 ? 'medium' : 'low';
-    const fleetRiskScore = Math.min(100, (fleetTheftDrops * 25) + (fleetSuspiciousDrops * 10));
+    const fleetRiskLevel =
+      fleetTheftDrops > 0
+        ? 'high'
+        : fleetSuspiciousDrops > 5
+          ? 'medium'
+          : 'low';
+    const fleetRiskScore = Math.min(
+      100,
+      fleetTheftDrops * 25 + fleetSuspiciousDrops * 10,
+    );
 
     return {
       from: from.toISOString(),
@@ -786,32 +905,48 @@ export class ReportsService {
           const sensor = await this.sensorResolver.resolveFuelSensor(v.imei);
           const [analysis, consumption] = await Promise.all([
             this.tripAnalyzerService.analyzeTrips(v.imei, from, to, sensor),
-            this.consumptionService.getConsumption(v.imei, from, to, sensor, v.fcr ?? ''),
+            this.consumptionService.getConsumption(
+              v.imei,
+              from,
+              to,
+              sensor,
+              v.fcr ?? '',
+            ),
           ]);
 
-          const periodFuelConsumed = consumption.netDrop !== null
-            ? Math.max(0, consumption.refueled + consumption.netDrop)
-            : consumption.consumed;
+          const periodFuelConsumed =
+            consumption.netDrop !== null
+              ? Math.max(0, consumption.refueled + consumption.netDrop)
+              : consumption.consumed;
           const rawTripFuelConsumed = analysis.totalFuelConsumed;
           const tripFuelScale =
             rawTripFuelConsumed > 0 && rawTripFuelConsumed > periodFuelConsumed
               ? periodFuelConsumed / rawTripFuelConsumed
               : 1;
-          const normalizedTrips = tripFuelScale < 1
-            ? analysis.trips.map((t) => {
-                const normalizedFuel = Math.round((t.fuelConsumed * tripFuelScale) * 100) / 100;
-                return {
-                  ...t,
-                  fuelConsumed: normalizedFuel,
-                  kmPerLiter:
-                    normalizedFuel > 0 && t.distanceKm > 0
-                      ? Math.round((t.distanceKm / normalizedFuel) * 100) / 100
-                      : null,
-                };
-              })
-            : analysis.trips;
-          const tripFuelConsumed = Math.min(rawTripFuelConsumed, periodFuelConsumed);
-          const unassignedFuelConsumed = Math.max(0, periodFuelConsumed - tripFuelConsumed);
+          const normalizedTrips =
+            tripFuelScale < 1
+              ? analysis.trips.map((t) => {
+                  const normalizedFuel =
+                    Math.round(t.fuelConsumed * tripFuelScale * 100) / 100;
+                  return {
+                    ...t,
+                    fuelConsumed: normalizedFuel,
+                    kmPerLiter:
+                      normalizedFuel > 0 && t.distanceKm > 0
+                        ? Math.round((t.distanceKm / normalizedFuel) * 100) /
+                          100
+                        : null,
+                  };
+                })
+              : analysis.trips;
+          const tripFuelConsumed = Math.min(
+            rawTripFuelConsumed,
+            periodFuelConsumed,
+          );
+          const unassignedFuelConsumed = Math.max(
+            0,
+            periodFuelConsumed - tripFuelConsumed,
+          );
 
           fleetTotalTrips += analysis.totalTrips;
           fleetTotalDistance += analysis.totalDistanceKm;
@@ -828,11 +963,14 @@ export class ReportsService {
             totalDistanceKm: analysis.totalDistanceKm,
             totalFuelConsumed: Math.round(periodFuelConsumed * 100) / 100,
             tripFuelConsumed: Math.round(tripFuelConsumed * 100) / 100,
-            unassignedFuelConsumed: Math.round(unassignedFuelConsumed * 100) / 100,
+            unassignedFuelConsumed:
+              Math.round(unassignedFuelConsumed * 100) / 100,
             totalDurationMinutes: analysis.totalDurationMinutes,
             avgKmPerLiter:
               tripFuelConsumed > 0 && analysis.totalDistanceKm > 0
-                ? Math.round((analysis.totalDistanceKm / tripFuelConsumed) * 100) / 100
+                ? Math.round(
+                    (analysis.totalDistanceKm / tripFuelConsumed) * 100,
+                  ) / 100
                 : null,
             trips: normalizedTrips,
             status: 'ok' as const,
@@ -861,9 +999,10 @@ export class ReportsService {
     const validVehicles = results.filter(
       (r) => r.status === 'ok' && (r.totalTrips > 0 || r.totalFuelConsumed > 0),
     );
-    const fleetAvgKmPerLiter = fleetTripFuel > 0 && fleetTotalDistance > 0
-      ? Math.round((fleetTotalDistance / fleetTripFuel) * 100) / 100
-      : null;
+    const fleetAvgKmPerLiter =
+      fleetTripFuel > 0 && fleetTotalDistance > 0
+        ? Math.round((fleetTotalDistance / fleetTripFuel) * 100) / 100
+        : null;
 
     return {
       from: from.toISOString(),
@@ -873,7 +1012,8 @@ export class ReportsService {
         totalDistanceKm: Math.round(fleetTotalDistance * 100) / 100,
         totalFuelConsumed: Math.round(fleetPeriodFuel * 100) / 100,
         tripFuelConsumed: Math.round(fleetTripFuel * 100) / 100,
-        unassignedFuelConsumed: Math.round(Math.max(0, fleetPeriodFuel - fleetTripFuel) * 100) / 100,
+        unassignedFuelConsumed:
+          Math.round(Math.max(0, fleetPeriodFuel - fleetTripFuel) * 100) / 100,
         totalDurationMinutes: Math.round(fleetTotalDuration * 100) / 100,
         avgKmPerLiter: fleetAvgKmPerLiter,
       },

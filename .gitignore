@@ -1,0 +1,27 @@
+# Dependencies (legacy commits track some node_modules; keep new ones out)
+node_modules/
+
+# Build output
+dist/
+.next/
+out/
+build/
+
+# Python virtualenv
+.venv/
+__pycache__/
+
+# Editor / tooling / scratch
+.cursor/
+.playwright-mcp/
+graphify-out/
+
+# Backend runtime data & secrets (keep osrm config, drop the 2.5GB map data)
+fuel-backend/osrm/data/
+fuel-backend/uploads/
+fuel-backend/fcm-service-account.json
+fuel-backend/google-services.json
+
+# OS
+.DS_Store
+Thumbs.db

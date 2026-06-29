@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 
@@ -75,11 +71,7 @@ export class DynamicTableQueryService {
     return rows[0] ?? null;
   }
 
-  async getRowsInRange(
-    imei: string,
-    from: Date,
-    to: Date,
-  ): Promise<DataRow[]> {
+  async getRowsInRange(imei: string, from: Date, to: Date): Promise<DataRow[]> {
     await this.assertTableExists(imei);
     const tableName = this.getTableName(imei);
 

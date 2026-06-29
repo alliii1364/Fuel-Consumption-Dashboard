@@ -16,7 +16,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
 import DateRangePicker from "@/components/DateRangePicker";
 import {
   ApiError,
@@ -260,17 +260,14 @@ function TheftDetectionPage() {
   // ─── Loading State ──────────────────────────────────────────────────────────
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="flex items-center justify-center h-screen bg-app">
         <Loader2 size={40} className="text-red-500 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100">
-      <Sidebar />
-
-      <div className="flex-1 flex flex-col overflow-hidden">
+    <AppShell>
         {/* Premium Header */}
         <div className="flex-shrink-0 px-6 py-4 flex items-center justify-between bg-white/95 backdrop-blur-xl border-b border-gray-100">
           <div className="flex items-center gap-4">
@@ -499,8 +496,7 @@ function TheftDetectionPage() {
             )}
           </div>
         </div>
-      </div>
-    </div>
+    </AppShell>
   );
 }
 

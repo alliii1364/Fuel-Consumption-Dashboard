@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState, memo, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, AlertCircle, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/components/ui";
 import {
   getVehicles, getDashboardSummary, getCurrentFuel,
   getFuelHistory, getFuelConsumption, getFuelStats,
@@ -17,7 +18,7 @@ import {
   FuelSensorsData, RefuelEventsData, ApiError,
 } from "@/lib/types";
 
-import Sidebar              from "@/components/Sidebar";
+import AppShell             from "@/components/AppShell";
 import MainHeader           from "@/components/MainHeader";
 import KpiMiniCards         from "@/components/KpiMiniCards";
 import DarkFuelChart        from "@/components/DarkFuelChart";
@@ -29,34 +30,12 @@ import ActiveAlerts         from "@/components/ActiveAlerts";
 import FleetTargets         from "@/components/FleetTargets";
 import { ShimmerStyle }     from "@/components/LoadingSkeleton";
 
-// ── Inline error banner ──────────────────────────────────────────────────────
-
-function ErrorBanner({ message, onClose }: { message: string; onClose: () => void }) {
-  return (
-    <div
-      style={{
-        display: "flex", alignItems: "center", gap: 10,
-        background: "rgba(232,64,64,0.07)", border: "1px solid rgba(232,64,64,0.2)",
-        borderRadius: 12, padding: "10px 14px", marginBottom: 8,
-      }}
-    >
-      <AlertCircle size={14} style={{ color: "#E84040", flexShrink: 0 }} />
-      <p style={{ flex: 1, fontSize: 13, color: "#E84040" }}>{message}</p>
-      <button
-        onClick={onClose}
-        style={{ background: "none", border: "none", cursor: "pointer", color: "#E84040", padding: 0 }}
-      >
-        <X size={14} />
-      </button>
-    </div>
-  );
-}
-
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 const DashboardPage = memo(function DashboardPage() {
   const { token, isLoading: authLoading, logout } = useAuth();
   const router = useRouter();
+  const toast = useToast();
 
   // ── Date range ─────────────────────────────────────────────────────────────
   const [range, setRange] = useState(todayRange);
@@ -65,12 +44,10 @@ const DashboardPage = memo(function DashboardPage() {
   const [vehicles,      setVehicles]      = useState<Vehicle[]>([]);
   const [selectedImei,  setSelectedImei]  = useState("");
   const [loadingVehicles, setLoadingVehicles] = useState(false);
-  const [vehiclesError, setVehiclesError] = useState<string | null>(null);
 
   // ── Dashboard summary ──────────────────────────────────────────────────────
   const [summary,       setSummary]       = useState<DashboardSummaryData | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
-  const [summaryError,  setSummaryError]  = useState<string | null>(null);
 
   // ── Per-vehicle data ───────────────────────────────────────────────────────
   const [currentFuel,   setCurrentFuel]   = useState<FuelCurrentData | null>(null);
@@ -95,7 +72,6 @@ const DashboardPage = memo(function DashboardPage() {
   useEffect(() => {
     if (!token) return;
     setLoadingVehicles(true);
-    setVehiclesError(null);
     getVehicles(token)
       .then(d => {
         setVehicles(d.vehicles);
@@ -103,10 +79,10 @@ const DashboardPage = memo(function DashboardPage() {
       })
       .catch(e => {
         if (e instanceof ApiError && e.statusCode === 401) handle401();
-        else setVehiclesError(e instanceof ApiError ? e.userMessage : "Failed to load vehicles.");
+        else toast.error("Couldn't load vehicles", e instanceof ApiError ? e.userMessage : undefined);
       })
       .finally(() => setLoadingVehicles(false));
-  }, [token, handle401]);
+  }, [token, handle401, toast]);
 
   // ── Load sensors when vehicle changes ──────────────────────────────────────
   useEffect(() => {
@@ -126,16 +102,15 @@ const DashboardPage = memo(function DashboardPage() {
   useEffect(() => {
     if (!token) return;
     setLoadingSummary(true);
-    setSummaryError(null);
 
     getDashboardSummary(token, range.from, range.to)
       .then(setSummary)
       .catch(e => {
         if (e instanceof ApiError && e.statusCode === 401) handle401();
-        else setSummaryError(e instanceof ApiError ? e.userMessage : "Failed to load dashboard summary.");
+        else toast.error("Couldn't load dashboard summary", e instanceof ApiError ? e.userMessage : undefined);
       })
       .finally(() => setLoadingSummary(false));
-  }, [token, range, handle401]);
+  }, [token, range, handle401, toast]);
 
   // ── Load per-vehicle data ──────────────────────────────────────────────────
   useEffect(() => {
@@ -230,7 +205,7 @@ const DashboardPage = memo(function DashboardPage() {
   if (authLoading || (!token && !authLoading)) {
     return (
       <div className="bg-app flex items-center justify-center h-screen">
-        <Loader2 size={28} className="animate-spin" style={{ color: "#E84040" }} />
+        <Loader2 size={28} className="animate-spin" style={{ color: "var(--color-primary)" }} />
       </div>
     );
   }
@@ -238,16 +213,23 @@ const DashboardPage = memo(function DashboardPage() {
   return (
     <>
       <ShimmerStyle />
-      <div className="bg-app flex h-screen overflow-hidden">
-
-        {/* Sidebar */}
-        <Sidebar />
-
-        {/* Main column */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-
+      <AppShell
+        rightPanel={
+          <aside
+            className="hidden xl:flex flex-shrink-0 flex-col gap-4 py-5 px-4 overflow-y-auto scroll-panel"
+            style={{ width: 288, background: "var(--color-surface)", borderLeft: "1px solid var(--color-border)" }}
+          >
+            <ActiveAlerts vehicles={summary?.vehicles ?? []} loading={loadingSummary} />
+            <FleetTargets
+              vehicles={summary?.vehicles ?? []}
+              totalConsumed={summary?.totals.consumed ?? 0}
+              loading={loadingSummary}
+            />
+          </aside>
+        }
+      >
           {/* Header — outside scroll container so dropdown escapes overflow */}
-          <div style={{ position: "relative", zIndex: 50, flexShrink: 0, background: "#F5F4F4", padding: "20px 24px 16px" }}>
+          <div style={{ position: "relative", zIndex: 50, flexShrink: 0, background: "var(--color-bg)", padding: "20px 24px 16px" }}>
             <MainHeader
               vehicles={vehicles}
               selectedImei={selectedImei}
@@ -261,18 +243,6 @@ const DashboardPage = memo(function DashboardPage() {
 
           {/* Scrollable body */}
           <main className="flex-1 overflow-y-auto scroll-panel px-6 pb-6">
-
-            {/* Top-level error banners */}
-            {vehiclesError && (
-              <div className="mt-4">
-                <ErrorBanner message={vehiclesError} onClose={() => setVehiclesError(null)} />
-              </div>
-            )}
-            {summaryError && (
-              <div className={vehiclesError ? "" : "mt-4"}>
-                <ErrorBanner message={summaryError} onClose={() => setSummaryError(null)} />
-              </div>
-            )}
 
             {/* Sensor bar */}
             {(fuelSensors || loadingSensors) && (
@@ -320,22 +290,7 @@ const DashboardPage = memo(function DashboardPage() {
 
             <div className="h-8" />
           </main>
-        </div>
-
-        {/* Right panel */}
-        <aside
-          className="flex-shrink-0 flex flex-col gap-4 py-5 px-4 overflow-y-auto scroll-panel"
-          style={{ width: 288, background: "#FFFFFF", borderLeft: "1px solid #EFEFEF" }}
-        >
-          <ActiveAlerts vehicles={summary?.vehicles ?? []} loading={loadingSummary} />
-          <FleetTargets
-            vehicles={summary?.vehicles ?? []}
-            totalConsumed={summary?.totals.consumed ?? 0}
-            loading={loadingSummary}
-          />
-        </aside>
-
-      </div>
+      </AppShell>
     </>
   );
 });

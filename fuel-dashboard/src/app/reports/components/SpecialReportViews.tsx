@@ -65,18 +65,18 @@ function SpecialReportViewsComponent({
         <div className="flex-1 rounded-xl overflow-hidden flex flex-col" style={{ background: "rgba(255, 255, 255, 0.95)", backdropFilter: "blur(20px)", border: "1px solid rgba(255, 255, 255, 0.8)", boxShadow: "0 2px 12px rgba(0, 0, 0, 0.03)", minHeight: 0 }}>
           <div className="p-5 border-b flex items-center justify-between" style={{ borderColor: "rgba(240, 239, 239, 0.8)" }}>
             <div>
-              <h3 className="font-semibold text-xl" style={{ color: "#1A1A2E" }}>Daily Fuel Consumption Trends</h3>
-              <p className="text-sm mt-1" style={{ color: "#9CA3AF" }}>Fleet consumption vs Distance over time</p>
+              <h3 className="font-semibold text-xl" style={{ color: "var(--color-text-1)" }}>Daily Fuel Consumption Trends</h3>
+              <p className="text-sm mt-1" style={{ color: "var(--color-text-3)" }}>Fleet consumption vs Distance over time</p>
             </div>
             <div className="flex gap-4">
               <div className="text-right">
-                <p className="text-xs" style={{ color: "#9CA3AF" }}>Total Consumed</p>
-                <p className="font-bold text-lg" style={{ color: "#E84040" }}>
+                <p className="text-xs" style={{ color: "var(--color-text-3)" }}>Total Consumed</p>
+                <p className="font-bold text-lg" style={{ color: "var(--color-primary)" }}>
                   {formatNumber(dailyTrendData.fleetDailyTrend.reduce((a: number, d: any) => a + (d.consumed || 0), 0))} L
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-xs" style={{ color: "#9CA3AF" }}>Total Distance</p>
+                <p className="text-xs" style={{ color: "var(--color-text-3)" }}>Total Distance</p>
                 <p className="font-bold text-lg" style={{ color: "#3b82f6" }}>
                   {formatNumber(dailyTrendData.fleetDailyTrend.reduce((a: number, d: any) => a + (d.distanceKm || 0), 0))} km
                 </p>
@@ -106,8 +106,8 @@ function SpecialReportViewsComponent({
       return (
         <div className="flex-1 rounded-xl overflow-hidden" style={{ background: "rgba(255, 255, 255, 0.95)", backdropFilter: "blur(20px)", border: "1px solid rgba(255, 255, 255, 0.8)", boxShadow: "0 2px 12px rgba(0, 0, 0, 0.03)", minHeight: 0 }}>
           <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: "rgba(240, 239, 239, 0.8)" }}>
-            <h3 className="font-semibold text-lg" style={{ color: "#1A1A2E" }}>Recent Refueling Events</h3>
-            <span className="text-sm px-3 py-1 rounded-full" style={{ background: "#E8404015", color: "#E84040" }}>
+            <h3 className="font-semibold text-lg" style={{ color: "var(--color-text-1)" }}>Recent Refueling Events</h3>
+            <span className="text-sm px-3 py-1 rounded-full" style={{ background: "#E8404015", color: "var(--color-primary)" }}>
               {refuelData.events.length} Total Events
             </span>
           </div>
@@ -116,21 +116,21 @@ function SpecialReportViewsComponent({
               <div key={idx} className="p-4 flex items-center justify-between border-b hover:bg-gray-50 transition-colors" style={{ borderColor: "rgba(240, 239, 239, 0.5)" }}>
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "#E8404015" }}>
-                    <span className="text-sm font-bold" style={{ color: "#E84040" }}>{idx + 1}</span>
+                    <span className="text-sm font-bold" style={{ color: "var(--color-primary)" }}>{idx + 1}</span>
                   </div>
                   <div>
-                    <p className="font-semibold text-base" style={{ color: "#1A1A2E" }}>{event.name}</p>
-                    <p className="text-sm" style={{ color: "#9CA3AF" }}>{formatDateTime(event.at)}</p>
+                    <p className="font-semibold text-base" style={{ color: "var(--color-text-1)" }}>{event.name}</p>
+                    <p className="text-sm" style={{ color: "var(--color-text-3)" }}>{formatDateTime(event.at)}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-8 text-right">
                   <div>
-                    <p className="text-sm" style={{ color: "#9CA3AF" }}>Added</p>
+                    <p className="text-sm" style={{ color: "var(--color-text-3)" }}>Added</p>
                     <p className="font-bold text-lg" style={{ color: "#22c55e" }}>+{formatNumber(event.added)} L</p>
                   </div>
                   <div>
-                    <p className="text-sm" style={{ color: "#9CA3AF" }}>Fuel Level</p>
-                    <p className="font-medium text-sm" style={{ color: "#1A1A2E" }}>
+                    <p className="text-sm" style={{ color: "var(--color-text-3)" }}>Fuel Level</p>
+                    <p className="font-medium text-sm" style={{ color: "var(--color-text-1)" }}>
                       {formatNumber(event.fuelBefore)} → <span className="font-bold">{formatNumber(event.fuelAfter)} L</span>
                     </p>
                   </div>
@@ -152,12 +152,12 @@ function SpecialReportViewsComponent({
                 <Clock size={20} style={{ color: "#14b8a6" }} />
               </div>
               <div>
-                <h3 className="font-semibold text-lg" style={{ color: "#1A1A2E" }}>Engine Hours Ranking</h3>
-                <p className="text-sm" style={{ color: "#9CA3AF" }}>By total runtime</p>
+                <h3 className="font-semibold text-lg" style={{ color: "var(--color-text-1)" }}>Engine Hours Ranking</h3>
+                <p className="text-sm" style={{ color: "var(--color-text-3)" }}>By total runtime</p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-xs" style={{ color: "#9CA3AF" }}>Fleet Total</p>
+              <p className="text-xs" style={{ color: "var(--color-text-3)" }}>Fleet Total</p>
               <p className="font-bold text-lg" style={{ color: "#14b8a6" }}>{formatNumber(engineHoursData.fleetTotalEngineHours || 0)} hrs</p>
             </div>
           </div>
@@ -184,31 +184,31 @@ function SpecialReportViewsComponent({
                           className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm"
                           style={{
                             background: i < 3 ? `${rankColors[i]}20` : "#F3F4F6",
-                            color: i < 3 ? rankColors[i] : "#6B7280",
+                            color: i < 3 ? rankColors[i] : "var(--color-text-2)",
                             border: i < 3 ? `2px solid ${rankColors[i]}40` : "none",
                           }}
                         >
                           {i + 1}
                         </div>
                         <div>
-                          <p className="font-semibold text-base" style={{ color: "#1A1A2E" }}>{v.name}</p>
-                          <p className="text-sm" style={{ color: "#9CA3AF" }}>{v.plateNumber}</p>
+                          <p className="font-semibold text-base" style={{ color: "var(--color-text-1)" }}>{v.name}</p>
+                          <p className="text-sm" style={{ color: "var(--color-text-3)" }}>{v.plateNumber}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-8">
                         <div className="text-center">
-                          <p className="text-xs" style={{ color: "#9CA3AF" }}>Hours</p>
-                          <p className="font-bold text-lg" style={{ color: "#1A1A2E" }}>{formatNumber(v.engineOnHours || 0)}</p>
+                          <p className="text-xs" style={{ color: "var(--color-text-3)" }}>Hours</p>
+                          <p className="font-bold text-lg" style={{ color: "var(--color-text-1)" }}>{formatNumber(v.engineOnHours || 0)}</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-xs" style={{ color: "#9CA3AF" }}>Avg/Day</p>
-                          <p className="font-bold text-lg" style={{ color: "#1A1A2E" }}>{formatNumber(v.avgHoursPerDay || 0)}</p>
+                          <p className="text-xs" style={{ color: "var(--color-text-3)" }}>Avg/Day</p>
+                          <p className="font-bold text-lg" style={{ color: "var(--color-text-1)" }}>{formatNumber(v.avgHoursPerDay || 0)}</p>
                         </div>
                         <div
                           className="px-4 py-2 rounded-xl text-center min-w-[70px]"
                           style={{ background: `${scoreColor}15`, border: `1px solid ${scoreColor}30` }}
                         >
-                          <p className="text-xs" style={{ color: "#9CA3AF" }}>SCORE</p>
+                          <p className="text-xs" style={{ color: "var(--color-text-3)" }}>SCORE</p>
                           <p className="font-bold text-xl" style={{ color: scoreColor }}>{score}</p>
                         </div>
                       </div>
@@ -231,8 +231,8 @@ function SpecialReportViewsComponent({
                 <MapPin size={20} style={{ color: "#6366f1" }} />
               </div>
               <div>
-                <h3 className="font-semibold text-lg" style={{ color: "#1A1A2E" }}>Fleet Status</h3>
-                <p className="text-sm" style={{ color: "#9CA3AF" }}>Real-time vehicle snapshot</p>
+                <h3 className="font-semibold text-lg" style={{ color: "var(--color-text-1)" }}>Fleet Status</h3>
+                <p className="text-sm" style={{ color: "var(--color-text-3)" }}>Real-time vehicle snapshot</p>
               </div>
             </div>
             <div className="flex gap-4">
@@ -268,8 +268,8 @@ function SpecialReportViewsComponent({
                       style={{ background: v.status === "online" ? "#22c55e" : "#ef4444" }}
                     />
                     <div>
-                      <p className="font-semibold text-sm" style={{ color: "#1A1A2E" }}>{v.name}</p>
-                      <p className="text-xs" style={{ color: "#9CA3AF" }}>{v.plateNumber}</p>
+                      <p className="font-semibold text-sm" style={{ color: "var(--color-text-1)" }}>{v.name}</p>
+                      <p className="text-xs" style={{ color: "var(--color-text-3)" }}>{v.plateNumber}</p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -277,7 +277,7 @@ function SpecialReportViewsComponent({
                       {v.status === "online" ? "Online" : "Offline"}
                     </p>
                     {v.lastSeen && (
-                      <p className="text-xs" style={{ color: "#9CA3AF" }}>
+                      <p className="text-xs" style={{ color: "var(--color-text-3)" }}>
                         {formatDateTime(v.lastSeen)}
                       </p>
                     )}
@@ -383,25 +383,25 @@ function SpecialReportViewsComponent({
                 <Route size={20} style={{ color: "#3b82f6" }} />
               </div>
               <div>
-                <h3 className="font-semibold text-lg" style={{ color: "#1A1A2E" }}>Trip Analysis</h3>
-                <p className="text-sm" style={{ color: "#9CA3AF" }}>Individual trips from ignition on to off</p>
+                <h3 className="font-semibold text-lg" style={{ color: "var(--color-text-1)" }}>Trip Analysis</h3>
+                <p className="text-sm" style={{ color: "var(--color-text-3)" }}>Individual trips from ignition on to off</p>
               </div>
             </div>
             <div className="flex gap-4">
               <div className="text-center px-4 py-2 rounded-xl" style={{ background: "#3b82f615", border: "1px solid #3b82f630" }}>
-                <p className="text-xs" style={{ color: "#9CA3AF" }}>Total Trips</p>
+                <p className="text-xs" style={{ color: "var(--color-text-3)" }}>Total Trips</p>
                 <p className="font-bold text-lg" style={{ color: "#3b82f6" }}>{tripsData.fleetTotals?.totalTrips || 0}</p>
               </div>
               <div className="text-center px-4 py-2 rounded-xl" style={{ background: "#22c55e15", border: "1px solid #22c55e30" }}>
-                <p className="text-xs" style={{ color: "#9CA3AF" }}>Distance</p>
+                <p className="text-xs" style={{ color: "var(--color-text-3)" }}>Distance</p>
                 <p className="font-bold text-lg" style={{ color: "#22c55e" }}>{formatNumber(tripsData.fleetTotals?.totalDistanceKm || 0)} km</p>
               </div>
               <div className="text-center px-4 py-2 rounded-xl" style={{ background: "#E8404015", border: "1px solid #E8404030" }}>
-                <p className="text-xs" style={{ color: "#9CA3AF" }}>Fuel (Period)</p>
-                <p className="font-bold text-lg" style={{ color: "#E84040" }}>{formatNumber(fleetPeriodFuel)} L</p>
+                <p className="text-xs" style={{ color: "var(--color-text-3)" }}>Fuel (Period)</p>
+                <p className="font-bold text-lg" style={{ color: "var(--color-primary)" }}>{formatNumber(fleetPeriodFuel)} L</p>
               </div>
               <div className="text-center px-4 py-2 rounded-xl" style={{ background: "#f59e0b15", border: "1px solid #f59e0b30" }}>
-                <p className="text-xs" style={{ color: "#9CA3AF" }}>Fuel (Trips)</p>
+                <p className="text-xs" style={{ color: "var(--color-text-3)" }}>Fuel (Trips)</p>
                 <p className="font-bold text-lg" style={{ color: "#f59e0b" }}>{formatNumber(fleetTripFuel)} L</p>
               </div>
             </div>
@@ -411,10 +411,10 @@ function SpecialReportViewsComponent({
             {!hasVehicles ? (
               <div className="flex flex-col items-center justify-center py-12">
                 <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ background: "#F3F4F6" }}>
-                  <Route size={32} style={{ color: "#9CA3AF" }} />
+                  <Route size={32} style={{ color: "var(--color-text-3)" }} />
                 </div>
-                <h3 className="text-lg font-semibold mb-2" style={{ color: "#1A1A2E" }}>No Trips Found</h3>
-                <p className="text-sm" style={{ color: "#9CA3AF" }}>No trips detected in the selected date range</p>
+                <h3 className="text-lg font-semibold mb-2" style={{ color: "var(--color-text-1)" }}>No Trips Found</h3>
+                <p className="text-sm" style={{ color: "var(--color-text-3)" }}>No trips detected in the selected date range</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -422,20 +422,20 @@ function SpecialReportViewsComponent({
                 {allTrips.length > 0 && (
                   <div className="rounded-xl overflow-hidden" style={{ background: "rgba(255, 255, 255, 0.8)", border: "1px solid rgba(229, 231, 235, 0.5)" }}>
                     <div className="p-4 border-b" style={{ borderColor: "rgba(229, 231, 235, 0.5)" }}>
-                      <h4 className="font-semibold text-sm" style={{ color: "#1A1A2E" }}>All Trips</h4>
+                      <h4 className="font-semibold text-sm" style={{ color: "var(--color-text-1)" }}>All Trips</h4>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="text-left" style={{ background: "rgba(248, 250, 252, 0.8)" }}>
-                            <th className="px-4 py-3 font-medium" style={{ color: "#6B7280" }}>Trip</th>
-                            <th className="px-4 py-3 font-medium" style={{ color: "#6B7280" }}>Vehicle</th>
-                            <th className="px-4 py-3 font-medium" style={{ color: "#6B7280" }}>Start Time</th>
-                            <th className="px-4 py-3 font-medium" style={{ color: "#6B7280" }}>Duration</th>
-                            <th className="px-4 py-3 font-medium" style={{ color: "#6B7280" }}>Distance</th>
-                            <th className="px-4 py-3 font-medium" style={{ color: "#6B7280" }}>Fuel Used</th>
-                            <th className="px-4 py-3 font-medium" style={{ color: "#6B7280" }}>Efficiency</th>
-                            <th className="px-4 py-3 font-medium" style={{ color: "#6B7280" }}>Max Speed</th>
+                            <th className="px-4 py-3 font-medium" style={{ color: "var(--color-text-2)" }}>Trip</th>
+                            <th className="px-4 py-3 font-medium" style={{ color: "var(--color-text-2)" }}>Vehicle</th>
+                            <th className="px-4 py-3 font-medium" style={{ color: "var(--color-text-2)" }}>Start Time</th>
+                            <th className="px-4 py-3 font-medium" style={{ color: "var(--color-text-2)" }}>Duration</th>
+                            <th className="px-4 py-3 font-medium" style={{ color: "var(--color-text-2)" }}>Distance</th>
+                            <th className="px-4 py-3 font-medium" style={{ color: "var(--color-text-2)" }}>Fuel Used</th>
+                            <th className="px-4 py-3 font-medium" style={{ color: "var(--color-text-2)" }}>Efficiency</th>
+                            <th className="px-4 py-3 font-medium" style={{ color: "var(--color-text-2)" }}>Max Speed</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -447,13 +447,13 @@ function SpecialReportViewsComponent({
                                 </span>
                               </td>
                               <td className="px-4 py-3">
-                                <p className="font-medium" style={{ color: "#1A1A2E" }}>{trip.vehicleName}</p>
-                                <p className="text-xs" style={{ color: "#9CA3AF" }}>{trip.vehiclePlate}</p>
+                                <p className="font-medium" style={{ color: "var(--color-text-1)" }}>{trip.vehicleName}</p>
+                                <p className="text-xs" style={{ color: "var(--color-text-3)" }}>{trip.vehiclePlate}</p>
                               </td>
-                              <td className="px-4 py-3" style={{ color: "#6B7280" }}>
+                              <td className="px-4 py-3" style={{ color: "var(--color-text-2)" }}>
                                 {formatDateTime(trip.startTime)}
                               </td>
-                              <td className="px-4 py-3" style={{ color: "#6B7280" }}>
+                              <td className="px-4 py-3" style={{ color: "var(--color-text-2)" }}>
                                 {formatDuration(trip.durationMinutes)}
                                 {trip.idleDurationMinutes > 5 && (
                                   <span className="block text-xs" style={{ color: "#f59e0b" }}>
@@ -465,14 +465,14 @@ function SpecialReportViewsComponent({
                                 <span className="font-medium" style={{ color: "#22c55e" }}>{formatNumber(trip.distanceKm)} km</span>
                               </td>
                               <td className="px-4 py-3">
-                                <span className="font-medium" style={{ color: "#E84040" }}>{formatNumber(getTripFuelUsed(trip))} L</span>
+                                <span className="font-medium" style={{ color: "var(--color-primary)" }}>{formatNumber(getTripFuelUsed(trip))} L</span>
                               </td>
                               <td className="px-4 py-3">
                                 <span className="font-medium" style={{ color: (getTripEfficiency(trip) ?? 0) >= 8 ? "#22c55e" : (getTripEfficiency(trip) ?? 0) >= 5 ? "#f59e0b" : "#ef4444" }}>
                                   {getTripEfficiency(trip) ? `${formatNumber(getTripEfficiency(trip) ?? 0)} km/L` : "—"}
                                 </span>
                               </td>
-                              <td className="px-4 py-3" style={{ color: "#6B7280" }}>
+                              <td className="px-4 py-3" style={{ color: "var(--color-text-2)" }}>
                                 {formatNumber(trip.maxSpeed)} km/h
                               </td>
                             </tr>
@@ -480,7 +480,7 @@ function SpecialReportViewsComponent({
                         </tbody>
                       </table>
                       {allTrips.length > 50 && (
-                        <div className="p-4 text-center text-sm" style={{ color: "#9CA3AF" }}>
+                        <div className="p-4 text-center text-sm" style={{ color: "var(--color-text-3)" }}>
                           Showing first 50 of {allTrips.length} trips
                         </div>
                       )}
@@ -491,7 +491,7 @@ function SpecialReportViewsComponent({
                 {/* Per-Vehicle Summary */}
                 <div className="rounded-xl overflow-hidden" style={{ background: "rgba(255, 255, 255, 0.8)", border: "1px solid rgba(229, 231, 235, 0.5)" }}>
                   <div className="p-4 border-b" style={{ borderColor: "rgba(229, 231, 235, 0.5)" }}>
-                    <h4 className="font-semibold text-sm" style={{ color: "#1A1A2E" }}>Vehicle Trip Summaries</h4>
+                    <h4 className="font-semibold text-sm" style={{ color: "var(--color-text-1)" }}>Vehicle Trip Summaries</h4>
                   </div>
                   <div className="space-y-2 p-4">
                     {tripsData.vehicles.map((vehicle: any) => (
@@ -503,44 +503,44 @@ function SpecialReportViewsComponent({
                         >
                           <div className="flex items-center gap-3">
                             {expandedVehicles.has(vehicle.imei) ? (
-                              <ChevronDown size={18} style={{ color: "#6B7280" }} />
+                              <ChevronDown size={18} style={{ color: "var(--color-text-2)" }} />
                             ) : (
-                              <ChevronRight size={18} style={{ color: "#6B7280" }} />
+                              <ChevronRight size={18} style={{ color: "var(--color-text-2)" }} />
                             )}
                             <div>
-                              <p className="font-semibold" style={{ color: "#1A1A2E" }}>{vehicle.name}</p>
-                              <p className="text-xs" style={{ color: "#9CA3AF" }}>{vehicle.plateNumber}</p>
+                              <p className="font-semibold" style={{ color: "var(--color-text-1)" }}>{vehicle.name}</p>
+                              <p className="text-xs" style={{ color: "var(--color-text-3)" }}>{vehicle.plateNumber}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-6 text-sm">
                             <div className="text-center">
-                              <p className="text-xs" style={{ color: "#9CA3AF" }}>Trips</p>
+                              <p className="text-xs" style={{ color: "var(--color-text-3)" }}>Trips</p>
                               <p className="font-semibold" style={{ color: "#3b82f6" }}>{vehicle.totalTrips}</p>
                             </div>
                             <div className="text-center">
-                              <p className="text-xs" style={{ color: "#9CA3AF" }}>Distance</p>
+                              <p className="text-xs" style={{ color: "var(--color-text-3)" }}>Distance</p>
                               <p className="font-semibold" style={{ color: "#22c55e" }}>{formatNumber(vehicle.totalDistanceKm)} km</p>
                             </div>
                             <div className="text-center">
-                              <p className="text-xs" style={{ color: "#9CA3AF" }}>Period Fuel</p>
-                              <p className="font-semibold" style={{ color: "#E84040" }}>
+                              <p className="text-xs" style={{ color: "var(--color-text-3)" }}>Period Fuel</p>
+                              <p className="font-semibold" style={{ color: "var(--color-primary)" }}>
                                 {formatNumber(getVehiclePeriodFuel(vehicle))} L
                               </p>
                             </div>
                             <div className="text-center">
-                              <p className="text-xs" style={{ color: "#9CA3AF" }}>Trip Fuel</p>
+                              <p className="text-xs" style={{ color: "var(--color-text-3)" }}>Trip Fuel</p>
                               <p className="font-semibold" style={{ color: "#f59e0b" }}>
                                 {formatNumber(getVehicleTripFuel(vehicle))} L
                               </p>
                             </div>
                             <div className="text-center">
-                              <p className="text-xs" style={{ color: "#9CA3AF" }}>Unassigned</p>
-                              <p className="font-semibold" style={{ color: "#6B7280" }}>
+                              <p className="text-xs" style={{ color: "var(--color-text-3)" }}>Unassigned</p>
+                              <p className="font-semibold" style={{ color: "var(--color-text-2)" }}>
                                 {formatNumber(getVehicleUnassignedFuel(vehicle))} L
                               </p>
                             </div>
                             <div className="text-center">
-                              <p className="text-xs" style={{ color: "#9CA3AF" }}>Efficiency</p>
+                              <p className="text-xs" style={{ color: "var(--color-text-3)" }}>Efficiency</p>
                               <p className="font-semibold" style={{ color: (getVehicleTripEfficiency(vehicle) ?? 0) >= 8 ? "#22c55e" : (getVehicleTripEfficiency(vehicle) ?? 0) >= 5 ? "#f59e0b" : "#ef4444" }}>
                                 {getVehicleTripEfficiency(vehicle) ? `${formatNumber(getVehicleTripEfficiency(vehicle) ?? 0)} km/L` : "—"}
                               </p>
@@ -554,12 +554,12 @@ function SpecialReportViewsComponent({
                               <table className="w-full text-sm">
                                 <thead>
                                   <tr className="text-left" style={{ background: "rgba(248, 250, 252, 0.5)" }}>
-                                    <th className="px-3 py-2 font-medium text-xs" style={{ color: "#6B7280" }}>Trip</th>
-                                    <th className="px-3 py-2 font-medium text-xs" style={{ color: "#6B7280" }}>Start</th>
-                                    <th className="px-3 py-2 font-medium text-xs" style={{ color: "#6B7280" }}>Duration</th>
-                                    <th className="px-3 py-2 font-medium text-xs" style={{ color: "#6B7280" }}>Distance</th>
-                                    <th className="px-3 py-2 font-medium text-xs" style={{ color: "#6B7280" }}>Fuel</th>
-                                    <th className="px-3 py-2 font-medium text-xs" style={{ color: "#6B7280" }}>Efficiency</th>
+                                    <th className="px-3 py-2 font-medium text-xs" style={{ color: "var(--color-text-2)" }}>Trip</th>
+                                    <th className="px-3 py-2 font-medium text-xs" style={{ color: "var(--color-text-2)" }}>Start</th>
+                                    <th className="px-3 py-2 font-medium text-xs" style={{ color: "var(--color-text-2)" }}>Duration</th>
+                                    <th className="px-3 py-2 font-medium text-xs" style={{ color: "var(--color-text-2)" }}>Distance</th>
+                                    <th className="px-3 py-2 font-medium text-xs" style={{ color: "var(--color-text-2)" }}>Fuel</th>
+                                    <th className="px-3 py-2 font-medium text-xs" style={{ color: "var(--color-text-2)" }}>Efficiency</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -568,10 +568,10 @@ function SpecialReportViewsComponent({
                                       <td className="px-3 py-2">
                                         <span className="text-xs font-medium" style={{ color: "#3b82f6" }}>{trip.tripId}</span>
                                       </td>
-                                      <td className="px-3 py-2 text-xs" style={{ color: "#6B7280" }}>
+                                      <td className="px-3 py-2 text-xs" style={{ color: "var(--color-text-2)" }}>
                                         {formatDateTime(trip.startTime)}
                                       </td>
-                                      <td className="px-3 py-2 text-xs" style={{ color: "#6B7280" }}>
+                                      <td className="px-3 py-2 text-xs" style={{ color: "var(--color-text-2)" }}>
                                         {formatDuration(trip.durationMinutes)}
                                         {trip.idleDurationMinutes > 5 && (
                                           <span className="block text-xs" style={{ color: "#f59e0b" }}>
@@ -582,7 +582,7 @@ function SpecialReportViewsComponent({
                                       <td className="px-3 py-2 text-xs font-medium" style={{ color: "#22c55e" }}>
                                         {formatNumber(trip.distanceKm)} km
                                       </td>
-                                      <td className="px-3 py-2 text-xs font-medium" style={{ color: "#E84040" }}>
+                                      <td className="px-3 py-2 text-xs font-medium" style={{ color: "var(--color-primary)" }}>
                                         {formatNumber(getTripFuelUsed(trip))} L
                                       </td>
                                       <td className="px-3 py-2 text-xs font-medium" style={{ color: (getTripEfficiency(trip) ?? 0) >= 8 ? "#22c55e" : (getTripEfficiency(trip) ?? 0) >= 5 ? "#f59e0b" : "#ef4444" }}>

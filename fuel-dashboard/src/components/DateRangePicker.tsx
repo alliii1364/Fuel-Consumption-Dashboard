@@ -216,13 +216,13 @@ export default function DateRangePicker({
     if (isDisabled) return "text-gray-300 cursor-not-allowed";
 
     if (isFrom || isTo)
-      return "bg-[#E84040] text-white font-bold shadow";
+      return "bg-primary text-white font-bold shadow";
 
     if (inRange)
-      return "bg-red-100 text-[#E84040]";
+      return "bg-red-100 text-primary";
 
     if (isToday)
-      return "border border-[#E84040] text-[#E84040]";
+      return "border border-primary text-primary";
 
     return "text-gray-700 hover:bg-gray-100";
   }

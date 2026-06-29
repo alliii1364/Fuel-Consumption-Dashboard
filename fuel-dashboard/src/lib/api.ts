@@ -40,7 +40,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function request<T>(
+export async function request<T>(
   path: string,
   options: RequestInit = {},
   token?: string | null

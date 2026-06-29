@@ -126,7 +126,7 @@ export function applyMedianFilter(
 
   return readings.map((r, i) => {
     // Backward-only window: [i - windowSize + 1 … i]
-    const start  = Math.max(0, i - windowSize + 1);
+    const start = Math.max(0, i - windowSize + 1);
     const window = readings
       .slice(start, i + 1)
       .map((x) => x.fuel)
@@ -157,17 +157,15 @@ export function isDropConfirmedAfterDelay(
   dropTs: Date,
   baselineFuel: number,
   allRows: FuelReading[],
-  dropThreshold: number  = DROP_ALERT_THRESHOLD,
-  maxSpeedKmh: number    = DROP_GATING_MAX_SPEED_KMH,
-  maxGapMinutes: number  = 10,
+  dropThreshold: number = DROP_ALERT_THRESHOLD,
+  maxSpeedKmh: number = DROP_GATING_MAX_SPEED_KMH,
+  maxGapMinutes: number = 10,
 ): boolean {
-  const maxGapMs  = maxGapMinutes * 60 * 1000;
+  const maxGapMs = maxGapMinutes * 60 * 1000;
   const deadlineTs = new Date(dropTs.getTime() + maxGapMs);
 
   // Find the first reading AFTER the drop timestamp within the gap window.
-  const verifyRow = allRows.find(
-    (r) => r.ts > dropTs && r.ts <= deadlineTs,
-  );
+  const verifyRow = allRows.find((r) => r.ts > dropTs && r.ts <= deadlineTs);
 
   if (!verifyRow) {
     // No new data within gap → assume still dropped (Python: gs_objects still shows old value)
@@ -224,12 +222,12 @@ export function isFakeSpike(
   dropAt: Date,
   allRows: FuelReading[],
   spikeWindowMinutes: number = SPIKE_WINDOW_MINUTES,
-  dropThreshold: number      = DROP_ALERT_THRESHOLD,
-  maxSpeedKmh: number        = DROP_GATING_MAX_SPEED_KMH,
+  dropThreshold: number = DROP_ALERT_THRESHOLD,
+  maxSpeedKmh: number = DROP_GATING_MAX_SPEED_KMH,
 ): boolean {
   const windowMs = spikeWindowMinutes * 60 * 1000;
   const winStart = new Date(dropAt.getTime() - windowMs);
-  const winEnd   = new Date(dropAt.getTime() + windowMs);
+  const winEnd = new Date(dropAt.getTime() + windowMs);
 
   const readings = allRows.filter((r) => r.ts >= winStart && r.ts <= winEnd);
   if (readings.length < 2) return false; // not enough data → assume real
@@ -292,11 +290,13 @@ export function isPostDropRecovery(
   spikeWindowMinutes: number = SPIKE_WINDOW_MINUTES,
   eps: number = POST_DROP_VERIFY_EPS_LITERS,
 ): boolean {
-  const windowMs   = spikeWindowMinutes * 60 * 1000;
-  const postStart  = new Date(dropAt.getTime() + windowMs);
-  const postEnd    = new Date(dropAt.getTime() + 2 * windowMs);
+  const windowMs = spikeWindowMinutes * 60 * 1000;
+  const postStart = new Date(dropAt.getTime() + windowMs);
+  const postEnd = new Date(dropAt.getTime() + 2 * windowMs);
 
-  const postReadings = allRows.filter((r) => r.ts > postStart && r.ts <= postEnd);
+  const postReadings = allRows.filter(
+    (r) => r.ts > postStart && r.ts <= postEnd,
+  );
   if (postReadings.length === 0) return false;
 
   // Python: if v_fuel >= float(last_val) - eps → skip as fake jerk
@@ -322,11 +322,11 @@ export function isRecoveryRise(
   peakFuel: number,
   allRows: FuelReading[],
   lookbackMinutes: number = RISE_RECOVERY_LOOKBACK_MINUTES,
-  riseThreshold: number   = DROP_ALERT_THRESHOLD,
-  eps: number             = RISE_RECOVERY_EPS_LITERS,
+  riseThreshold: number = DROP_ALERT_THRESHOLD,
+  eps: number = RISE_RECOVERY_EPS_LITERS,
 ): boolean {
-  const lookbackMs  = lookbackMinutes * 60 * 1000;
-  const lookStart   = new Date(dropAt.getTime() - lookbackMs);
+  const lookbackMs = lookbackMinutes * 60 * 1000;
+  const lookStart = new Date(dropAt.getTime() - lookbackMs);
 
   const preReadings = allRows
     .filter((r) => r.ts >= lookStart && r.ts < dropAt)
@@ -376,12 +376,12 @@ export function isFakeRise(
   riseAt: Date,
   allRows: FuelReading[],
   spikeWindowMinutes: number = SPIKE_WINDOW_MINUTES,
-  riseThreshold: number      = RISE_THRESHOLD,
-  maxSpeedKmh: number        = RISE_GATING_MAX_SPEED_KMH,
+  riseThreshold: number = RISE_THRESHOLD,
+  maxSpeedKmh: number = RISE_GATING_MAX_SPEED_KMH,
 ): boolean {
   const windowMs = spikeWindowMinutes * 60 * 1000;
   const winStart = new Date(riseAt.getTime() - windowMs);
-  const winEnd   = new Date(riseAt.getTime() + windowMs);
+  const winEnd = new Date(riseAt.getTime() + windowMs);
 
   const readings = allRows.filter((r) => r.ts >= winStart && r.ts <= winEnd);
   if (readings.length < 2) return false; // not enough data → assume real
@@ -438,13 +438,15 @@ export function isPostRefuelFallback(
   peakFuel: number,
   allRows: FuelReading[],
   spikeWindowMinutes: number = SPIKE_WINDOW_MINUTES,
-  eps: number                = POST_REFUEL_VERIFY_EPS_LITERS,
+  eps: number = POST_REFUEL_VERIFY_EPS_LITERS,
 ): boolean {
-  const windowMs  = spikeWindowMinutes * 60 * 1000;
+  const windowMs = spikeWindowMinutes * 60 * 1000;
   const postStart = new Date(riseAt.getTime() + windowMs);
-  const postEnd   = new Date(riseAt.getTime() + 2 * windowMs);
+  const postEnd = new Date(riseAt.getTime() + 2 * windowMs);
 
-  const postReadings = allRows.filter((r) => r.ts > postStart && r.ts <= postEnd);
+  const postReadings = allRows.filter(
+    (r) => r.ts > postStart && r.ts <= postEnd,
+  );
 
   if (postReadings.length === 0) {
     // Sparse data: no readings in the standard [+7, +14] min window.
@@ -452,7 +454,9 @@ export function isPostRefuelFallback(
     // A real refuel keeps fuel near peak; a fake spike will show fuel near
     // the original baseline regardless of how far out the next reading is.
     const extendedEnd = new Date(riseAt.getTime() + 30 * 60 * 1000);
-    const firstExtended = allRows.find((r) => r.ts > postStart && r.ts <= extendedEnd);
+    const firstExtended = allRows.find(
+      (r) => r.ts > postStart && r.ts <= extendedEnd,
+    );
     if (!firstExtended) return false; // still no data → assume sustained
     return firstExtended.fuel < peakFuel - eps;
   }

@@ -49,7 +49,7 @@ function KpiSparklineCardComponent({
 
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: "#9CA3AF" }}>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: "var(--color-text-3)" }}>
             {title}
           </p>
 

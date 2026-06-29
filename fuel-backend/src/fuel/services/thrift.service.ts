@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { FuelSensor } from './fuel-sensor-resolver.service';
 import { FuelTransformService } from './fuel-transform.service';
-import { DynamicTableQueryService, DataRow } from './dynamic-table-query.service';
+import {
+  DynamicTableQueryService,
+  DataRow,
+} from './dynamic-table-query.service';
 
 const NOISE_THRESHOLD = 0.5;
 const REFUEL_THRESHOLD = 3.0;
@@ -85,7 +88,12 @@ export class ThriftService {
 
     const idleDrain = this.calcIdleDrain(enriched, totalConsumed);
     const highSpeedDrain = this.calcHighSpeedDrain(enriched, totalConsumed);
-    const dailyTrend = this.calcDailyTrend(enriched, from, to, sensor.units || 'L');
+    const dailyTrend = this.calcDailyTrend(
+      enriched,
+      from,
+      to,
+      sensor.units || 'L',
+    );
 
     const kmPerLiter =
       totalConsumed > 0 && totalDistanceKm > 0
@@ -145,8 +153,10 @@ export class ThriftService {
       try {
         const p = JSON.parse(row.params) as Record<string, string | number>;
         ignition =
-          p['acc'] === '1' || p['acc'] === 1 ||
-          p['io1'] === '1' || p['io1'] === 1;
+          p['acc'] === '1' ||
+          p['acc'] === 1 ||
+          p['io1'] === '1' ||
+          p['io1'] === 1;
       } catch {
         // no ignition data
       }
@@ -164,9 +174,7 @@ export class ThriftService {
 
   // ─── Total consumed (drop detection) ─────────────────────────────────────────
 
-  private calcTotalConsumed(
-    rows: Array<{ fuel: number | null }>,
-  ): number {
+  private calcTotalConsumed(rows: Array<{ fuel: number | null }>): number {
     let total = 0;
     let prev: number | null = null;
     for (const row of rows) {
@@ -193,13 +201,20 @@ export class ThriftService {
     return dist;
   }
 
-  private haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  private haversineKm(
+    lat1: number,
+    lng1: number,
+    lat2: number,
+    lng2: number,
+  ): number {
     const R = 6371;
     const dLat = this.toRad(lat2 - lat1);
     const dLng = this.toRad(lng2 - lng1);
     const a =
       Math.sin(dLat / 2) ** 2 +
-      Math.cos(this.toRad(lat1)) * Math.cos(this.toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+      Math.cos(this.toRad(lat1)) *
+        Math.cos(this.toRad(lat2)) *
+        Math.sin(dLng / 2) ** 2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
@@ -229,7 +244,9 @@ export class ThriftService {
 
     liters = Math.round(liters * 100) / 100;
     const percentage =
-      totalConsumed > 0 ? Math.round((liters / totalConsumed) * 100 * 10) / 10 : 0;
+      totalConsumed > 0
+        ? Math.round((liters / totalConsumed) * 100 * 10) / 10
+        : 0;
 
     return { liters, percentage };
   }
@@ -260,7 +277,9 @@ export class ThriftService {
 
     liters = Math.round(liters * 100) / 100;
     const percentage =
-      totalConsumed > 0 ? Math.round((liters / totalConsumed) * 100 * 10) / 10 : 0;
+      totalConsumed > 0
+        ? Math.round((liters / totalConsumed) * 100 * 10) / 10
+        : 0;
 
     return { liters, percentage, events };
   }
@@ -340,7 +359,10 @@ export class ThriftService {
     const idlePenalty = Math.min(30, Math.round((idlePercentage / 75) * 30));
 
     // Overspeed penalty: max 25 points deducted at 50%+ overspeed
-    const overspeedPenalty = Math.min(25, Math.round((overspeedPercentage / 50) * 25));
+    const overspeedPenalty = Math.min(
+      25,
+      Math.round((overspeedPercentage / 50) * 25),
+    );
 
     // Efficiency penalty: max 45 points
     // If km/L exists: score based on absolute value

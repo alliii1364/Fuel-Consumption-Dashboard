@@ -44,7 +44,7 @@ export default function TheftAlertsComponent({ loading: propLoading }: TheftAler
 
   if (loading || propLoading) {
     return (
-      <div className="rounded-2xl p-4" style={{ background: "#FAFAFA", border: "1px solid #F0EFEF" }}>
+      <div className="rounded-2xl p-4" style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-border-soft)" }}>
         <div className="flex items-center gap-2 mb-3">
           <Shield className="w-4 h-4 text-gray-400" />
           <span className="text-sm font-semibold text-gray-400">Theft Detection</span>
@@ -64,8 +64,8 @@ export default function TheftAlertsComponent({ loading: propLoading }: TheftAler
     <div
       className="rounded-2xl overflow-hidden"
       style={{
-        background: hasAlerts ? "#FEF2F2" : "#FAFAFA",
-        border: hasAlerts ? "1px solid #FECACA" : "1px solid #F0EFEF",
+        background: hasAlerts ? "#FEF2F2" : "var(--color-surface-2)",
+        border: hasAlerts ? "1px solid #FECACA" : "1px solid var(--color-border-soft)",
       }}
     >
       {/* Header */}
@@ -86,7 +86,7 @@ export default function TheftAlertsComponent({ loading: propLoading }: TheftAler
           <div>
             <span
               className="text-sm font-semibold block"
-              style={{ color: hasAlerts ? "#DC2626" : "#1A1A2E" }}
+              style={{ color: hasAlerts ? "#DC2626" : "var(--color-text-1)" }}
             >
               Theft Detection
             </span>
@@ -101,7 +101,7 @@ export default function TheftAlertsComponent({ loading: propLoading }: TheftAler
           onClick={() => router.push("/theft")}
           className="p-1.5 rounded-lg hover:bg-black/5 transition-colors"
         >
-          <ChevronRight className="w-4 h-4" style={{ color: hasAlerts ? "#DC2626" : "#6B7280" }} />
+          <ChevronRight className="w-4 h-4" style={{ color: hasAlerts ? "#DC2626" : "var(--color-text-2)" }} />
         </button>
       </div>
 

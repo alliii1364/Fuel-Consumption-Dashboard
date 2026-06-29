@@ -32,6 +32,15 @@ let AuthController = AuthController_1 = class AuthController {
             data: result,
         };
     }
+    async driverLogin(dto) {
+        this.logger.log(`Driver login attempt for driver ID: ${dto.driverId}`);
+        const result = await this.authService.driverLogin(dto);
+        return {
+            success: true,
+            message: 'Login successful',
+            data: result,
+        };
+    }
 };
 exports.AuthController = AuthController;
 __decorate([
@@ -42,6 +51,14 @@ __decorate([
     __metadata("design:paramtypes", [login_dto_1.LoginDto]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "login", null);
+__decorate([
+    (0, common_1.Post)('driver/login'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [login_dto_1.DriverLoginDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "driverLogin", null);
 exports.AuthController = AuthController = AuthController_1 = __decorate([
     (0, common_1.Controller)('auth'),
     __metadata("design:paramtypes", [auth_service_1.AuthService])

@@ -163,22 +163,22 @@ export default function MainHeader({
     if (isDisabled) return { ...base, color: "#D1D5DB", opacity: 0.45 };
     if (isFrom || isTo) return {
       ...base,
-      background: "#E84040",
+      background: "var(--color-primary)",
       color: "#FFFFFF",
       fontWeight: 600,
-      boxShadow: "0 2px 8px rgba(232,64,64,0.35)",
+      boxShadow: "0 2px 8px rgba(var(--color-primary-rgb),0.35)",
     };
     if (inRange) return {
       ...base,
-      background: "rgba(232,64,64,0.09)",
-      color: "#E84040",
+      background: "rgba(var(--color-primary-rgb),0.09)",
+      color: "var(--color-primary)",
       fontWeight: 500,
       borderRadius: 0,
     };
     if (isToday) return {
       ...base,
-      border: "1.5px solid #E84040",
-      color: "#E84040",
+      border: "1.5px solid var(--color-primary)",
+      color: "var(--color-primary)",
       fontWeight: 600,
     };
     return { ...base, color: "#374151" };
@@ -188,10 +188,10 @@ export default function MainHeader({
     <div className="anim-1" style={{ marginBottom: 20 }}>
       {/* ── Title Section ─────────────────────────────────────────── */}
       <div style={{ marginBottom: 16 }}>
-        <h1 className="text-xl font-bold" style={{ color: "#1A1A2E" }}>
+        <h1 className="text-xl font-bold" style={{ color: "var(--color-text-1)" }}>
           Fuel Dashboard
         </h1>
-        <p className="text-xs mt-0.5" style={{ color: "#9CA3AF" }}>
+        <p className="text-xs mt-0.5" style={{ color: "var(--color-text-3)" }}>
           Monitor & Track your Fleet Consumption
         </p>
       </div>
@@ -201,7 +201,7 @@ export default function MainHeader({
         className="flex items-center gap-4 px-5 py-3"
         style={{
           background: "#FFFFFF",
-          border: "1px solid #EFEFEF",
+          border: "1px solid var(--color-border)",
           borderRadius: 14,
           boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
         }}
@@ -213,22 +213,22 @@ export default function MainHeader({
             style={{
               background: selected?.status === "online"
                 ? "rgba(34, 197, 94, 0.1)"
-                : "rgba(232, 64, 64, 0.1)",
+                : "rgba(var(--color-primary-rgb), 0.1)",
             }}
           >
             {loadingVehicles ? (
-              <Loader2 size={12} className="animate-spin" style={{ color: "#9CA3AF" }} />
+              <Loader2 size={12} className="animate-spin" style={{ color: "var(--color-text-3)" }} />
             ) : selected?.status === "online" ? (
               <Wifi size={12} style={{ color: "#22C55E" }} />
             ) : (
-              <WifiOff size={12} style={{ color: "#E84040" }} />
+              <WifiOff size={12} style={{ color: "var(--color-primary)" }} />
             )}
           </div>
           <span
             style={{
               fontSize: 14,
               fontWeight: 600,
-              color: "#1A1A2E",
+              color: "var(--color-text-1)",
               minWidth: 70,
             }}
           >
@@ -237,7 +237,7 @@ export default function MainHeader({
         </div>
 
         {/* Divider */}
-        <div style={{ width: 1, height: 28, background: "#EFEFEF" }} />
+        <div style={{ width: 1, height: 28, background: "var(--color-border)" }} />
 
         {/* 2. Calendar Date Picker */}
         <div ref={calendarRef} style={{ position: "relative" }}>
@@ -246,16 +246,16 @@ export default function MainHeader({
             onClick={() => { setCalendarOpen(o => !o); setSelecting("from"); }}
             className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all"
             style={{
-              background: calendarOpen ? "rgba(232,64,64,0.04)" : "transparent",
-              border: `1px solid ${calendarOpen ? "rgba(232,64,64,0.3)" : "#E5E7EB"}`,
+              background: calendarOpen ? "rgba(var(--color-primary-rgb),0.04)" : "transparent",
+              border: `1px solid ${calendarOpen ? "rgba(var(--color-primary-rgb),0.3)" : "#E5E7EB"}`,
             }}
           >
-            <CalendarDays size={16} style={{ color: "#E84040" }} />
-            <span style={{ fontSize: 13, fontWeight: 500, color: "#1A1A2E", whiteSpace: "nowrap" }}>
+            <CalendarDays size={16} style={{ color: "var(--color-primary)" }} />
+            <span style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-1)", whiteSpace: "nowrap" }}>
               {fmtDisplay(from)}
             </span>
             <span style={{ fontSize: 11, color: "#D1D5DB" }}>–</span>
-            <span style={{ fontSize: 13, fontWeight: 500, color: "#1A1A2E", whiteSpace: "nowrap" }}>
+            <span style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-1)", whiteSpace: "nowrap" }}>
               {fmtDisplay(to)}
             </span>
           </button>
@@ -271,7 +271,7 @@ export default function MainHeader({
                 left: calendarPos.left,
                 transform: "translateX(-50%)",
                 background: "#FFFFFF",
-                border: "1px solid #EFEFEF",
+                border: "1px solid var(--color-border)",
                 borderRadius: 16,
                 boxShadow: "0 20px 50px rgba(0,0,0,0.15)",
                 padding: "16px",
@@ -284,26 +284,26 @@ export default function MainHeader({
                 <button
                   onClick={prevMonth}
                   className="flex items-center justify-center w-8 h-8 rounded-lg"
-                  style={{ background: "#FAFAFA", border: "1px solid #EFEFEF" }}
+                  style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-border)" }}
                 >
-                  <ChevronLeft size={14} style={{ color: "#6B7280" }} />
+                  <ChevronLeft size={14} style={{ color: "var(--color-text-2)" }} />
                 </button>
-                <span style={{ fontSize: 14, fontWeight: 600, color: "#1A1A2E" }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-1)" }}>
                   {MONTHS[viewMonth]} {viewYear}
                 </span>
                 <button
                   onClick={nextMonth}
                   className="flex items-center justify-center w-8 h-8 rounded-lg"
-                  style={{ background: "#FAFAFA", border: "1px solid #EFEFEF" }}
+                  style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-border)" }}
                 >
-                  <ChevronDown size={14} style={{ color: "#6B7280", transform: "rotate(-90deg)" }} />
+                  <ChevronDown size={14} style={{ color: "var(--color-text-2)", transform: "rotate(-90deg)" }} />
                 </button>
               </div>
 
               {/* Day Headers */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 6 }}>
                 {DAYS.map(d => (
-                  <div key={d} style={{ textAlign: "center", fontSize: 10, fontWeight: 600, color: "#9CA3AF", padding: "6px 0" }}>
+                  <div key={d} style={{ textAlign: "center", fontSize: 10, fontWeight: 600, color: "var(--color-text-3)", padding: "6px 0" }}>
                     {d}
                   </div>
                 ))}
@@ -335,16 +335,16 @@ export default function MainHeader({
               </div>
 
               {/* Footer */}
-              <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #F5F4F4" }}>
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--color-bg)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <div>
-                    <p style={{ fontSize: 9, fontWeight: 600, color: "#9CA3AF" }}>FROM</p>
-                    <p style={{ fontSize: 12, fontWeight: 600, color: "#E84040" }}>{fmtDisplay(from)}</p>
+                    <p style={{ fontSize: 9, fontWeight: 600, color: "var(--color-text-3)" }}>FROM</p>
+                    <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-primary)" }}>{fmtDisplay(from)}</p>
                   </div>
                   <span style={{ color: "#D1D5DB" }}>→</span>
                   <div>
-                    <p style={{ fontSize: 9, fontWeight: 600, color: "#9CA3AF" }}>TO</p>
-                    <p style={{ fontSize: 12, fontWeight: 600, color: "#E84040" }}>{fmtDisplay(to)}</p>
+                    <p style={{ fontSize: 9, fontWeight: 600, color: "var(--color-text-3)" }}>TO</p>
+                    <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-primary)" }}>{fmtDisplay(to)}</p>
                   </div>
                 </div>
               </div>
@@ -362,14 +362,14 @@ export default function MainHeader({
             className="flex items-center rounded-xl overflow-hidden"
             style={{
               background: "#FFFFFF",
-              border: `1px solid ${searchDropdownOpen ? "rgba(232,64,64,0.4)" : "#E5E7EB"}`,
-              boxShadow: searchDropdownOpen ? "0 0 0 3px rgba(232,64,64,0.08)" : "none",
+              border: `1px solid ${searchDropdownOpen ? "rgba(var(--color-primary-rgb),0.4)" : "#E5E7EB"}`,
+              boxShadow: searchDropdownOpen ? "0 0 0 3px rgba(var(--color-primary-rgb),0.08)" : "none",
               transition: "all 0.2s",
             }}
           >
             {/* Search Input */}
             <div className="flex items-center gap-2 flex-1 px-3 py-2.5">
-              <Search size={15} style={{ color: "#9CA3AF", flexShrink: 0 }} />
+              <Search size={15} style={{ color: "var(--color-text-3)", flexShrink: 0 }} />
               <input
                 type="text"
                 placeholder="Search vehicles..."
@@ -381,7 +381,7 @@ export default function MainHeader({
                   border: "none",
                   outline: "none",
                   fontSize: 14,
-                  color: "#1A1A2E",
+                  color: "var(--color-text-1)",
                   width: "100%",
                 }}
               />
@@ -390,17 +390,17 @@ export default function MainHeader({
             {/* Vehicle Count Trigger */}
             <div
               className="flex items-center gap-1.5 px-3 py-2.5 cursor-pointer border-l"
-              style={{ borderLeftColor: "#E5E7EB", background: "#FAFAFA" }}
+              style={{ borderLeftColor: "#E5E7EB", background: "var(--color-surface-2)" }}
               onClick={() => setSearchDropdownOpen(o => !o)}
             >
-              <Truck size={14} style={{ color: "#E84040" }} />
-              <span style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", whiteSpace: "nowrap" }}>
+              <Truck size={14} style={{ color: "var(--color-primary)" }} />
+              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-2)", whiteSpace: "nowrap" }}>
                 {loadingVehicles ? "…" : `${vehicles.length} vehicles`}
               </span>
               <ChevronDown
                 size={12}
                 style={{
-                  color: "#9CA3AF",
+                  color: "var(--color-text-3)",
                   transform: searchDropdownOpen ? "rotate(180deg)" : "none",
                   transition: "transform 0.2s",
                 }}
@@ -417,7 +417,7 @@ export default function MainHeader({
                 right: 0,
                 width: 320,
                 background: "#FFFFFF",
-                border: "1px solid #EFEFEF",
+                border: "1px solid var(--color-border)",
                 borderRadius: 14,
                 boxShadow: "0 16px 48px rgba(0,0,0,0.16)",
                 zIndex: 9999,
@@ -427,12 +427,12 @@ export default function MainHeader({
               {/* Header */}
               <div
                 className="flex items-center justify-between px-4 py-3"
-                style={{ borderBottom: "1px solid #F5F4F4" }}
+                style={{ borderBottom: "1px solid var(--color-bg)" }}
               >
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-3)", textTransform: "uppercase" }}>
                   Select Vehicle
                 </span>
-                <span style={{ fontSize: 11, color: "#9CA3AF" }}>
+                <span style={{ fontSize: 11, color: "var(--color-text-3)" }}>
                   {filteredVehicles.length} result{filteredVehicles.length !== 1 ? "s" : ""}
                 </span>
               </div>
@@ -442,7 +442,7 @@ export default function MainHeader({
                 {filteredVehicles.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-8 gap-2">
                     <Truck size={22} style={{ color: "#DCDCDC" }} />
-                    <p style={{ fontSize: 13, color: "#9CA3AF" }}>No vehicles found</p>
+                    <p style={{ fontSize: 13, color: "var(--color-text-3)" }}>No vehicles found</p>
                   </div>
                 ) : (
                   filteredVehicles.map(v => {
@@ -454,27 +454,27 @@ export default function MainHeader({
                         onClick={() => selectVehicle(v.imei)}
                         className="flex items-center gap-3 px-4 py-3 cursor-pointer"
                         style={{
-                          background: isActive ? "rgba(232,64,64,0.05)" : "transparent",
-                          borderLeft: isActive ? "3px solid #E84040" : "3px solid transparent",
+                          background: isActive ? "rgba(var(--color-primary-rgb),0.05)" : "transparent",
+                          borderLeft: isActive ? "3px solid var(--color-primary)" : "3px solid transparent",
                         }}
-                        onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "#FAFAFA"; }}
+                        onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "var(--color-surface-2)"; }}
                         onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
                       >
                         <div
                           className="flex items-center justify-center w-9 h-9 rounded-lg"
                           style={{
-                            background: isActive ? "rgba(232,64,64,0.1)" : "rgba(148,163,184,0.1)",
-                            border: isActive ? "1px solid rgba(232,64,64,0.2)" : "1px solid rgba(148,163,184,0.15)",
+                            background: isActive ? "rgba(var(--color-primary-rgb),0.1)" : "rgba(148,163,184,0.1)",
+                            border: isActive ? "1px solid rgba(var(--color-primary-rgb),0.2)" : "1px solid rgba(148,163,184,0.15)",
                           }}
                         >
-                          <Truck size={15} style={{ color: isActive ? "#E84040" : "#94A3B8" }} />
+                          <Truck size={15} style={{ color: isActive ? "var(--color-primary)" : "#94A3B8" }} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p style={{ fontSize: 13, fontWeight: 600, color: "#1A1A2E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <p style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {v.name || v.plateNumber || "Unnamed Vehicle"}
                           </p>
                           {v.plateNumber && v.plateNumber !== v.name && (
-                            <p style={{ fontSize: 11, color: "#9CA3AF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <p style={{ fontSize: 11, color: "var(--color-text-3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {v.plateNumber}
                             </p>
                           )}
@@ -483,10 +483,10 @@ export default function MainHeader({
                           <span
                             style={{
                               width: 7, height: 7, borderRadius: "50%",
-                              background: isOnline ? "#22C55E" : "#E84040",
+                              background: isOnline ? "#22C55E" : "var(--color-primary)",
                             }}
                           />
-                          <span style={{ fontSize: 11, color: isOnline ? "#16a34a" : "#E84040", fontWeight: 600 }}>
+                          <span style={{ fontSize: 11, color: isOnline ? "#16a34a" : "var(--color-primary)", fontWeight: 600 }}>
                             {isOnline ? "Online" : "Offline"}
                           </span>
                         </div>
@@ -501,14 +501,17 @@ export default function MainHeader({
 
         {/* Notification Bell */}
         <button
+          type="button"
+          aria-label={offlineCount > 0 ? `Notifications: ${offlineCount} vehicle${offlineCount !== 1 ? "s" : ""} offline` : "Notifications"}
+          title={offlineCount > 0 ? `${offlineCount} vehicle${offlineCount !== 1 ? "s" : ""} offline` : "No new notifications"}
           className="relative flex items-center justify-center w-9 h-9 rounded-lg"
-          style={{ background: "#F5F4F4", border: "1px solid #EBEBEB" }}
+          style={{ background: "var(--color-bg)", border: "1px solid var(--color-border-input)" }}
         >
-          <Bell size={16} style={{ color: "#6B7280" }} />
+          <Bell size={16} style={{ color: "var(--color-text-2)" }} />
           {offlineCount > 0 && (
             <span
               className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
-              style={{ background: "#E84040" }}
+              style={{ background: "var(--color-primary)" }}
             />
           )}
         </button>

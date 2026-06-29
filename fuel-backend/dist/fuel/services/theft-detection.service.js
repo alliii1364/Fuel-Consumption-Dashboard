@@ -77,16 +77,35 @@ let TheftDetectionService = TheftDetectionService_1 = class TheftDetectionServic
             try {
                 const p = JSON.parse(row.params);
                 ignitionOn =
-                    p['io239'] === '1' || p['io239'] === 1 ||
-                        p['acc'] === '1' || p['acc'] === 1 ||
-                        p['io1'] === '1' || p['io1'] === 1;
+                    p['io239'] === '1' ||
+                        p['io239'] === 1 ||
+                        p['acc'] === '1' ||
+                        p['acc'] === 1 ||
+                        p['io1'] === '1' ||
+                        p['io1'] === 1;
             }
-            catch { }
-            rawReadings.push({ ts, fuel: value, speed: row.speed, ignitionOn, lat: row.lat, lng: row.lng });
+            catch {
+            }
+            rawReadings.push({
+                ts,
+                fuel: value,
+                speed: row.speed,
+                ignitionOn,
+                lat: row.lat,
+                lng: row.lng,
+            });
         }
-        const fuelOnly = rawReadings.map((r) => ({ ts: r.ts, fuel: r.fuel, speed: r.speed, ignitionOn: r.ignitionOn }));
+        const fuelOnly = rawReadings.map((r) => ({
+            ts: r.ts,
+            fuel: r.fuel,
+            speed: r.speed,
+            ignitionOn: r.ignitionOn,
+        }));
         const filtered = (0, fuel_drop_filter_util_1.applyMedianFilter)(fuelOnly, fuel_drop_filter_util_1.FUEL_MEDIAN_SAMPLES);
-        const readings = rawReadings.map((r, i) => ({ ...r, fuel: filtered[i].fuel }));
+        const readings = rawReadings.map((r, i) => ({
+            ...r,
+            fuel: filtered[i].fuel,
+        }));
         const classifiedDrops = [];
         const unit = sensor.units || 'L';
         let i = 0;
@@ -106,7 +125,8 @@ let TheftDetectionService = TheftDetectionService_1 = class TheftDetectionServic
                     const windowEndMs = baselineTs.getTime() + fuel_drop_filter_util_1.SPIKE_WINDOW_MINUTES * 60 * 1000;
                     let verifiedFuel = curr.fuel;
                     let j = i + 1;
-                    while (j < readings.length && readings[j].ts.getTime() <= windowEndMs) {
+                    while (j < readings.length &&
+                        readings[j].ts.getTime() <= windowEndMs) {
                         const nextFuel = readings[j].fuel;
                         if (nextFuel > baselineFuel - fuel_drop_filter_util_1.DROP_ALERT_THRESHOLD)
                             break;
@@ -117,8 +137,10 @@ let TheftDetectionService = TheftDetectionService_1 = class TheftDetectionServic
                     }
                     const totalConsumed = baselineFuel - verifiedFuel;
                     const verifyPassed = (0, fuel_drop_filter_util_1.isDropConfirmedAfterDelay)(curr.ts, baselineFuel, filtered);
-                    const fake = !verifyPassed || (0, fuel_drop_filter_util_1.isFakeSpike)(curr.ts, filtered, fuel_drop_filter_util_1.SPIKE_WINDOW_MINUTES, fuel_drop_filter_util_1.DROP_ALERT_THRESHOLD);
-                    const postRecovery = !fake && (0, fuel_drop_filter_util_1.isPostDropRecovery)(curr.ts, baselineFuel, filtered, fuel_drop_filter_util_1.SPIKE_WINDOW_MINUTES);
+                    const fake = !verifyPassed ||
+                        (0, fuel_drop_filter_util_1.isFakeSpike)(curr.ts, filtered, fuel_drop_filter_util_1.SPIKE_WINDOW_MINUTES, fuel_drop_filter_util_1.DROP_ALERT_THRESHOLD);
+                    const postRecovery = !fake &&
+                        (0, fuel_drop_filter_util_1.isPostDropRecovery)(curr.ts, baselineFuel, filtered, fuel_drop_filter_util_1.SPIKE_WINDOW_MINUTES);
                     const isConfirmedDrop = totalConsumed >= fuel_drop_filter_util_1.DROP_ALERT_THRESHOLD && !fake && !postRecovery;
                     const durationMs = curr.ts.getTime() - prev.ts.getTime();
                     const durationMinutes = Math.max(1, Math.round(durationMs / (1000 * 60)));
@@ -176,47 +198,55 @@ let TheftDetectionService = TheftDetectionService_1 = class TheftDetectionServic
         if (consumed >= THEFT_DROP_LITERS) {
             if (isStationary && !ignitionOn) {
                 return {
-                    type: 'theft', severity: 'high',
+                    type: 'theft',
+                    severity: 'high',
                     reason: `Large fuel drop (${consumed.toFixed(1)}L) while stationary and ignition off — possible fuel siphoning`,
                 };
             }
             if (isStationary) {
                 return {
-                    type: 'theft', severity: 'high',
+                    type: 'theft',
+                    severity: 'high',
                     reason: `Large fuel drop (${consumed.toFixed(1)}L) while stationary — investigate for theft`,
                 };
             }
             return {
-                type: 'theft', severity: 'high',
+                type: 'theft',
+                severity: 'high',
                 reason: `Very large fuel drop (${consumed.toFixed(1)}L) — potential theft or major leak`,
             };
         }
         if (consumed >= SUSPICIOUS_DROP_LITERS) {
             if (isStationary && !ignitionOn) {
                 return {
-                    type: 'suspicious', severity: 'medium',
+                    type: 'suspicious',
+                    severity: 'medium',
                     reason: `Fuel drop (${consumed.toFixed(1)}L) while stationary with ignition off — possible theft`,
                 };
             }
             if (isStationary && isRapid) {
                 return {
-                    type: 'suspicious', severity: 'medium',
+                    type: 'suspicious',
+                    severity: 'medium',
                     reason: `Rapid fuel drop (${consumed.toFixed(1)}L in ${durationMinutes} min) while stationary`,
                 };
             }
             if (isRapid) {
                 return {
-                    type: 'suspicious', severity: 'medium',
+                    type: 'suspicious',
+                    severity: 'medium',
                     reason: `Rapid fuel consumption (${consumed.toFixed(1)}L in ${durationMinutes} min)`,
                 };
             }
             return {
-                type: 'suspicious', severity: 'low',
+                type: 'suspicious',
+                severity: 'low',
                 reason: `Large fuel drop (${consumed.toFixed(1)}L) — possible leak or measurement error`,
             };
         }
         return {
-            type: 'normal', severity: 'low',
+            type: 'normal',
+            severity: 'low',
             reason: isStationary
                 ? `Normal idle consumption (${consumed.toFixed(1)}L)`
                 : `Normal driving consumption (${consumed.toFixed(1)}L)`,

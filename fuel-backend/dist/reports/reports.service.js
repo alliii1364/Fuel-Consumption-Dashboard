@@ -213,10 +213,17 @@ let ReportsService = ReportsService_1 = class ReportsService {
                     let ignition = false;
                     try {
                         const p = JSON.parse(row.params);
-                        ignition = p['acc'] === '1' || p['acc'] === 1 || p['io1'] === '1' || p['io1'] === 1;
+                        ignition =
+                            p['acc'] === '1' ||
+                                p['acc'] === 1 ||
+                                p['io1'] === '1' ||
+                                p['io1'] === 1;
                     }
-                    catch { }
-                    if (prevFuel !== null && prevSpeed !== null && prevIgnition !== null) {
+                    catch {
+                    }
+                    if (prevFuel !== null &&
+                        prevSpeed !== null &&
+                        prevIgnition !== null) {
                         const delta = value - prevFuel;
                         if (delta < -NOISE_THRESHOLD) {
                             totalConsumed += Math.abs(delta);
@@ -250,8 +257,14 @@ let ReportsService = ReportsService_1 = class ReportsService {
             catch (err) {
                 this.logger.warn(`Idle waste skip IMEI ${v.imei}: ${String(err)}`);
                 return {
-                    imei: v.imei, name: v.name, plateNumber: v.plate_number,
-                    totalConsumed: 0, idleLiters: 0, idlePercentage: 0, unit: 'L', status: 'no_data',
+                    imei: v.imei,
+                    name: v.name,
+                    plateNumber: v.plate_number,
+                    totalConsumed: 0,
+                    idleLiters: 0,
+                    idlePercentage: 0,
+                    unit: 'L',
+                    status: 'no_data',
                 };
             }
         }));
@@ -327,9 +340,15 @@ let ReportsService = ReportsService_1 = class ReportsService {
             catch (err) {
                 this.logger.warn(`High speed skip IMEI ${v.imei}: ${String(err)}`);
                 return {
-                    imei: v.imei, name: v.name, plateNumber: v.plate_number,
-                    totalConsumed: 0, highSpeedLiters: 0, highSpeedPercentage: 0,
-                    highSpeedEvents: 0, unit: 'L', status: 'no_data',
+                    imei: v.imei,
+                    name: v.name,
+                    plateNumber: v.plate_number,
+                    totalConsumed: 0,
+                    highSpeedLiters: 0,
+                    highSpeedPercentage: 0,
+                    highSpeedEvents: 0,
+                    unit: 'L',
+                    status: 'no_data',
                 };
             }
         }));
@@ -368,8 +387,13 @@ let ReportsService = ReportsService_1 = class ReportsService {
             catch (err) {
                 this.logger.warn(`Daily trend skip IMEI ${v.imei}: ${String(err)}`);
                 return {
-                    imei: v.imei, name: v.name, plateNumber: v.plate_number,
-                    unit: 'L', totalConsumed: 0, dailyTrend: [], status: 'no_data',
+                    imei: v.imei,
+                    name: v.name,
+                    plateNumber: v.plate_number,
+                    unit: 'L',
+                    totalConsumed: 0,
+                    dailyTrend: [],
+                    status: 'no_data',
                 };
             }
         }));
@@ -425,11 +449,22 @@ let ReportsService = ReportsService_1 = class ReportsService {
             catch (err) {
                 this.logger.warn(`Thrift report skip IMEI ${v.imei}: ${String(err)}`);
                 return {
-                    imei: v.imei, name: v.name, plateNumber: v.plate_number,
-                    consumed: 0, unit: 'L', kmPerLiter: null, litersPer100km: null,
-                    totalDistanceKm: 0, idleLiters: 0, idlePercentage: 0,
-                    highSpeedLiters: 0, highSpeedPercentage: 0,
-                    thriftScore: 0, thriftRating: 'poor', breakdown: null, status: 'no_data',
+                    imei: v.imei,
+                    name: v.name,
+                    plateNumber: v.plate_number,
+                    consumed: 0,
+                    unit: 'L',
+                    kmPerLiter: null,
+                    litersPer100km: null,
+                    totalDistanceKm: 0,
+                    idleLiters: 0,
+                    idlePercentage: 0,
+                    highSpeedLiters: 0,
+                    highSpeedPercentage: 0,
+                    thriftScore: 0,
+                    thriftRating: 'poor',
+                    breakdown: null,
+                    status: 'no_data',
                 };
             }
         }));
@@ -461,9 +496,14 @@ let ReportsService = ReportsService_1 = class ReportsService {
                     let ignition = false;
                     try {
                         const p = JSON.parse(row.params);
-                        ignition = p['acc'] === '1' || p['acc'] === 1 || p['io1'] === '1' || p['io1'] === 1;
+                        ignition =
+                            p['acc'] === '1' ||
+                                p['acc'] === 1 ||
+                                p['io1'] === '1' ||
+                                p['io1'] === 1;
                     }
-                    catch { }
+                    catch {
+                    }
                     if (prevTs !== null && prevIgnition) {
                         const gapMs = ts.getTime() - prevTs.getTime();
                         if (gapMs > 0 && gapMs <= 30 * 60 * 1000) {
@@ -489,15 +529,21 @@ let ReportsService = ReportsService_1 = class ReportsService {
             catch (err) {
                 this.logger.warn(`Engine hours skip IMEI ${v.imei}: ${String(err)}`);
                 return {
-                    imei: v.imei, name: v.name, plateNumber: v.plate_number,
-                    engineOnHours: 0, avgHoursPerDay: 0, totalSamples: 0, status: 'no_data',
+                    imei: v.imei,
+                    name: v.name,
+                    plateNumber: v.plate_number,
+                    engineOnHours: 0,
+                    avgHoursPerDay: 0,
+                    totalSamples: 0,
+                    status: 'no_data',
                 };
             }
         }));
         return {
             from: from.toISOString(),
             to: to.toISOString(),
-            fleetTotalEngineHours: Math.round(results.reduce((s, r) => s + r.engineOnHours, 0) * 100) / 100,
+            fleetTotalEngineHours: Math.round(results.reduce((s, r) => s + r.engineOnHours, 0) * 100) /
+                100,
             vehicles: results.sort((a, b) => b.engineOnHours - a.engineOnHours),
         };
     }
@@ -532,7 +578,8 @@ let ReportsService = ReportsService_1 = class ReportsService {
                     }
                 }
             }
-            catch { }
+            catch {
+            }
             return {
                 imei: v.imei,
                 name: v.name,
@@ -616,8 +663,12 @@ let ReportsService = ReportsService_1 = class ReportsService {
                 };
             }
         }));
-        const fleetRiskLevel = fleetTheftDrops > 0 ? 'high' : fleetSuspiciousDrops > 5 ? 'medium' : 'low';
-        const fleetRiskScore = Math.min(100, (fleetTheftDrops * 25) + (fleetSuspiciousDrops * 10));
+        const fleetRiskLevel = fleetTheftDrops > 0
+            ? 'high'
+            : fleetSuspiciousDrops > 5
+                ? 'medium'
+                : 'low';
+        const fleetRiskScore = Math.min(100, fleetTheftDrops * 25 + fleetSuspiciousDrops * 10);
         return {
             from: from.toISOString(),
             to: to.toISOString(),
@@ -658,12 +709,13 @@ let ReportsService = ReportsService_1 = class ReportsService {
                     : 1;
                 const normalizedTrips = tripFuelScale < 1
                     ? analysis.trips.map((t) => {
-                        const normalizedFuel = Math.round((t.fuelConsumed * tripFuelScale) * 100) / 100;
+                        const normalizedFuel = Math.round(t.fuelConsumed * tripFuelScale * 100) / 100;
                         return {
                             ...t,
                             fuelConsumed: normalizedFuel,
                             kmPerLiter: normalizedFuel > 0 && t.distanceKm > 0
-                                ? Math.round((t.distanceKm / normalizedFuel) * 100) / 100
+                                ? Math.round((t.distanceKm / normalizedFuel) * 100) /
+                                    100
                                 : null,
                         };
                     })

@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const core_1 = require("@nestjs/core");
 const common_1 = require("@nestjs/common");
+const path_1 = require("path");
 const app_module_1 = require("./app.module");
 const http_exception_filter_1 = require("./common/filters/http-exception.filter");
 const response_envelope_interceptor_1 = require("./common/interceptors/response-envelope.interceptor");
@@ -10,6 +11,8 @@ async function bootstrap() {
         logger: ['log', 'warn', 'error', 'debug'],
     });
     app.enableCors();
+    const uploadsDir = process.env.UPLOADS_DIR || (0, path_1.join)(process.cwd(), 'uploads');
+    app.useStaticAssets(uploadsDir, { prefix: '/uploads/' });
     app.setGlobalPrefix('api');
     app.useGlobalPipes(new common_1.ValidationPipe({
         whitelist: true,

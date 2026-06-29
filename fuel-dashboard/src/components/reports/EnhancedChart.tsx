@@ -56,7 +56,7 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
           border: "1px solid rgba(240, 239, 239, 0.8)",
         }}
       >
-        <p className="text-xs font-semibold mb-2" style={{ color: "#6B7280" }}>
+        <p className="text-xs font-semibold mb-2" style={{ color: "var(--color-text-2)" }}>
           {label}
         </p>
         {payload.map((entry, index) => (
@@ -65,10 +65,10 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
               className="w-2 h-2 rounded-full"
               style={{ background: entry.color }}
             />
-            <span className="text-xs" style={{ color: "#9CA3AF" }}>
+            <span className="text-xs" style={{ color: "var(--color-text-3)" }}>
               {entry.name}:
             </span>
-            <span className="text-xs font-bold" style={{ color: "#1A1A2E" }}>
+            <span className="text-xs font-bold" style={{ color: "var(--color-text-1)" }}>
               {typeof entry.value === "number" && entry.value != null ? entry.value.toFixed(2) : entry.value ?? "—"}
             </span>
           </div>
@@ -346,11 +346,11 @@ export function EnhancedChart({
                           border: "1px solid rgba(0,0,0,0.08)",
                         }}
                       >
-                        <p className="font-bold text-base" style={{ color: "#1A1A2E" }}>
+                        <p className="font-bold text-base" style={{ color: "var(--color-text-1)" }}>
                           {item[xAxisKey]}
                         </p>
-                        <p className="text-sm mt-1" style={{ color: "#6B7280" }}>
-                          {dataKeys[0].name}: <span className="font-bold" style={{ color: "#E84040" }}>{typeof value === 'number' ? value.toFixed(1) : value} L</span>
+                        <p className="text-sm mt-1" style={{ color: "var(--color-text-2)" }}>
+                          {dataKeys[0].name}: <span className="font-bold" style={{ color: "var(--color-primary)" }}>{typeof value === 'number' ? value.toFixed(1) : value} L</span>
                         </p>
                       </div>
                     );

@@ -62,13 +62,15 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
         const warmupFrom = new Date(from.getTime() - WARMUP_HOURS * 60 * 60 * 1000);
         const allRows = await this.dynQuery.getRowsInRange(imei, warmupFrom, to);
         this.logger.log(`Consumption for IMEI ${imei}: fetched ${allRows.length} rows (${WARMUP_HOURS}h warmup from ${warmupFrom.toISOString()})`);
-        const { drops: allDrops, refuels: allRefuels, readings } = this.analyzeRows(allRows, sensor, imei);
+        const { drops: allDrops, refuels: allRefuels, readings, } = this.analyzeRows(allRows, sensor, imei);
         const fromIso = from.toISOString();
         const drops = allDrops.filter((d) => d.at >= fromIso);
         const refuels = allRefuels.filter((r) => r.at >= fromIso);
         const actualReadings = readings.filter((r) => r.ts >= from);
         const firstFuel = actualReadings.length > 0 ? actualReadings[0].fuel : null;
-        const lastFuel = actualReadings.length > 0 ? actualReadings[actualReadings.length - 1].fuel : null;
+        const lastFuel = actualReadings.length > 0
+            ? actualReadings[actualReadings.length - 1].fuel
+            : null;
         const consumed = drops
             .filter((d) => !d.isSensorJump)
             .reduce((sum, d) => sum + d.consumed, 0);
@@ -138,7 +140,8 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
                     const windowEndMs = dropTs.getTime() + fuel_drop_filter_util_1.SPIKE_WINDOW_MINUTES * 60 * 1000;
                     let verifiedFuel = fuel;
                     let j = i + 1;
-                    while (j < transformed.length && transformed[j].ts.getTime() <= windowEndMs) {
+                    while (j < transformed.length &&
+                        transformed[j].ts.getTime() <= windowEndMs) {
                         const nextFuel = transformed[j].fuel;
                         if (nextFuel > baselineFuel - fuel_drop_filter_util_1.DROP_ALERT_THRESHOLD)
                             break;
@@ -149,8 +152,10 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
                     }
                     const totalConsumed = baselineFuel - verifiedFuel;
                     const verifyPassed = (0, fuel_drop_filter_util_1.isDropConfirmedAfterDelay)(dropTs, baselineFuel, transformed);
-                    const fake = !verifyPassed || (0, fuel_drop_filter_util_1.isFakeSpike)(dropTs, raw, fuel_drop_filter_util_1.SPIKE_WINDOW_MINUTES, fuel_drop_filter_util_1.DROP_ALERT_THRESHOLD);
-                    const postRecovery = !fake && (0, fuel_drop_filter_util_1.isPostDropRecovery)(dropTs, baselineFuel, raw, fuel_drop_filter_util_1.SPIKE_WINDOW_MINUTES);
+                    const fake = !verifyPassed ||
+                        (0, fuel_drop_filter_util_1.isFakeSpike)(dropTs, raw, fuel_drop_filter_util_1.SPIKE_WINDOW_MINUTES, fuel_drop_filter_util_1.DROP_ALERT_THRESHOLD);
+                    const postRecovery = !fake &&
+                        (0, fuel_drop_filter_util_1.isPostDropRecovery)(dropTs, baselineFuel, raw, fuel_drop_filter_util_1.SPIKE_WINDOW_MINUTES);
                     const isConfirmedDrop = totalConsumed >= fuel_drop_filter_util_1.DROP_ALERT_THRESHOLD && !fake && !postRecovery;
                     this.logger.log(`[DROP] IMEI ${imei} at ${transformed[i].ts.toISOString()}: ` +
                         `baseline=${baselineFuel.toFixed(2)} verified=${verifiedFuel.toFixed(2)} ` +
@@ -188,7 +193,8 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
                 let peakFuel = fuel;
                 let k = i + 1;
                 let falledBackInConsolidation = false;
-                while (k < transformed.length && transformed[k].ts.getTime() <= consolidationEndMs) {
+                while (k < transformed.length &&
+                    transformed[k].ts.getTime() <= consolidationEndMs) {
                     const nextFuel = transformed[k].fuel;
                     if (nextFuel > peakFuel) {
                         peakFuel = nextFuel;
@@ -209,7 +215,8 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
                             `but fell back within consolidation window (< baselineFuel + ${fuel_drop_filter_util_1.RISE_THRESHOLD}L)`);
                     }
                     const fakeRise = falledBackInConsolidation || (0, fuel_drop_filter_util_1.isFakeRise)(baselineTs, transformed);
-                    const recoveryRise = !fakeRise && (0, fuel_drop_filter_util_1.isRecoveryRise)(baselineTs, baselineFuel, peakFuel, transformed);
+                    const recoveryRise = !fakeRise &&
+                        (0, fuel_drop_filter_util_1.isRecoveryRise)(baselineTs, baselineFuel, peakFuel, transformed);
                     const consolidationEndTs = new Date(consolidationEndMs);
                     const postFallback = !fakeRise &&
                         !recoveryRise &&
@@ -222,7 +229,10 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
                         `added=${totalAdded.toFixed(2)}L peak=${peakFuel.toFixed(2)}L ` +
                         `fakeRise=${fakeRise} recoveryRise=${recoveryRise} postFallback=${postFallback} ` +
                         `movementDuringRefuel=${movementDuringRefuel}`);
-                    if (!fakeRise && !recoveryRise && !postFallback && !movementDuringRefuel) {
+                    if (!fakeRise &&
+                        !recoveryRise &&
+                        !postFallback &&
+                        !movementDuringRefuel) {
                         const adjustedRefuel = this.calculateRefuelWindowBounds(transformed, baselineTs, consolidationEndTs, baselineFuel, peakFuel);
                         refuels.push({
                             at: baselineTs.toISOString(),
@@ -246,7 +256,9 @@ let FuelConsumptionService = FuelConsumptionService_1 = class FuelConsumptionSer
         const windowEnd = new Date(consolidationEndAt.getTime() + fuel_drop_filter_util_1.SPIKE_WINDOW_MINUTES * 60 * 1000);
         const maxSpeed = readings
             .filter((r) => r.ts >= windowStart && r.ts <= windowEnd)
-            .reduce((max, r) => Math.max(max, typeof r.speed === 'number' && Number.isFinite(r.speed) ? r.speed : 0), 0);
+            .reduce((max, r) => Math.max(max, typeof r.speed === 'number' && Number.isFinite(r.speed)
+            ? r.speed
+            : 0), 0);
         return maxSpeed > REFUEL_MOVEMENT_MAX_SPEED_KMH;
     }
     calculateRefuelWindowBounds(readings, riseAt, consolidationEndAt, fallbackBefore, fallbackAfter) {

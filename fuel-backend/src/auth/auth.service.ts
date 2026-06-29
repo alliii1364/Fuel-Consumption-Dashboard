@@ -6,9 +6,10 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { createHash } from 'crypto';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const md5 = require('md5') as (input: string) => string;
-import { LoginDto } from './dto/login.dto';
+import { DriverLoginDto, LoginDto } from './dto/login.dto';
 
 interface GsUser {
   id: number;
@@ -17,6 +18,19 @@ interface GsUser {
   email: string;
   timezone: string;
   active: string;
+}
+
+interface DriverCredential {
+  driver_id: number;
+  user_id: number;
+  pin_hash: string;
+  active: number;
+  driver_name: string | null;
+}
+
+/** sha256 hex — used for driver PIN hashes (managers keep the legacy md5/plain scheme). */
+export function hashPassword(plain: string): string {
+  return createHash('sha256').update(plain).digest('hex');
 }
 
 @Injectable()
@@ -62,9 +76,54 @@ export class AuthService {
       username: user.username,
       email: user.email,
       timezone: user.timezone,
+      role: 'manager' as const,
     };
 
     const token = this.jwtService.sign(payload);
     return { token, expiresIn: '24h' };
+  }
+
+  /** Driver PWA login — by driver ID + PIN, validated against fd_driver_credentials. */
+  async driverLogin(dto: DriverLoginDto): Promise<{
+    token: string;
+    expiresIn: string;
+    driver: { driverId: number; name: string | null };
+  }> {
+    const rows: DriverCredential[] = await this.dataSource.query(
+      `SELECT c.driver_id, c.user_id, c.pin_hash, c.active, d.driver_name
+       FROM fd_driver_credentials c
+       LEFT JOIN gs_user_object_drivers d ON d.driver_id = c.driver_id
+       WHERE c.driver_id = ?
+       LIMIT 1`,
+      [dto.driverId],
+    );
+
+    if (!rows.length) {
+      throw new UnauthorizedException('Invalid driver ID or PIN');
+    }
+
+    const cred = rows[0];
+    if (!cred.active) {
+      throw new UnauthorizedException('Account is inactive');
+    }
+    if (cred.pin_hash !== hashPassword(dto.pin)) {
+      throw new UnauthorizedException('Invalid driver ID or PIN');
+    }
+
+    this.logger.log(`Driver ${cred.driver_id} logged in`);
+
+    const payload = {
+      id: cred.user_id, // owning dispatcher — keeps user-scoped queries working
+      role: 'driver' as const,
+      driverId: cred.driver_id,
+      name: cred.driver_name,
+    };
+
+    const token = this.jwtService.sign(payload);
+    return {
+      token,
+      expiresIn: '24h',
+      driver: { driverId: cred.driver_id, name: cred.driver_name },
+    };
   }
 }

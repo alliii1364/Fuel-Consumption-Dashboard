@@ -20,7 +20,9 @@ export class ReportsController {
 
   private requireRange(query: ReportRangeDto) {
     if (!query.from || !query.to) {
-      throw new BadRequestException("'from' and 'to' query params are required");
+      throw new BadRequestException(
+        "'from' and 'to' query params are required",
+      );
     }
   }
 
@@ -38,7 +40,9 @@ export class ReportsController {
       `GET /reports/consumption user=${req.user.id} from=${query.from} to=${query.to}`,
     );
     const data = await this.reportsService.getConsumptionReport(
-      req.user.id, query.from, query.to,
+      req.user.id,
+      query.from,
+      query.to,
     );
     return {
       success: true,
@@ -63,7 +67,9 @@ export class ReportsController {
       `GET /reports/refuels user=${req.user.id} from=${query.from} to=${query.to}`,
     );
     const data = await this.reportsService.getRefuelsReport(
-      req.user.id, query.from, query.to,
+      req.user.id,
+      query.from,
+      query.to,
     );
     return {
       success: true,
@@ -87,7 +93,9 @@ export class ReportsController {
       `GET /reports/idle-waste user=${req.user.id} from=${query.from} to=${query.to}`,
     );
     const data = await this.reportsService.getIdleWasteReport(
-      req.user.id, query.from, query.to,
+      req.user.id,
+      query.from,
+      query.to,
     );
     return {
       success: true,
@@ -111,7 +119,9 @@ export class ReportsController {
       `GET /reports/high-speed user=${req.user.id} from=${query.from} to=${query.to}`,
     );
     const data = await this.reportsService.getHighSpeedReport(
-      req.user.id, query.from, query.to,
+      req.user.id,
+      query.from,
+      query.to,
     );
     return {
       success: true,
@@ -135,7 +145,9 @@ export class ReportsController {
       `GET /reports/daily-trend user=${req.user.id} from=${query.from} to=${query.to}`,
     );
     const data = await this.reportsService.getDailyTrendReport(
-      req.user.id, query.from, query.to,
+      req.user.id,
+      query.from,
+      query.to,
     );
     return {
       success: true,
@@ -160,7 +172,9 @@ export class ReportsController {
       `GET /reports/thrift user=${req.user.id} from=${query.from} to=${query.to}`,
     );
     const data = await this.reportsService.getThriftReport(
-      req.user.id, query.from, query.to,
+      req.user.id,
+      query.from,
+      query.to,
     );
     return {
       success: true,
@@ -184,7 +198,9 @@ export class ReportsController {
       `GET /reports/engine-hours user=${req.user.id} from=${query.from} to=${query.to}`,
     );
     const data = await this.reportsService.getEngineHoursReport(
-      req.user.id, query.from, query.to,
+      req.user.id,
+      query.from,
+      query.to,
     );
     return {
       success: true,
@@ -226,7 +242,9 @@ export class ReportsController {
       `GET /reports/theft user=${req.user.id} from=${query.from} to=${query.to}`,
     );
     const data = await this.reportsService.getTheftDetectionReport(
-      req.user.id, query.from, query.to,
+      req.user.id,
+      query.from,
+      query.to,
     );
     return {
       success: true,
@@ -251,7 +269,9 @@ export class ReportsController {
       `GET /reports/trips user=${req.user.id} from=${query.from} to=${query.to}`,
     );
     const data = await this.reportsService.getTripsReport(
-      req.user.id, query.from, query.to,
+      req.user.id,
+      query.from,
+      query.to,
     );
     return {
       success: true,

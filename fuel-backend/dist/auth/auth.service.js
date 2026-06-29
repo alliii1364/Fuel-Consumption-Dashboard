@@ -14,11 +14,16 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 var AuthService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
+exports.hashPassword = hashPassword;
 const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
+const crypto_1 = require("crypto");
 const md5 = require('md5');
+function hashPassword(plain) {
+    return (0, crypto_1.createHash)('sha256').update(plain).digest('hex');
+}
 let AuthService = AuthService_1 = class AuthService {
     dataSource;
     jwtService;
@@ -50,9 +55,40 @@ let AuthService = AuthService_1 = class AuthService {
             username: user.username,
             email: user.email,
             timezone: user.timezone,
+            role: 'manager',
         };
         const token = this.jwtService.sign(payload);
         return { token, expiresIn: '24h' };
+    }
+    async driverLogin(dto) {
+        const rows = await this.dataSource.query(`SELECT c.driver_id, c.user_id, c.pin_hash, c.active, d.driver_name
+       FROM fd_driver_credentials c
+       LEFT JOIN gs_user_object_drivers d ON d.driver_id = c.driver_id
+       WHERE c.driver_id = ?
+       LIMIT 1`, [dto.driverId]);
+        if (!rows.length) {
+            throw new common_1.UnauthorizedException('Invalid driver ID or PIN');
+        }
+        const cred = rows[0];
+        if (!cred.active) {
+            throw new common_1.UnauthorizedException('Account is inactive');
+        }
+        if (cred.pin_hash !== hashPassword(dto.pin)) {
+            throw new common_1.UnauthorizedException('Invalid driver ID or PIN');
+        }
+        this.logger.log(`Driver ${cred.driver_id} logged in`);
+        const payload = {
+            id: cred.user_id,
+            role: 'driver',
+            driverId: cred.driver_id,
+            name: cred.driver_name,
+        };
+        const token = this.jwtService.sign(payload);
+        return {
+            token,
+            expiresIn: '24h',
+            driver: { driverId: cred.driver_id, name: cred.driver_name },
+        };
     }
 };
 exports.AuthService = AuthService;

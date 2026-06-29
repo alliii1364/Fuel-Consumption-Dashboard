@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { FuelSensor } from './fuel-sensor-resolver.service';
 import { FuelTransformService } from './fuel-transform.service';
-import { DynamicTableQueryService, DataRow } from './dynamic-table-query.service';
+import {
+  DynamicTableQueryService,
+  DataRow,
+} from './dynamic-table-query.service';
 
 const NOISE_THRESHOLD = 0.5;
 const MIN_TRIP_DURATION_MINUTES = 5;
@@ -80,7 +83,9 @@ export class TripAnalyzerService {
     sensor: FuelSensor,
   ): Promise<TripAnalysisResult> {
     const rows = await this.dynQuery.getRowsInRange(imei, from, to);
-    this.logger.log(`Trip analysis for IMEI ${imei}: processing ${rows.length} rows`);
+    this.logger.log(
+      `Trip analysis for IMEI ${imei}: processing ${rows.length} rows`,
+    );
 
     if (rows.length === 0) {
       return {
@@ -102,10 +107,14 @@ export class TripAnalyzerService {
 
     const totalDistanceKm = trips.reduce((sum, t) => sum + t.distanceKm, 0);
     const totalFuelConsumed = trips.reduce((sum, t) => sum + t.fuelConsumed, 0);
-    const totalDurationMinutes = trips.reduce((sum, t) => sum + t.durationMinutes, 0);
-    const avgKmPerLiter = totalFuelConsumed > 0 && totalDistanceKm > 0
-      ? Math.round((totalDistanceKm / totalFuelConsumed) * 100) / 100
-      : null;
+    const totalDurationMinutes = trips.reduce(
+      (sum, t) => sum + t.durationMinutes,
+      0,
+    );
+    const avgKmPerLiter =
+      totalFuelConsumed > 0 && totalDistanceKm > 0
+        ? Math.round((totalDistanceKm / totalFuelConsumed) * 100) / 100
+        : null;
 
     return {
       imei,
@@ -121,7 +130,11 @@ export class TripAnalyzerService {
     };
   }
 
-  private enrichRows(rows: DataRow[], sensor: FuelSensor, imei: string): EnrichedRow[] {
+  private enrichRows(
+    rows: DataRow[],
+    sensor: FuelSensor,
+    imei: string,
+  ): EnrichedRow[] {
     return rows.map((row) => {
       const ts = new Date(row.dt_tracker);
       const rawValue = this.transform.extractRawValue(
@@ -139,8 +152,10 @@ export class TripAnalyzerService {
       try {
         const p = JSON.parse(row.params) as Record<string, string | number>;
         ignition =
-          p['acc'] === '1' || p['acc'] === 1 ||
-          p['io1'] === '1' || p['io1'] === 1;
+          p['acc'] === '1' ||
+          p['acc'] === 1 ||
+          p['io1'] === '1' ||
+          p['io1'] === 1;
       } catch {
         // no ignition data
       }
@@ -169,9 +184,13 @@ export class TripAnalyzerService {
       const row = rows[i];
 
       const shouldStartByIgnition = row.ignition;
-      const shouldStartByMovement = !hasIgnitionSignal && row.speed >= MOVEMENT_START_SPEED_KMH;
+      const shouldStartByMovement =
+        !hasIgnitionSignal && row.speed >= MOVEMENT_START_SPEED_KMH;
 
-      if ((shouldStartByIgnition || shouldStartByMovement) && tripStart === null) {
+      if (
+        (shouldStartByIgnition || shouldStartByMovement) &&
+        tripStart === null
+      ) {
         // Trip starts
         tripStart = row;
         tripStartFuel = row.fuel;
@@ -199,14 +218,21 @@ export class TripAnalyzerService {
           stopStartTs !== null &&
           row.ts.getTime() - stopStartTs.getTime() >= MOVEMENT_STOP_END_MS;
 
-        if (ignitionJustTurnedOff || largeGap || movementStopExceeded || i === rows.length - 1) {
+        if (
+          ignitionJustTurnedOff ||
+          largeGap ||
+          movementStopExceeded ||
+          i === rows.length - 1
+        ) {
           // End the trip (exclude current row for ignition-off / large-gap endings)
           const includeCurrentRow =
             i === rows.length - 1 &&
             !ignitionJustTurnedOff &&
             !largeGap &&
             !movementStopExceeded;
-          const effectiveTripRows = includeCurrentRow ? tripRows : tripRows.slice(0, -1);
+          const effectiveTripRows = includeCurrentRow
+            ? tripRows
+            : tripRows.slice(0, -1);
           if (effectiveTripRows.length === 0) {
             tripStart = null;
             tripStartFuel = null;
@@ -218,19 +244,22 @@ export class TripAnalyzerService {
           const tripEndFuel = tripEnd.fuel;
 
           if (tripStart && tripStartFuel !== null && tripEndFuel !== null) {
-            const durationMinutes = (tripEnd.ts.getTime() - tripStart.ts.getTime()) / 60000;
+            const durationMinutes =
+              (tripEnd.ts.getTime() - tripStart.ts.getTime()) / 60000;
             const distanceKm = this.calcTripDistance(effectiveTripRows);
             const idleAndMoving = this.calcIdleAndMovingTime(effectiveTripRows);
             const fuelMetrics = this.calcTripFuelMetrics(effectiveTripRows);
 
             // Calculate average speed only while moving (speed > 5 km/h)
             const movingSpeeds = effectiveTripRows
-              .filter(r => r.speed > 5)
-              .map(r => r.speed);
-            const avgMovingSpeed = movingSpeeds.length > 0
-              ? movingSpeeds.reduce((a, b) => a + b, 0) / movingSpeeds.length
-              : 0;
-            const maxSpeed = movingSpeeds.length > 0 ? Math.max(...movingSpeeds) : 0;
+              .filter((r) => r.speed > 5)
+              .map((r) => r.speed);
+            const avgMovingSpeed =
+              movingSpeeds.length > 0
+                ? movingSpeeds.reduce((a, b) => a + b, 0) / movingSpeeds.length
+                : 0;
+            const maxSpeed =
+              movingSpeeds.length > 0 ? Math.max(...movingSpeeds) : 0;
 
             // Filter criteria - must pass ALL:
             // 1. At least 5 minutes total duration
@@ -242,7 +271,8 @@ export class TripAnalyzerService {
             const meetsSpeed = avgMovingSpeed >= MIN_AVG_SPEED_KMH;
             const actuallyMoved = distanceKm > 0.05; // At least 50 meters
 
-            const isValidTrip = meetsDuration && meetsDistance && meetsSpeed && actuallyMoved;
+            const isValidTrip =
+              meetsDuration && meetsDistance && meetsSpeed && actuallyMoved;
 
             if (isValidTrip) {
               const trip: Trip = {
@@ -262,14 +292,18 @@ export class TripAnalyzerService {
                 fuelConsumed: Math.round(fuelMetrics.consumed * 100) / 100,
                 fuelAtStart: Math.round(fuelMetrics.startFuel * 100) / 100,
                 fuelAtEnd: Math.round(fuelMetrics.endFuel * 100) / 100,
-                kmPerLiter: fuelMetrics.consumed > 0 && distanceKm > 0
-                  ? Math.round((distanceKm / fuelMetrics.consumed) * 100) / 100
-                  : null,
+                kmPerLiter:
+                  fuelMetrics.consumed > 0 && distanceKm > 0
+                    ? Math.round((distanceKm / fuelMetrics.consumed) * 100) /
+                      100
+                    : null,
                 unit,
                 maxSpeed: Math.round(maxSpeed * 10) / 10,
                 avgSpeed: Math.round(avgMovingSpeed * 10) / 10,
-                idleDurationMinutes: Math.round(idleAndMoving.idleMinutes * 10) / 10,
-                movingDurationMinutes: Math.round(idleAndMoving.movingMinutes * 10) / 10,
+                idleDurationMinutes:
+                  Math.round(idleAndMoving.idleMinutes * 10) / 10,
+                movingDurationMinutes:
+                  Math.round(idleAndMoving.movingMinutes * 10) / 10,
               };
 
               trips.push(trip);
@@ -278,9 +312,9 @@ export class TripAnalyzerService {
               // Log why trip was filtered out (for debugging)
               this.logger.debug(
                 `Filtered out trip: duration=${durationMinutes.toFixed(1)}min, ` +
-                `distance=${(distanceKm * 1000).toFixed(0)}m, ` +
-                `avgSpeed=${avgMovingSpeed.toFixed(1)}km/h ` +
-                `(${meetsDuration ? '✓' : '✗'}duration, ${meetsDistance ? '✓' : '✗'}distance, ${meetsSpeed ? '✓' : '✗'}speed)`
+                  `distance=${(distanceKm * 1000).toFixed(0)}m, ` +
+                  `avgSpeed=${avgMovingSpeed.toFixed(1)}km/h ` +
+                  `(${meetsDuration ? '✓' : '✗'}duration, ${meetsDistance ? '✓' : '✗'}distance, ${meetsSpeed ? '✓' : '✗'}speed)`,
               );
             }
           }
@@ -296,7 +330,10 @@ export class TripAnalyzerService {
     return trips;
   }
 
-  private calcIdleAndMovingTime(rows: EnrichedRow[]): { idleMinutes: number; movingMinutes: number } {
+  private calcIdleAndMovingTime(rows: EnrichedRow[]): {
+    idleMinutes: number;
+    movingMinutes: number;
+  } {
     let idleMinutes = 0;
     let movingMinutes = 0;
 
@@ -321,7 +358,11 @@ export class TripAnalyzerService {
     for (let i = 1; i < rows.length; i++) {
       const a = rows[i - 1];
       const b = rows[i];
-      if (!this.isValidCoordinatePair(a.lat, a.lng) || !this.isValidCoordinatePair(b.lat, b.lng)) continue;
+      if (
+        !this.isValidCoordinatePair(a.lat, a.lng) ||
+        !this.isValidCoordinatePair(b.lat, b.lng)
+      )
+        continue;
 
       const dtMs = b.ts.getTime() - a.ts.getTime();
       if (dtMs <= 0 || dtMs > MAX_DISTANCE_SEGMENT_GAP_MS) continue;
@@ -337,7 +378,11 @@ export class TripAnalyzerService {
     return dist;
   }
 
-  private calcTripFuelMetrics(rows: EnrichedRow[]): { startFuel: number; endFuel: number; consumed: number } {
+  private calcTripFuelMetrics(rows: EnrichedRow[]): {
+    startFuel: number;
+    endFuel: number;
+    consumed: number;
+  } {
     const fuels = rows
       .map((r) => r.fuel)
       .filter((f): f is number => f !== null);
@@ -381,7 +426,12 @@ export class TripAnalyzerService {
   }
 
   private isValidCoordinatePair(lat: number, lng: number): boolean {
-    return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+    return (
+      Number.isFinite(lat) &&
+      Number.isFinite(lng) &&
+      Math.abs(lat) <= 90 &&
+      Math.abs(lng) <= 180
+    );
   }
 
   private median(values: number[]): number {
@@ -393,13 +443,20 @@ export class TripAnalyzerService {
       : sorted[mid];
   }
 
-  private haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  private haversineKm(
+    lat1: number,
+    lng1: number,
+    lat2: number,
+    lng2: number,
+  ): number {
     const R = 6371;
     const dLat = this.toRad(lat2 - lat1);
     const dLng = this.toRad(lng2 - lng1);
     const a =
       Math.sin(dLat / 2) ** 2 +
-      Math.cos(this.toRad(lat1)) * Math.cos(this.toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+      Math.cos(this.toRad(lat1)) *
+        Math.cos(this.toRad(lat2)) *
+        Math.sin(dLng / 2) ** 2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
