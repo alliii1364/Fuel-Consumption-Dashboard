@@ -520,7 +520,9 @@ export default function RoutesPage() {
         </div>
 
         {/* ── Body ─────────────────────────────────────────────────────── */}
-        <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+        {/* On small screens the 3 panes scroll horizontally so nothing overflows
+            the viewport; on lg+ they sit side by side as a fixed workspace. */}
+        <div className="flex-1 flex overflow-x-auto lg:overflow-x-hidden overflow-y-hidden">
 
           {/* LEFT: vehicles + stats */}
           <div style={{ width: 272, flexShrink: 0, background: "#FFFFFF", borderRight: "1px solid var(--color-border-soft)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -592,7 +594,7 @@ export default function RoutesPage() {
           </div>
 
           {/* MAP */}
-          <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+          <div className="min-w-[300px] lg:min-w-0" style={{ flex: 1, position: "relative", overflow: "hidden" }}>
             <RouteMap
               vehicles={vehicles}
               selectedImei={selectedImei}

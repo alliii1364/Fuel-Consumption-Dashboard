@@ -363,8 +363,8 @@ function DriversPanel({
           description="Add your first driver, then set a PIN so they can log into the driver app."
         />
       ) : drivers.length > 0 ? (
-        <div className="rounded-xl border bg-white overflow-hidden" style={{ borderColor: "var(--color-border)" }}>
-          <table className="w-full text-sm">
+        <div className="rounded-xl border bg-white overflow-x-auto" style={{ borderColor: "var(--color-border)" }}>
+          <table className="w-full text-sm min-w-[640px]">
             <thead>
               <tr className="text-left text-xs text-gray-500 uppercase" style={{ background: "var(--color-surface-2)" }}>
                 <th className="px-4 py-2">Driver</th><th className="px-4 py-2">Driver ID</th>

@@ -120,11 +120,11 @@ export default function LoginPage() {
 
         {/* ── COL 2 — image "breathing room", optional tag line ──────── */}
         <div
+          className="hidden sm:flex"
           style={{
             flex: 1,
             position: "relative",
             zIndex: 5,
-            display: "flex",
             flexDirection: "column",
             justifyContent: "flex-end",
             padding: "0 0 52px 52px",
@@ -145,15 +145,13 @@ export default function LoginPage() {
 
         {/* ── COL 3 — glass login card ────────────────────────────────── */}
         <div
+          className="w-full sm:w-[460px] sm:flex-shrink-0 px-5 py-8 sm:px-10"
           style={{
-            width: 460,
-            flexShrink: 0,
             position: "relative",
             zIndex: 5,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: "32px 40px",
           }}
         >
           {/* Glass card */}

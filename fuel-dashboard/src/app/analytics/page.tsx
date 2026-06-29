@@ -959,7 +959,7 @@ function AnalyticsPage() {
           <p className="text-sm text-gray-500 mb-8 max-w-md text-center">
             Fetching fleet performance data, consumption trends, and insights for the selected period.
           </p>
-          <div className="grid grid-cols-3 gap-4 w-full max-w-2xl">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 w-full max-w-2xl">
             {[...Array(6)].map((_, i) => (
               <div key={i} className="h-24 rounded-xl bg-gray-100 animate-pulse" />
             ))}

@@ -100,16 +100,16 @@ export default function FleetMonitorPage() {
         <button onClick={() => router.push("/dispatch")} className="flex items-center gap-1.5 text-sm font-semibold text-gray-600 hover:text-gray-900">
           <ArrowLeft size={16} /> Dispatch
         </button>
-        <div className="w-px h-5 bg-gray-200" />
-        <h1 className="font-bold text-gray-800">Live Fleet Monitor</h1>
-        <span className="text-xs text-gray-500">{fleet.length} active</span>
+        <div className="w-px h-5 bg-gray-200 flex-shrink-0" />
+        <h1 className="font-bold text-gray-800 truncate min-w-0"><span className="hidden sm:inline">Live </span>Fleet Monitor</h1>
+        <span className="text-xs text-gray-500 flex-shrink-0">{fleet.length} active</span>
         {offRouteCount > 0 && (
           <span className="flex items-center gap-1 text-xs font-bold text-red-600">
             <AlertTriangle size={13} /> {offRouteCount} off route
           </span>
         )}
-        <div className="ml-auto flex items-center gap-3">
-          <span className="text-xs text-gray-400">
+        <div className="ml-auto flex items-center gap-3 flex-shrink-0">
+          <span className="hidden md:inline text-xs text-gray-400">
             {lastUpdated ? `Updated ${relTime(lastUpdated.toISOString())}` : ""}
           </span>
           <button onClick={load} className="text-gray-400 hover:text-gray-700" title="Refresh now">
@@ -118,9 +118,9 @@ export default function FleetMonitorPage() {
         </div>
       </header>
 
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex flex-col sm:flex-row min-h-0">
         {/* Active-assignment list */}
-        <aside className="w-72 flex-shrink-0 border-r bg-white overflow-auto" style={{ borderColor: "var(--color-border)" }}>
+        <aside className="w-full sm:w-72 sm:flex-shrink-0 max-h-[45%] sm:max-h-none border-b sm:border-b-0 sm:border-r bg-white overflow-auto" style={{ borderColor: "var(--color-border)" }}>
           {loading && (
             <div className="flex items-center justify-center py-10"><Loader2 className="animate-spin text-primary" /></div>
           )}

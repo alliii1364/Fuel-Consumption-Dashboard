@@ -198,7 +198,7 @@ export default function MainHeader({
 
       {/* ── New Combined Control Bar ────────────────────────────── */}
       <div
-        className="flex items-center gap-4 px-5 py-3"
+        className="flex flex-wrap items-center gap-3 px-4 sm:px-5 py-3"
         style={{
           background: "#FFFFFF",
           border: "1px solid var(--color-border)",
@@ -276,6 +276,7 @@ export default function MainHeader({
                 boxShadow: "0 20px 50px rgba(0,0,0,0.15)",
                 padding: "16px",
                 minWidth: 320,
+                maxWidth: "calc(100vw - 24px)",
                 zIndex: 2147483647,
               }}
             >
@@ -353,11 +354,11 @@ export default function MainHeader({
           )}
         </div>
 
-        {/* Spacer to push search to right */}
-        <div className="flex-1" />
+        {/* Spacer to push search to right (collapses on mobile so search wraps) */}
+        <div className="hidden sm:block flex-1" />
 
         {/* 3. Search Bar with Vehicle Dropdown - Long, Right Side */}
-        <div ref={searchWrapperRef} style={{ position: "relative", width: 380 }}>
+        <div ref={searchWrapperRef} className="relative w-full sm:w-[380px]">
           <div
             className="flex items-center rounded-xl overflow-hidden"
             style={{
@@ -416,6 +417,7 @@ export default function MainHeader({
                 top: "calc(100% + 6px)",
                 right: 0,
                 width: 320,
+                maxWidth: "calc(100vw - 24px)",
                 background: "#FFFFFF",
                 border: "1px solid var(--color-border)",
                 borderRadius: 14,
