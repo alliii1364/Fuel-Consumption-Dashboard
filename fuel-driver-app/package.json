@@ -4,7 +4,7 @@
   "private": true,
   "description": "FuelIQ Driver — Capacitor Android shell wrapping the /driver PWA",
   "scripts": {
-    "build:web": "cd ../fuel-dashboard && CAP_BUILD=1 NEXT_PUBLIC_API_URL=\"${NEXT_PUBLIC_API_URL:-http://192.168.18.199:3007}\" npm run build",
+    "build:web": "cd ../fuel-dashboard && CAP_BUILD=1 NEXT_PUBLIC_API_URL=\"${NEXT_PUBLIC_API_URL:-https://ifs.itecknologi.com}\" npm run build",
     "sync:web": "node scripts/prepare-www.mjs && npx cap sync android",
     "build": "npm run build:web && npm run sync:web",
     "open": "npx cap open android",
