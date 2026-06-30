@@ -54,7 +54,11 @@ export class FuelHistoryService {
     private readonly dynQuery: DynamicTableQueryService,
   ) {}
 
-  resolveInterval(from: Date, to: Date, requested?: FuelInterval): FuelInterval {
+  resolveInterval(
+    from: Date,
+    to: Date,
+    requested?: FuelInterval,
+  ): FuelInterval {
     const rangeDays = (to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24);
 
     if (requested) {

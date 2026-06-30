@@ -45,10 +45,10 @@ export default function FuelStatsPanel({ stats, loading }: Props) {
         {/* Efficiency card */}
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-5">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "#E84040" }}>
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "var(--color-primary)" }}>
               <Gauge size={14} className="text-white" />
             </div>
-            <p className="text-sm font-bold" style={{ color: "#1A1A2E" }}>Fuel Efficiency</p>
+            <p className="text-sm font-bold" style={{ color: "var(--color-text-1)" }}>Fuel Efficiency</p>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
@@ -64,21 +64,21 @@ export default function FuelStatsPanel({ stats, loading }: Props) {
                 >
                   <Icon size={13} className="text-white" />
                 </div>
-                <p className="text-xl font-bold" style={{ color: "#1A1A2E" }}>{val}</p>
-                <p className="text-xs font-medium mt-0.5" style={{ color: "#9CA3AF" }}>{unit}</p>
+                <p className="text-xl font-bold" style={{ color: "var(--color-text-1)" }}>{val}</p>
+                <p className="text-xs font-medium mt-0.5" style={{ color: "var(--color-text-3)" }}>{unit}</p>
               </div>
             ))}
           </div>
 
           <div
             className="mt-4 flex items-center justify-between rounded-xl px-4 py-3"
-            style={{ background: "rgba(232,64,64,0.05)", border: "1px solid rgba(232,64,64,0.12)" }}
+            style={{ background: "rgba(var(--color-primary-rgb), 0.05)", border: "1px solid rgba(var(--color-primary-rgb), 0.12)" }}
           >
             <div className="flex items-center gap-2">
-              <Flame size={14} style={{ color: "#E84040" }} />
-              <span className="text-sm font-semibold" style={{ color: "#1A1A2E" }}>Daily average</span>
+              <Flame size={14} style={{ color: "var(--color-primary)" }} />
+              <span className="text-sm font-semibold" style={{ color: "var(--color-text-1)" }}>Daily average</span>
             </div>
-            <span className="text-base font-bold" style={{ color: "#E84040" }}>
+            <span className="text-base font-bold" style={{ color: "var(--color-primary)" }}>
               {fmt(stats.avgDailyConsumption)} L/day
             </span>
           </div>
@@ -90,7 +90,7 @@ export default function FuelStatsPanel({ stats, loading }: Props) {
             <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "#F59E0B" }}>
               <Clock size={14} className="text-white" />
             </div>
-            <p className="text-sm font-bold" style={{ color: "#1A1A2E" }}>Idle Fuel Drain</p>
+            <p className="text-sm font-bold" style={{ color: "var(--color-text-1)" }}>Idle Fuel Drain</p>
           </div>
 
           <div className="flex items-center gap-5 mb-5">
@@ -107,15 +107,15 @@ export default function FuelStatsPanel({ stats, loading }: Props) {
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-lg font-bold" style={{ color: "#1A1A2E" }}>{fmt(idlePct, 0)}%</span>
-                <span className="text-xs" style={{ color: "#9CA3AF" }}>idle</span>
+                <span className="text-lg font-bold" style={{ color: "var(--color-text-1)" }}>{fmt(idlePct, 0)}%</span>
+                <span className="text-xs" style={{ color: "var(--color-text-3)" }}>idle</span>
               </div>
             </div>
 
             <div className="flex flex-col gap-3 flex-1">
               <div>
-                <p className="text-2xl font-bold" style={{ color: "#1A1A2E" }}>{fmt(stats.idleDrain?.liters)} L</p>
-                <p className="text-sm font-medium" style={{ color: "#9CA3AF" }}>wasted while parked</p>
+                <p className="text-2xl font-bold" style={{ color: "var(--color-text-1)" }}>{fmt(stats.idleDrain?.liters)} L</p>
+                <p className="text-sm font-medium" style={{ color: "var(--color-text-3)" }}>wasted while parked</p>
               </div>
               <div
                 className="rounded-xl px-3 py-2 text-xs font-semibold"
@@ -132,12 +132,12 @@ export default function FuelStatsPanel({ stats, loading }: Props) {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="card-flat rounded-xl p-3 text-center">
-              <p className="text-sm font-bold" style={{ color: "#1A1A2E" }}>{stats.totalDropEvents ?? 0}</p>
-              <p className="text-xs mt-0.5" style={{ color: "#9CA3AF" }}>Drop events</p>
+              <p className="text-sm font-bold" style={{ color: "var(--color-text-1)" }}>{stats.totalDropEvents ?? 0}</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--color-text-3)" }}>Drop events</p>
             </div>
             <div className="card-flat rounded-xl p-3 text-center">
-              <p className="text-sm font-bold" style={{ color: "#1A1A2E" }}>{stats.refuelEvents ?? 0}</p>
-              <p className="text-xs mt-0.5" style={{ color: "#9CA3AF" }}>Refuel events</p>
+              <p className="text-sm font-bold" style={{ color: "var(--color-text-1)" }}>{stats.refuelEvents ?? 0}</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--color-text-3)" }}>Refuel events</p>
             </div>
           </div>
         </div>
@@ -149,7 +149,7 @@ export default function FuelStatsPanel({ stats, loading }: Props) {
           <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "#A855F7" }}>
             <TrendingDown size={14} className="text-white" />
           </div>
-          <p className="text-sm font-bold" style={{ color: "#1A1A2E" }}>Fuel Timeline Highlights</p>
+          <p className="text-sm font-bold" style={{ color: "var(--color-text-1)" }}>Fuel Timeline Highlights</p>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -170,8 +170,8 @@ export default function FuelStatsPanel({ stats, loading }: Props) {
                   {label}
                 </span>
               </div>
-              <p className="text-xl font-bold" style={{ color: "#1A1A2E" }}>{val}</p>
-              <p className="text-xs mt-1" style={{ color: "#9CA3AF" }}>{date}</p>
+              <p className="text-xl font-bold" style={{ color: "var(--color-text-1)" }}>{val}</p>
+              <p className="text-xs mt-1" style={{ color: "var(--color-text-3)" }}>{date}</p>
             </div>
           ))}
         </div>

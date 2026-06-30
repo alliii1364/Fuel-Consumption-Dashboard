@@ -135,7 +135,7 @@ export function RankingTable({
     }
     return {
       background: "#F3F4F6",
-      color: "#6B7280",
+      color: "var(--color-text-2)",
       border: "1px solid #E5E7EB",
     };
   };
@@ -144,7 +144,7 @@ export function RankingTable({
     <button
       onClick={() => handleSort(key)}
       className="flex items-center gap-1 text-xs font-medium transition-colors hover:text-gray-900"
-      style={{ color: active ? "#1A1A2E" : "#9CA3AF" }}
+      style={{ color: active ? "var(--color-text-1)" : "var(--color-text-3)" }}
     >
       {label}
       {sortKey === key ? (
@@ -196,13 +196,13 @@ export function RankingTable({
       {/* Header */}
       <div className="p-4 border-b flex-shrink-0" style={{ borderColor: "rgba(240, 239, 239, 0.8)" }}>
         <div className="flex items-center gap-2">
-          <Trophy size={20} style={{ color: "#E84040" }} />
+          <Trophy size={20} style={{ color: "var(--color-primary)" }} />
           <div>
-            <h3 className="font-semibold text-base" style={{ color: "#1A1A2E" }}>
+            <h3 className="font-semibold text-base" style={{ color: "var(--color-text-1)" }}>
               {title}
             </h3>
             {subtitle && (
-              <p className="text-xs" style={{ color: "#9CA3AF" }}>
+              <p className="text-xs" style={{ color: "var(--color-text-3)" }}>
                 {subtitle}
               </p>
             )}
@@ -212,7 +212,7 @@ export function RankingTable({
         {/* Sort controls */}
         {sortable && items.length > 1 && (
           <div className="flex items-center gap-4 mt-3 pt-3 border-t" style={{ borderColor: "rgba(240, 239, 239, 0.6)" }}>
-            <span className="text-xs" style={{ color: "#9CA3AF" }}>Sort by:</span>
+            <span className="text-xs" style={{ color: "var(--color-text-3)" }}>Sort by:</span>
             <SortButton label="Rank" sortKey="rank" active={sortKey === "rank"} />
             <SortButton label="Score" sortKey="score" active={sortKey === "score"} />
             {firstMetric && (
@@ -242,7 +242,7 @@ export function RankingTable({
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <p className="font-medium text-base truncate" style={{ color: "#1A1A2E" }}>
+                  <p className="font-medium text-base truncate" style={{ color: "var(--color-text-1)" }}>
                     {item.name}
                   </p>
                   {showRankChange && item.change !== undefined && item.change !== 0 && (
@@ -259,7 +259,7 @@ export function RankingTable({
                   )}
                 </div>
                 {item.subtitle && (
-                  <p className="text-xs truncate" style={{ color: "#9CA3AF" }}>
+                  <p className="text-xs truncate" style={{ color: "var(--color-text-3)" }}>
                     {item.subtitle}
                   </p>
                 )}
@@ -268,13 +268,13 @@ export function RankingTable({
               <div className="flex items-center gap-4">
                 {item.metrics.slice(0, 2).map((metric, i) => (
                   <div key={i} className="text-right hidden sm:block">
-                    <p className="text-xs" style={{ color: "#9CA3AF" }}>
+                    <p className="text-xs" style={{ color: "var(--color-text-3)" }}>
                       {metric.label}
                     </p>
-                    <p className="text-sm font-semibold" style={{ color: "#1A1A2E" }}>
+                    <p className="text-sm font-semibold" style={{ color: "var(--color-text-1)" }}>
                       {metric.value}
                       {metric.unit && (
-                        <span className="text-xs font-normal ml-0.5" style={{ color: "#9CA3AF" }}>
+                        <span className="text-xs font-normal ml-0.5" style={{ color: "var(--color-text-3)" }}>
                           {metric.unit}
                         </span>
                       )}
@@ -311,7 +311,7 @@ export function RankingTable({
                 >
                   {item.score}
                 </span>
-                <span className="text-[9px] uppercase tracking-wider" style={{ color: "#6B7280" }}>
+                <span className="text-[9px] uppercase tracking-wider" style={{ color: "var(--color-text-2)" }}>
                   Score
                 </span>
               </div>
@@ -321,7 +321,7 @@ export function RankingTable({
 
         {paginatedItems.length === 0 && (
           <div className="p-8 text-center">
-            <p className="text-sm" style={{ color: "#9CA3AF" }}>No items to display</p>
+            <p className="text-sm" style={{ color: "var(--color-text-3)" }}>No items to display</p>
           </div>
         )}
       </div>
@@ -329,7 +329,7 @@ export function RankingTable({
       {/* Pagination */}
       {paginated && totalPages > 1 && (
         <div className="px-4 py-3 border-t flex items-center justify-between" style={{ borderColor: "rgba(240, 239, 239, 0.8)" }}>
-          <div className="text-xs" style={{ color: "#9CA3AF" }}>
+          <div className="text-xs" style={{ color: "var(--color-text-3)" }}>
             Showing {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, items.length)} of {items.length}
           </div>
           <div className="flex items-center gap-2">
@@ -337,7 +337,7 @@ export function RankingTable({
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
               className="p-1.5 rounded-lg transition-colors disabled:opacity-30 hover:bg-gray-100"
-              style={{ color: "#6B7280" }}
+              style={{ color: "var(--color-text-2)" }}
             >
               <ChevronLeft size={18} />
             </button>
@@ -359,8 +359,8 @@ export function RankingTable({
                     onClick={() => setCurrentPage(pageNum)}
                     className="w-8 h-8 rounded-lg text-xs font-medium transition-colors"
                     style={{
-                      background: currentPage === pageNum ? "#E84040" : "transparent",
-                      color: currentPage === pageNum ? "white" : "#6B7280",
+                      background: currentPage === pageNum ? "var(--color-primary)" : "transparent",
+                      color: currentPage === pageNum ? "white" : "var(--color-text-2)",
                     }}
                   >
                     {pageNum}
@@ -372,7 +372,7 @@ export function RankingTable({
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
               className="p-1.5 rounded-lg transition-colors disabled:opacity-30 hover:bg-gray-100"
-              style={{ color: "#6B7280" }}
+              style={{ color: "var(--color-text-2)" }}
             >
               <ChevronRight size={18} />
             </button>

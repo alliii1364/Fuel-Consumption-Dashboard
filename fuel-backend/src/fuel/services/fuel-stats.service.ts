@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { FuelSensor } from './fuel-sensor-resolver.service';
 import { FuelTransformService } from './fuel-transform.service';
-import { DynamicTableQueryService, DataRow } from './dynamic-table-query.service';
+import {
+  DynamicTableQueryService,
+  DataRow,
+} from './dynamic-table-query.service';
 import { DropEvent, RefuelEvent } from './fuel-consumption.service';
 import {
   FuelReading,
@@ -98,25 +101,34 @@ export class FuelStatsService {
     // Run event detection on ALL rows (warmup + actual) so the median filter
     // has full context for readings near the `from` boundary.
     const allTransformedRows = this.transformRows(allRows, sensor, imei);
-    const { drops: allDrops, refuels: allRefuels, readings: allReadings } =
-      this.detectEvents(allTransformedRows, sensor.units || 'L');
+    const {
+      drops: allDrops,
+      refuels: allRefuels,
+      readings: allReadings,
+    } = this.detectEvents(allTransformedRows, sensor.units || 'L');
 
     // Filter events and readings to the actual requested [from, to] range.
     const fromIso = from.toISOString();
-    const drops   = allDrops.filter((d) => d.at >= fromIso);
+    const drops = allDrops.filter((d) => d.at >= fromIso);
     const refuels = allRefuels.filter((r) => r.at >= fromIso);
     const readings = allReadings.filter((r) => r.ts >= from);
 
     // Restrict row-level arrays to the actual range for distance / idle calc.
-    const rows           = allRows.filter((r) => new Date(r.dt_tracker) >= from);
+    const rows = allRows.filter((r) => new Date(r.dt_tracker) >= from);
     const transformedRows = allTransformedRows.filter((r) => r.ts >= from);
 
-    const consumed = Math.round(
-      drops.filter((d) => !d.isSensorJump).reduce((s, d) => s + d.consumed, 0) * 100,
-    ) / 100;
-    const refueled = Math.round(refuels.reduce((s, r) => s + r.added, 0) * 100) / 100;
+    const consumed =
+      Math.round(
+        drops
+          .filter((d) => !d.isSensorJump)
+          .reduce((s, d) => s + d.consumed, 0) * 100,
+      ) / 100;
+    const refueled =
+      Math.round(refuels.reduce((s, r) => s + r.added, 0) * 100) / 100;
     const estimatedCost =
-      pricePerLiter !== null ? Math.round(consumed * pricePerLiter * 100) / 100 : null;
+      pricePerLiter !== null
+        ? Math.round(consumed * pricePerLiter * 100) / 100
+        : null;
 
     const rangeDays = Math.max(
       (to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24),
@@ -125,8 +137,19 @@ export class FuelStatsService {
     const avgDailyConsumption = Math.round((consumed / rangeDays) * 100) / 100;
 
     const efficiency = this.calcEfficiency(rows, consumed);
-    const idleDrain = this.calcIdleDrain(rows, transformedRows, sensor, imei, consumed);
-    const fuelTimeline = this.calcTimeline(drops, refuels, transformedRows, sensor.units || 'L');
+    const idleDrain = this.calcIdleDrain(
+      rows,
+      transformedRows,
+      sensor,
+      imei,
+      consumed,
+    );
+    const fuelTimeline = this.calcTimeline(
+      drops,
+      refuels,
+      transformedRows,
+      sensor.units || 'L',
+    );
 
     return {
       imei,
@@ -155,7 +178,14 @@ export class FuelStatsService {
     rows: DataRow[],
     sensor: FuelSensor,
     imei: string,
-  ): Array<{ ts: Date; fuel: number | null; lat: number; lng: number; speed: number; params: string }> {
+  ): Array<{
+    ts: Date;
+    fuel: number | null;
+    lat: number;
+    lng: number;
+    speed: number;
+    params: string;
+  }> {
     return rows.map((row) => {
       const ts = new Date(row.dt_tracker);
       const rawValue = this.transform.extractRawValue(
@@ -165,8 +195,17 @@ export class FuelStatsService {
         ts.toISOString(),
       );
       const fuel =
-        rawValue !== null ? (this.transform.transform(rawValue, sensor).value ?? null) : null;
-      return { ts, fuel, lat: row.lat, lng: row.lng, speed: row.speed, params: row.params };
+        rawValue !== null
+          ? (this.transform.transform(rawValue, sensor).value ?? null)
+          : null;
+      return {
+        ts,
+        fuel,
+        lat: row.lat,
+        lng: row.lng,
+        speed: row.speed,
+        params: row.params,
+      };
     });
   }
 
@@ -186,14 +225,21 @@ export class FuelStatsService {
     // ── Layer 1: Median Filter ──────────────────────────────────────────────
     // Mirrors Python _filter_fuel_for_alarms() / FUEL_MEDIAN_SAMPLES = 5.
     // Speed is preserved unchanged (spread by applyMedianFilter).
-    const fuelReadings: FuelReading[] = rawValid.map((r) => ({ ts: r.ts, fuel: r.fuel, speed: r.speed }));
+    const fuelReadings: FuelReading[] = rawValid.map((r) => ({
+      ts: r.ts,
+      fuel: r.fuel,
+      speed: r.speed,
+    }));
     const validRows = applyMedianFilter(fuelReadings, FUEL_MEDIAN_SAMPLES);
 
     let i = 0;
     while (i < validRows.length) {
-      if (i === 0) { i++; continue; }
+      if (i === 0) {
+        i++;
+        continue;
+      }
 
-      const row  = validRows[i];
+      const row = validRows[i];
       const prev = validRows[i - 1];
       const delta = row.fuel - prev.fuel;
       const singleConsumed = Math.abs(delta);
@@ -202,12 +248,16 @@ export class FuelStatsService {
         if (singleConsumed >= DROP_ALERT_THRESHOLD) {
           // ── Large drop (≥ 8 L): mirrors Python's handle_fuel_drop thread ──────
           const baselineFuel = prev.fuel;
-          const baselineTs   = prev.ts;
-          const windowEndMs  = baselineTs.getTime() + SPIKE_WINDOW_MINUTES * 60 * 1000;
+          const baselineTs = prev.ts;
+          const windowEndMs =
+            baselineTs.getTime() + SPIKE_WINDOW_MINUTES * 60 * 1000;
 
           let verifiedFuel = row.fuel;
           let j = i + 1;
-          while (j < validRows.length && validRows[j].ts.getTime() <= windowEndMs) {
+          while (
+            j < validRows.length &&
+            validRows[j].ts.getTime() <= windowEndMs
+          ) {
             const nextFuel = validRows[j].fuel;
             if (nextFuel > baselineFuel - DROP_ALERT_THRESHOLD) break;
             if (nextFuel - verifiedFuel > REFUEL_THRESHOLD) break;
@@ -220,27 +270,41 @@ export class FuelStatsService {
           // ── Layer 2: Verify delay + speed gate ────────────────────────────────
           // Mirrors Python: re-read after 80 s, check still dropped >= 8 L AND stationary.
           const verifyPassed = isDropConfirmedAfterDelay(
-            row.ts,           // drop timestamp
+            row.ts, // drop timestamp
             baselineFuel,
             validRows,
           );
 
           // ── Layer 3: Fake-spike check (includes speed veto) ───────────────────
-          const fake = !verifyPassed || isFakeSpike(baselineTs, validRows, SPIKE_WINDOW_MINUTES, DROP_ALERT_THRESHOLD);
+          const fake =
+            !verifyPassed ||
+            isFakeSpike(
+              baselineTs,
+              validRows,
+              SPIKE_WINDOW_MINUTES,
+              DROP_ALERT_THRESHOLD,
+            );
 
           // ── Layer 4: Post-drop verify ─────────────────────────────────────────
-          const postRecovery = !fake && isPostDropRecovery(baselineTs, baselineFuel, validRows, SPIKE_WINDOW_MINUTES);
+          const postRecovery =
+            !fake &&
+            isPostDropRecovery(
+              baselineTs,
+              baselineFuel,
+              validRows,
+              SPIKE_WINDOW_MINUTES,
+            );
 
           const isConfirmedDrop =
             totalConsumed >= DROP_ALERT_THRESHOLD && !fake && !postRecovery;
 
           drops.push({
-            at:         baselineTs.toISOString(),
+            at: baselineTs.toISOString(),
             fuelBefore: Math.round(baselineFuel * 100) / 100,
-            fuelAfter:  Math.round(verifiedFuel * 100) / 100,
-            consumed:   Math.round(totalConsumed * 100) / 100,
+            fuelAfter: Math.round(verifiedFuel * 100) / 100,
+            consumed: Math.round(totalConsumed * 100) / 100,
             unit,
-            isSensorJump:    false,
+            isSensorJump: false,
             isConfirmedDrop,
           });
 
@@ -248,19 +312,19 @@ export class FuelStatsService {
           continue;
         } else {
           drops.push({
-            at:         prev.ts.toISOString(),
+            at: prev.ts.toISOString(),
             fuelBefore: Math.round(prev.fuel * 100) / 100,
-            fuelAfter:  Math.round(row.fuel * 100) / 100,
-            consumed:   Math.round(singleConsumed * 100) / 100,
+            fuelAfter: Math.round(row.fuel * 100) / 100,
+            consumed: Math.round(singleConsumed * 100) / 100,
             unit,
-            isSensorJump:    singleConsumed > MAX_SINGLE_READING_DROP,
+            isSensorJump: singleConsumed > MAX_SINGLE_READING_DROP,
             isConfirmedDrop: false,
           });
         }
       } else if (delta >= RISE_THRESHOLD) {
         // ── Large rise (≥ 8 L): mirrors Python's handle_fuel_rise thread ───────
         const baselineFuel = prev.fuel;
-        const baselineTs   = prev.ts;
+        const baselineTs = prev.ts;
         const consolidationEndMs =
           baselineTs.getTime() + REFUEL_CONSOLIDATION_MINUTES * 60 * 1000;
 
@@ -270,7 +334,10 @@ export class FuelStatsService {
         // Track whether fuel fell back below the rise threshold WITHIN the
         // consolidation window — strong indicator of a sensor fake-spike.
         let falledBackInConsolidation = false;
-        while (k < validRows.length && validRows[k].ts.getTime() <= consolidationEndMs) {
+        while (
+          k < validRows.length &&
+          validRows[k].ts.getTime() <= consolidationEndMs
+        ) {
           const nextFuel = validRows[k].fuel;
           if (nextFuel > peakFuel) {
             peakFuel = nextFuel;
@@ -289,11 +356,13 @@ export class FuelStatsService {
           // ── Layer A: isFakeRise (mirrors Python is_fake_rise) ────────────────
           // Short-circuit: if fuel fell back significantly within the 15-min
           // consolidation window, treat it as a fake spike immediately.
-          const fakeRise = falledBackInConsolidation || isFakeRise(baselineTs, validRows);
+          const fakeRise =
+            falledBackInConsolidation || isFakeRise(baselineTs, validRows);
 
           // ── Layer B: isRecoveryRise (mirrors Python is_recovery_rise) ─────────
           const recoveryRise =
-            !fakeRise && isRecoveryRise(baselineTs, baselineFuel, peakFuel, validRows);
+            !fakeRise &&
+            isRecoveryRise(baselineTs, baselineFuel, peakFuel, validRows);
 
           // ── Layer C: isPostRefuelFallback (mirrors Python post-refuel verify) ──
           const postFallback =
@@ -303,10 +372,10 @@ export class FuelStatsService {
 
           if (!fakeRise && !recoveryRise && !postFallback) {
             refuels.push({
-              at:         baselineTs.toISOString(),
+              at: baselineTs.toISOString(),
               fuelBefore: Math.round(baselineFuel * 100) / 100,
-              fuelAfter:  Math.round(peakFuel * 100) / 100,
-              added:      Math.round(totalAdded * 100) / 100,
+              fuelAfter: Math.round(peakFuel * 100) / 100,
+              added: Math.round(totalAdded * 100) / 100,
               unit,
             });
           }
@@ -335,7 +404,12 @@ export class FuelStatsService {
       // Skip GPS invalid rows (0,0 coordinates)
       if (!prev.lat || !prev.lng || !curr.lat || !curr.lng) continue;
 
-      totalDistanceKm += this.haversineKm(prev.lat, prev.lng, curr.lat, curr.lng);
+      totalDistanceKm += this.haversineKm(
+        prev.lat,
+        prev.lng,
+        curr.lat,
+        curr.lng,
+      );
     }
 
     totalDistanceKm = Math.round(totalDistanceKm * 100) / 100;
@@ -353,13 +427,20 @@ export class FuelStatsService {
     return { totalDistanceKm, kmPerLiter, litersPer100km };
   }
 
-  private haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  private haversineKm(
+    lat1: number,
+    lng1: number,
+    lat2: number,
+    lng2: number,
+  ): number {
     const R = 6371;
     const dLat = this.toRad(lat2 - lat1);
     const dLng = this.toRad(lng2 - lng1);
     const a =
       Math.sin(dLat / 2) ** 2 +
-      Math.cos(this.toRad(lat1)) * Math.cos(this.toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+      Math.cos(this.toRad(lat1)) *
+        Math.cos(this.toRad(lat2)) *
+        Math.sin(dLng / 2) ** 2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
@@ -371,7 +452,12 @@ export class FuelStatsService {
 
   private calcIdleDrain(
     rows: DataRow[],
-    transformedRows: Array<{ ts: Date; fuel: number | null; speed: number; params: string }>,
+    transformedRows: Array<{
+      ts: Date;
+      fuel: number | null;
+      speed: number;
+      params: string;
+    }>,
     sensor: FuelSensor,
     imei: string,
     totalConsumed: number,
@@ -388,7 +474,11 @@ export class FuelStatsService {
       let ignition = false;
       try {
         const p = JSON.parse(row.params) as Record<string, string | number>;
-        ignition = p['acc'] === '1' || p['acc'] === 1 || p['io1'] === '1' || p['io1'] === 1;
+        ignition =
+          p['acc'] === '1' ||
+          p['acc'] === 1 ||
+          p['io1'] === '1' ||
+          p['io1'] === 1;
       } catch {
         // no ignition info
       }
@@ -431,7 +521,7 @@ export class FuelStatsService {
   ): FuelTimeline {
     // Prefer confirmed drops (≥ 8 L, stayed low 7 min) for biggestDrop; fall
     // back to all drops only if none are confirmed (mirrors Python alert logic).
-    const confirmedDrops = drops.filter(d => d.isConfirmedDrop);
+    const confirmedDrops = drops.filter((d) => d.isConfirmedDrop);
     const dropPool = confirmedDrops.length > 0 ? confirmedDrops : drops;
     const biggestDrop =
       dropPool.length > 0
@@ -447,12 +537,16 @@ export class FuelStatsService {
 
     const lowestRow =
       validRows.length > 0
-        ? validRows.reduce((min, r) => ((r.fuel ?? Infinity) < (min.fuel ?? Infinity) ? r : min))
+        ? validRows.reduce((min, r) =>
+            (r.fuel ?? Infinity) < (min.fuel ?? Infinity) ? r : min,
+          )
         : null;
 
     const highestRow =
       validRows.length > 0
-        ? validRows.reduce((max, r) => ((r.fuel ?? -Infinity) > (max.fuel ?? -Infinity) ? r : max))
+        ? validRows.reduce((max, r) =>
+            (r.fuel ?? -Infinity) > (max.fuel ?? -Infinity) ? r : max,
+          )
         : null;
 
     return {
@@ -463,10 +557,18 @@ export class FuelStatsService {
         ? { at: biggestRefuel.at, added: biggestRefuel.added, unit }
         : null,
       lowestLevel: lowestRow
-        ? { at: lowestRow.ts.toISOString(), fuel: Math.round((lowestRow.fuel ?? 0) * 100) / 100, unit }
+        ? {
+            at: lowestRow.ts.toISOString(),
+            fuel: Math.round((lowestRow.fuel ?? 0) * 100) / 100,
+            unit,
+          }
         : null,
       highestLevel: highestRow
-        ? { at: highestRow.ts.toISOString(), fuel: Math.round((highestRow.fuel ?? 0) * 100) / 100, unit }
+        ? {
+            at: highestRow.ts.toISOString(),
+            fuel: Math.round((highestRow.fuel ?? 0) * 100) / 100,
+            unit,
+          }
         : null,
     };
   }

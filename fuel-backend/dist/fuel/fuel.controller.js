@@ -81,7 +81,9 @@ let FuelController = FuelController_1 = class FuelController {
             if (isNaN(sensorId))
                 throw new common_1.BadRequestException('sensorId must be a number');
             const sensor = await this.sensorResolver.resolveSensorById(imei, sensorId);
-            const value = row ? this.readSensorValue(row.params, sensor, imei, ts) : null;
+            const value = row
+                ? this.readSensorValue(row.params, sensor, imei, ts)
+                : null;
             return {
                 success: true,
                 message: 'Current fuel level fetched',
@@ -101,7 +103,9 @@ let FuelController = FuelController_1 = class FuelController {
         }
         const sensors = await this.sensorResolver.resolveAllFuelSensors(imei);
         const tanks = sensors.map((sensor) => {
-            const value = row ? this.readSensorValue(row.params, sensor, imei, ts) : null;
+            const value = row
+                ? this.readSensorValue(row.params, sensor, imei, ts)
+                : null;
             return {
                 sensorId: sensor.sensorId,
                 sensorName: sensor.name,
@@ -146,12 +150,20 @@ let FuelController = FuelController_1 = class FuelController {
         if (sensorIdStr) {
             const sensor = await this.resolveSensor(imei, sensorIdStr);
             const result = await this.consumptionService.getConsumption(imei, from, to, sensor, fcrJson);
-            return { success: true, message: 'Fuel consumption calculated', data: result };
+            return {
+                success: true,
+                message: 'Fuel consumption calculated',
+                data: result,
+            };
         }
         const sensors = await this.sensorResolver.resolveAllFuelSensors(imei);
         if (sensors.length === 1) {
             const result = await this.consumptionService.getConsumption(imei, from, to, sensors[0], fcrJson);
-            return { success: true, message: 'Fuel consumption calculated', data: result };
+            return {
+                success: true,
+                message: 'Fuel consumption calculated',
+                data: result,
+            };
         }
         const tankResults = await Promise.all(sensors.map((sensor) => this.consumptionService.getConsumption(imei, from, to, sensor, fcrJson)));
         const totalConsumed = Math.round(tankResults.reduce((s, r) => s + r.consumed, 0) * 100) / 100;
@@ -217,7 +229,11 @@ let FuelController = FuelController_1 = class FuelController {
         for (const sensor of sensors) {
             const result = await this.consumptionService.getConsumption(imei, from, to, sensor, fcrJson);
             for (const r of result.refuels) {
-                allRefuels.push({ sensorId: sensor.sensorId, sensorName: sensor.name, ...r });
+                allRefuels.push({
+                    sensorId: sensor.sensorId,
+                    sensorName: sensor.name,
+                    ...r,
+                });
             }
         }
         allRefuels.sort((a, b) => a.at.localeCompare(b.at));

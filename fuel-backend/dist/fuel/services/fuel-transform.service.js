@@ -25,7 +25,9 @@ let FuelTransformService = FuelTransformService_1 = class FuelTransformService {
         }
         if (hasCalibration) {
             const liters = this.interpolateCalibration(scaledValue, sensor.calibration);
-            const method = hasFormula ? 'formula+calibration' : 'calibration';
+            const method = hasFormula
+                ? 'formula+calibration'
+                : 'calibration';
             return { value: liters, method };
         }
         return {

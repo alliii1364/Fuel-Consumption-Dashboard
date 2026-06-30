@@ -102,10 +102,10 @@ export function GaugeChart({
     >
       {/* Header */}
       <div className="p-3 border-b flex items-center gap-2" style={{ borderColor: "rgba(240, 239, 239, 0.8)" }}>
-        <Gauge size={16} style={{ color: "#6B7280" }} />
+        <Gauge size={16} style={{ color: "var(--color-text-2)" }} />
         <div>
-          <h3 className="font-semibold text-sm" style={{ color: "#1A1A2E" }}>{title}</h3>
-          {subtitle && <p className="text-xs" style={{ color: "#9CA3AF" }}>{subtitle}</p>}
+          <h3 className="font-semibold text-sm" style={{ color: "var(--color-text-1)" }}>{title}</h3>
+          {subtitle && <p className="text-xs" style={{ color: "var(--color-text-3)" }}>{subtitle}</p>}
         </div>
       </div>
 
@@ -160,7 +160,7 @@ export function GaugeChart({
           >
             {normalizedValue.toFixed(0)}
           </span>
-          <span className="text-sm ml-1" style={{ color: "#9CA3AF" }}>/ {max}</span>
+          <span className="text-sm ml-1" style={{ color: "var(--color-text-3)" }}>/ {max}</span>
         </div>
 
         {/* Zone label */}
@@ -173,7 +173,7 @@ export function GaugeChart({
       </div>
 
       {/* Scale labels */}
-      <div className="px-4 pb-3 flex justify-between text-xs" style={{ color: "#9CA3AF" }}>
+      <div className="px-4 pb-3 flex justify-between text-xs" style={{ color: "var(--color-text-3)" }}>
         <span>{min}</span>
         <span>{Math.round((max - min) / 2)}</span>
         <span>{max}</span>

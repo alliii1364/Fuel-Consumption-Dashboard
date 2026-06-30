@@ -40,10 +40,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
       error = exception.constructor.name;
     } else if (exception instanceof Error) {
       message = exception.message;
-      this.logger.error(`Unhandled error: ${exception.message}`, exception.stack);
+      this.logger.error(
+        `Unhandled error: ${exception.message}`,
+        exception.stack,
+      );
     }
 
-    this.logger.error(`${request.method} ${request.url} → ${status}: ${message}`);
+    this.logger.error(
+      `${request.method} ${request.url} → ${status}: ${message}`,
+    );
 
     response.status(status).json({
       success: false,

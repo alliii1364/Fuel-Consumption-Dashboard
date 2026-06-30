@@ -107,7 +107,7 @@ export function KpiCard({
         <div className="flex-1 min-w-0">
           <p
             className="text-xs font-semibold uppercase tracking-wider mb-1"
-            style={{ color: "#9CA3AF" }}
+            style={{ color: "var(--color-text-3)" }}
           >
             {title}
           </p>
@@ -115,12 +115,12 @@ export function KpiCard({
           <div className="flex items-baseline gap-1">
             <span
               className="text-2xl font-bold tracking-tight"
-              style={{ color: "#1A1A2E" }}
+              style={{ color: "var(--color-text-1)" }}
             >
               {value}
             </span>
             {unit && (
-              <span className="text-sm font-medium" style={{ color: "#9CA3AF" }}>
+              <span className="text-sm font-medium" style={{ color: "var(--color-text-3)" }}>
                 {unit}
               </span>
             )}
@@ -150,7 +150,7 @@ export function KpiCard({
                       ? trend.isPositive !== false
                         ? "#dc2626"
                         : "#16a34a"
-                      : "#6B7280",
+                      : "var(--color-text-2)",
                 }}
               >
                 {trend.value > 0 ? (
@@ -160,7 +160,7 @@ export function KpiCard({
                 ) : null}
                 {trend.value != null ? Math.abs(trend.value).toFixed(1) : "—"}%
               </div>
-              <span className="text-xs" style={{ color: "#9CA3AF" }}>
+              <span className="text-xs" style={{ color: "var(--color-text-3)" }}>
                 {trend.label}
               </span>
             </div>

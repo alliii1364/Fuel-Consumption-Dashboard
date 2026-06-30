@@ -115,7 +115,7 @@ export default function ActiveAlerts({ vehicles, loading }: Props) {
     <div className="card p-5 anim-2">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm font-bold" style={{ color: "#1A1A2E" }}>Alerts &amp; Notifications</p>
+        <p className="text-sm font-bold" style={{ color: "var(--color-text-1)" }}>Alerts &amp; Notifications</p>
         <div className="flex items-center gap-2">
           <span className="badge-count">{alerts.length}</span>
         </div>
@@ -128,10 +128,10 @@ export default function ActiveAlerts({ vehicles, loading }: Props) {
           return (
             <div
               key={i}
-              className="rounded-xl p-3.5 cursor-pointer transition-all"
+              className="rounded-xl p-3.5 transition-all"
               style={{
-                background: "#FAFAFA",
-                border: "1px solid #F0EFEF",
+                background: "var(--color-surface-2)",
+                border: "1px solid var(--color-border-soft)",
                 borderLeft: `3px solid ${t.borderColor}`,
                 borderRadius: 12,
               }}
@@ -153,16 +153,16 @@ export default function ActiveAlerts({ vehicles, loading }: Props) {
                   </span>
                 </div>
                 {alert.time && (
-                  <span className="text-xs" style={{ color: "#9CA3AF" }}>{alert.time}</span>
+                  <span className="text-xs" style={{ color: "var(--color-text-3)" }}>{alert.time}</span>
                 )}
               </div>
 
               {/* Content */}
-              <p className="text-xs font-semibold leading-snug mb-1" style={{ color: "#1A1A2E" }}>
+              <p className="text-xs font-semibold leading-snug mb-1" style={{ color: "var(--color-text-1)" }}>
                 {alert.title}
               </p>
               <div className="flex items-center justify-between">
-                <p className="text-xs" style={{ color: "#9CA3AF" }}>{alert.sub}</p>
+                <p className="text-xs" style={{ color: "var(--color-text-3)" }}>{alert.sub}</p>
                 <div
                   className="w-5 h-5 rounded-full flex items-center justify-center text-white ring-2 ring-white flex-shrink-0"
                   style={{ background: AVATAR_COLORS[i % AVATAR_COLORS.length], fontSize: "8px", fontWeight: 700 }}

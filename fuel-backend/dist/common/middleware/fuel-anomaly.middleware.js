@@ -271,7 +271,7 @@ let FuelAnomalyMiddleware = FuelAnomalyMiddleware_1 = class FuelAnomalyMiddlewar
         const immediateReadings = readings.filter((r) => r.ts > new Date(riseAt.getTime() + immediateWindowMs) &&
             r.ts <= new Date(riseAt.getTime() + immediateEndMs));
         if (immediateReadings.length > 0) {
-            const minFuelInWindow = Math.min(...immediateReadings.map(r => r.fuel));
+            const minFuelInWindow = Math.min(...immediateReadings.map((r) => r.fuel));
             const immediateFallback = peakFuel - minFuelInWindow;
             if (immediateFallback > epsilon) {
                 this.logger.debug(`[AnomalyMiddleware] ⚠️ Immediate fallback detected: ${immediateFallback.toFixed(1)}L drop within 2-7 min (epsilon=${epsilon.toFixed(1)}L)`);
@@ -288,7 +288,7 @@ let FuelAnomalyMiddleware = FuelAnomalyMiddleware_1 = class FuelAnomalyMiddlewar
         const postEnd = new Date(riseAt.getTime() + 2 * windowMs);
         const postReadings = readings.filter((r) => r.ts > postStart && r.ts <= postEnd);
         if (postReadings.length === 0) {
-            const anyAfter = readings.filter(r => r.ts > postStart);
+            const anyAfter = readings.filter((r) => r.ts > postStart);
             if (anyAfter.length > 0) {
                 const finalFuel = anyAfter[anyAfter.length - 1].fuel;
                 const fallbackAmount = peakFuel - finalFuel;
@@ -299,7 +299,12 @@ let FuelAnomalyMiddleware = FuelAnomalyMiddleware_1 = class FuelAnomalyMiddlewar
                     windowChecked: 'any-after-7min',
                 };
             }
-            return { didFallback: false, finalFuel: peakFuel, fallbackAmount: 0, windowChecked: 'no-readings' };
+            return {
+                didFallback: false,
+                finalFuel: peakFuel,
+                fallbackAmount: 0,
+                windowChecked: 'no-readings',
+            };
         }
         const finalFuel = postReadings[postReadings.length - 1].fuel;
         const fallbackAmount = peakFuel - finalFuel;
@@ -333,9 +338,9 @@ let FuelAnomalyMiddleware = FuelAnomalyMiddleware_1 = class FuelAnomalyMiddlewar
         if (windowReadings.length === 0) {
             return { isQuickSpike: false, fallbackAmount: 0, minutes: 0 };
         }
-        const minFuel = Math.min(...windowReadings.map(r => r.fuel));
+        const minFuel = Math.min(...windowReadings.map((r) => r.fuel));
         const fallbackAmount = peakFuel - minFuel;
-        const minReading = windowReadings.find(r => r.fuel === minFuel);
+        const minReading = windowReadings.find((r) => r.fuel === minFuel);
         const minutes = minReading
             ? (minReading.ts.getTime() - riseAt.getTime()) / (60 * 1000)
             : 0;

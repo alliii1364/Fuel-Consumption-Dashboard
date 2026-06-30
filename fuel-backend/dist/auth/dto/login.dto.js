@@ -9,7 +9,8 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.LoginDto = void 0;
+exports.DriverLoginDto = exports.LoginDto = void 0;
+const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
 class LoginDto {
     username;
@@ -28,4 +29,19 @@ __decorate([
     (0, class_validator_1.MaxLength)(100),
     __metadata("design:type", String)
 ], LoginDto.prototype, "password", void 0);
+class DriverLoginDto {
+    driverId;
+    pin;
+}
+exports.DriverLoginDto = DriverLoginDto;
+__decorate([
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    __metadata("design:type", Number)
+], DriverLoginDto.prototype, "driverId", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(/^\d{4,8}$/, { message: 'PIN must be 4–8 digits' }),
+    __metadata("design:type", String)
+], DriverLoginDto.prototype, "pin", void 0);
 //# sourceMappingURL=login.dto.js.map

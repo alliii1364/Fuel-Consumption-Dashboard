@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { FuelSensor } from './fuel-sensor-resolver.service';
 import { FuelTransformService } from './fuel-transform.service';
-import { DynamicTableQueryService, DataRow } from './dynamic-table-query.service';
+import {
+  DynamicTableQueryService,
+  DataRow,
+} from './dynamic-table-query.service';
 
 const NOISE_THRESHOLD = 0.5;
 const MIN_TRIP_DURATION_MINUTES = 5;
@@ -80,7 +83,9 @@ export class TripAnalyzerService {
     sensor: FuelSensor,
   ): Promise<TripAnalysisResult> {
     const rows = await this.dynQuery.getRowsInRange(imei, from, to);
-    this.logger.log(`Trip analysis for IMEI ${imei}: processing ${rows.length} rows`);
+    this.logger.log(
+      `Trip analysis for IMEI ${imei}: processing ${rows.length} rows`,
+    );
 
     if (rows.length === 0) {
       return {
@@ -102,10 +107,14 @@ export class TripAnalyzerService {
 
     const totalDistanceKm = trips.reduce((sum, t) => sum + t.distanceKm, 0);
     const totalFuelConsumed = trips.reduce((sum, t) => sum + t.fuelConsumed, 0);
-    const totalDurationMinutes = trips.reduce((sum, t) => sum + t.durationMinutes, 0);
-    const avgKmPerLiter = totalFuelConsumed > 0 && totalDistanceKm > 0
-      ? Math.round((totalDistanceKm / totalFuelConsumed) * 100) / 100
-      : null;
+    const totalDurationMinutes = trips.reduce(
+      (sum, t) => sum + t.durationMinutes,
+      0,
+    );
+    const avgKmPerLiter =
+      totalFuelConsumed > 0 && totalDistanceKm > 0
+        ? Math.round((totalDistanceKm / totalFuelConsumed) * 100) / 100
+        : null;
 
     return {
       imei,
@@ -121,7 +130,11 @@ export class TripAnalyzerService {
     };
   }
 
-  private enrichRows(rows: DataRow[], sensor: FuelSensor, imei: string): EnrichedRow[] {
+  private enrichRows(
+    rows: DataRow[],
+    sensor: FuelSensor,
+    imei: string,
+  ): EnrichedRow[] {
     return rows.map((row) => {
       const ts = new Date(row.dt_tracker);
       const rawValue = this.transform.extractRawValue(
@@ -138,13 +151,11 @@ export class TripAnalyzerService {
       let ignition = false;
       try {
         const p = JSON.parse(row.params) as Record<string, string | number>;
-        // io239 is the real ignition signal on these devices; acc is hardwired to 1 on some
-        if ('io239' in p) {
-          ignition = p['io239'] === '1' || p['io239'] === 1;
-        } else {
-          ignition = p['acc'] === '1' || p['acc'] === 1 ||
-                     p['io1'] === '1' || p['io1'] === 1;
-        }
+        ignition =
+          p['acc'] === '1' ||
+          p['acc'] === 1 ||
+          p['io1'] === '1' ||
+          p['io1'] === 1;
       } catch {
         // no ignition data
       }
@@ -173,9 +184,13 @@ export class TripAnalyzerService {
       const row = rows[i];
 
       const shouldStartByIgnition = row.ignition;
-      const shouldStartByMovement = !hasIgnitionSignal && row.speed >= MOVEMENT_START_SPEED_KMH;
+      const shouldStartByMovement =
+        !hasIgnitionSignal && row.speed >= MOVEMENT_START_SPEED_KMH;
 
-      if ((shouldStartByIgnition || shouldStartByMovement) && tripStart === null) {
+      if (
+        (shouldStartByIgnition || shouldStartByMovement) &&
+        tripStart === null
+      ) {
         // Trip starts
         tripStart = row;
         tripStartFuel = row.fuel;
@@ -203,14 +218,21 @@ export class TripAnalyzerService {
           stopStartTs !== null &&
           row.ts.getTime() - stopStartTs.getTime() >= MOVEMENT_STOP_END_MS;
 
-        if (ignitionJustTurnedOff || largeGap || movementStopExceeded || i === rows.length - 1) {
+        if (
+          ignitionJustTurnedOff ||
+          largeGap ||
+          movementStopExceeded ||
+          i === rows.length - 1
+        ) {
           // End the trip (exclude current row for ignition-off / large-gap endings)
           const includeCurrentRow =
             i === rows.length - 1 &&
             !ignitionJustTurnedOff &&
             !largeGap &&
             !movementStopExceeded;
-          const effectiveTripRows = includeCurrentRow ? tripRows : tripRows.slice(0, -1);
+          const effectiveTripRows = includeCurrentRow
+            ? tripRows
+            : tripRows.slice(0, -1);
           if (effectiveTripRows.length === 0) {
             tripStart = null;
             tripStartFuel = null;
@@ -222,19 +244,22 @@ export class TripAnalyzerService {
           const tripEndFuel = tripEnd.fuel;
 
           if (tripStart && tripStartFuel !== null && tripEndFuel !== null) {
-            const durationMinutes = (tripEnd.ts.getTime() - tripStart.ts.getTime()) / 60000;
+            const durationMinutes =
+              (tripEnd.ts.getTime() - tripStart.ts.getTime()) / 60000;
             const distanceKm = this.calcTripDistance(effectiveTripRows);
             const idleAndMoving = this.calcIdleAndMovingTime(effectiveTripRows);
-            const fuelMetrics = this.calcTripFuelMetrics(effectiveTripRows, rows, tripEnd.ts);
+            const fuelMetrics = this.calcTripFuelMetrics(effectiveTripRows);
 
             // Calculate average speed only while moving (speed > 5 km/h)
             const movingSpeeds = effectiveTripRows
-              .filter(r => r.speed > 5)
-              .map(r => r.speed);
-            const avgMovingSpeed = movingSpeeds.length > 0
-              ? movingSpeeds.reduce((a, b) => a + b, 0) / movingSpeeds.length
-              : 0;
-            const maxSpeed = movingSpeeds.length > 0 ? Math.max(...movingSpeeds) : 0;
+              .filter((r) => r.speed > 5)
+              .map((r) => r.speed);
+            const avgMovingSpeed =
+              movingSpeeds.length > 0
+                ? movingSpeeds.reduce((a, b) => a + b, 0) / movingSpeeds.length
+                : 0;
+            const maxSpeed =
+              movingSpeeds.length > 0 ? Math.max(...movingSpeeds) : 0;
 
             // Filter criteria - must pass ALL:
             // 1. At least 5 minutes total duration
@@ -246,7 +271,8 @@ export class TripAnalyzerService {
             const meetsSpeed = avgMovingSpeed >= MIN_AVG_SPEED_KMH;
             const actuallyMoved = distanceKm > 0.05; // At least 50 meters
 
-            const isValidTrip = meetsDuration && meetsDistance && meetsSpeed && actuallyMoved;
+            const isValidTrip =
+              meetsDuration && meetsDistance && meetsSpeed && actuallyMoved;
 
             if (isValidTrip) {
               const trip: Trip = {
@@ -266,14 +292,18 @@ export class TripAnalyzerService {
                 fuelConsumed: Math.round(fuelMetrics.consumed * 100) / 100,
                 fuelAtStart: Math.round(fuelMetrics.startFuel * 100) / 100,
                 fuelAtEnd: Math.round(fuelMetrics.endFuel * 100) / 100,
-                kmPerLiter: fuelMetrics.consumed > 0 && distanceKm > 0
-                  ? Math.round((distanceKm / fuelMetrics.consumed) * 100) / 100
-                  : null,
+                kmPerLiter:
+                  fuelMetrics.consumed > 0 && distanceKm > 0
+                    ? Math.round((distanceKm / fuelMetrics.consumed) * 100) /
+                      100
+                    : null,
                 unit,
                 maxSpeed: Math.round(maxSpeed * 10) / 10,
                 avgSpeed: Math.round(avgMovingSpeed * 10) / 10,
-                idleDurationMinutes: Math.round(idleAndMoving.idleMinutes * 10) / 10,
-                movingDurationMinutes: Math.round(idleAndMoving.movingMinutes * 10) / 10,
+                idleDurationMinutes:
+                  Math.round(idleAndMoving.idleMinutes * 10) / 10,
+                movingDurationMinutes:
+                  Math.round(idleAndMoving.movingMinutes * 10) / 10,
               };
 
               trips.push(trip);
@@ -282,9 +312,9 @@ export class TripAnalyzerService {
               // Log why trip was filtered out (for debugging)
               this.logger.debug(
                 `Filtered out trip: duration=${durationMinutes.toFixed(1)}min, ` +
-                `distance=${(distanceKm * 1000).toFixed(0)}m, ` +
-                `avgSpeed=${avgMovingSpeed.toFixed(1)}km/h ` +
-                `(${meetsDuration ? '✓' : '✗'}duration, ${meetsDistance ? '✓' : '✗'}distance, ${meetsSpeed ? '✓' : '✗'}speed)`
+                  `distance=${(distanceKm * 1000).toFixed(0)}m, ` +
+                  `avgSpeed=${avgMovingSpeed.toFixed(1)}km/h ` +
+                  `(${meetsDuration ? '✓' : '✗'}duration, ${meetsDistance ? '✓' : '✗'}distance, ${meetsSpeed ? '✓' : '✗'}speed)`,
               );
             }
           }
@@ -300,7 +330,10 @@ export class TripAnalyzerService {
     return trips;
   }
 
-  private calcIdleAndMovingTime(rows: EnrichedRow[]): { idleMinutes: number; movingMinutes: number } {
+  private calcIdleAndMovingTime(rows: EnrichedRow[]): {
+    idleMinutes: number;
+    movingMinutes: number;
+  } {
     let idleMinutes = 0;
     let movingMinutes = 0;
 
@@ -325,7 +358,11 @@ export class TripAnalyzerService {
     for (let i = 1; i < rows.length; i++) {
       const a = rows[i - 1];
       const b = rows[i];
-      if (!this.isValidCoordinatePair(a.lat, a.lng) || !this.isValidCoordinatePair(b.lat, b.lng)) continue;
+      if (
+        !this.isValidCoordinatePair(a.lat, a.lng) ||
+        !this.isValidCoordinatePair(b.lat, b.lng)
+      )
+        continue;
 
       const dtMs = b.ts.getTime() - a.ts.getTime();
       if (dtMs <= 0 || dtMs > MAX_DISTANCE_SEGMENT_GAP_MS) continue;
@@ -341,12 +378,12 @@ export class TripAnalyzerService {
     return dist;
   }
 
-  private calcTripFuelMetrics(
-    tripRows: EnrichedRow[],
-    allRows?: EnrichedRow[],
-    tripEndTs?: Date,
-  ): { startFuel: number; endFuel: number; consumed: number } {
-    const fuels = tripRows
+  private calcTripFuelMetrics(rows: EnrichedRow[]): {
+    startFuel: number;
+    endFuel: number;
+    consumed: number;
+  } {
+    const fuels = rows
       .map((r) => r.fuel)
       .filter((f): f is number => f !== null);
 
@@ -354,62 +391,47 @@ export class TripAnalyzerService {
       return { startFuel: 0, endFuel: 0, consumed: 0 };
     }
 
-    // Detect frozen sensor: near-zero variance in fuel readings during movement
-    // means the device suppresses sensor updates while driving (anti-slosh damping).
-    // The real fuel drop only appears in the PARKED PERIOD after the trip ends.
-    const sensorIsFrozen = fuels.length >= 3 && this.stdDev(fuels) < 0.5;
-
-    let startFuel: number;
-    let endFuel: number;
-
-    if (sensorIsFrozen && allRows && tripEndTs) {
-      startFuel = fuels[0];
-
-      // Collect post-trip rows (ignition OFF, parked period)
-      const postTripRows = allRows.filter(r => r.ts > tripEndTs);
-      // Find where the next trip starts (first ignition-ON after this trip ends)
-      const nextIgnitionIdx = postTripRows.findIndex(r => r.ignition);
-      const parkedRows = (nextIgnitionIdx === -1 ? postTripRows : postTripRows.slice(0, nextIgnitionIdx))
-        .filter(r => r.fuel !== null);
-
-      if (parkedRows.length >= BOUNDARY_MEDIAN_SAMPLES) {
-        // Take the LAST readings of the parked period — fully stabilised after sloshing settles
-        endFuel = this.median(
-          parkedRows.slice(-BOUNDARY_MEDIAN_SAMPLES).map(r => r.fuel as number),
-        );
-      } else if (parkedRows.length > 0) {
-        endFuel = this.median(parkedRows.map(r => r.fuel as number));
-      } else {
-        endFuel = startFuel;
-      }
-    } else {
-      // Normal sensor: use in-trip boundary readings without overlapping windows
-      const boundary = Math.min(BOUNDARY_MEDIAN_SAMPLES, Math.ceil(fuels.length / 2));
-      startFuel = this.median(fuels.slice(0, boundary));
-      endFuel = this.median(fuels.slice(fuels.length - boundary));
-    }
+    const startFuel = this.median(
+      fuels.slice(0, Math.min(BOUNDARY_MEDIAN_SAMPLES, fuels.length)),
+    );
+    const endFuel = this.median(
+      fuels.slice(Math.max(0, fuels.length - BOUNDARY_MEDIAN_SAMPLES)),
+    );
 
     let refueled = 0;
     let prevFuel: number | null = null;
+
     for (const fuel of fuels) {
-      if (prevFuel !== null && fuel - prevFuel >= MIN_REFUEL_RISE_L) {
-        refueled += fuel - prevFuel;
+      if (prevFuel !== null) {
+        const delta = fuel - prevFuel;
+        if (delta < -NOISE_THRESHOLD) {
+          // drop observed; consumed is derived from conservation below
+          // to avoid under-counting on sparse telemetry where per-step drops can be >2L
+        } else if (delta >= MIN_REFUEL_RISE_L) {
+          refueled += delta;
+        }
       }
       prevFuel = fuel;
     }
 
-    const consumed = Math.max(0, refueled + (startFuel - endFuel));
-    return { startFuel, endFuel, consumed };
-  }
+    // Physical conservation: consumed ~= refueled + (startFuel - endFuel).
+    // This keeps trip totals aligned with tank boundaries and in-trip refuels.
+    const conservationConsumed = Math.max(0, refueled + (startFuel - endFuel));
 
-  private stdDev(values: number[]): number {
-    const mean = values.reduce((a, b) => a + b, 0) / values.length;
-    const variance = values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / values.length;
-    return Math.sqrt(variance);
+    return {
+      startFuel,
+      endFuel,
+      consumed: conservationConsumed,
+    };
   }
 
   private isValidCoordinatePair(lat: number, lng: number): boolean {
-    return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+    return (
+      Number.isFinite(lat) &&
+      Number.isFinite(lng) &&
+      Math.abs(lat) <= 90 &&
+      Math.abs(lng) <= 180
+    );
   }
 
   private median(values: number[]): number {
@@ -421,13 +443,20 @@ export class TripAnalyzerService {
       : sorted[mid];
   }
 
-  private haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  private haversineKm(
+    lat1: number,
+    lng1: number,
+    lat2: number,
+    lng2: number,
+  ): number {
     const R = 6371;
     const dLat = this.toRad(lat2 - lat1);
     const dLng = this.toRad(lng2 - lng1);
     const a =
       Math.sin(dLat / 2) ** 2 +
-      Math.cos(this.toRad(lat1)) * Math.cos(this.toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+      Math.cos(this.toRad(lat1)) *
+        Math.cos(this.toRad(lat2)) *
+        Math.sin(dLng / 2) ** 2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 

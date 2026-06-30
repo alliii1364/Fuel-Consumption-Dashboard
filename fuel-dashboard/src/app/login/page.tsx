@@ -45,7 +45,7 @@ export default function LoginPage() {
   if (isLoading) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0a0a14" }}>
-        <Loader2 size={26} className="animate-spin" style={{ color: "#E84040" }} />
+        <Loader2 size={26} className="animate-spin" style={{ color: "var(--color-primary)" }} />
       </div>
     );
   }
@@ -56,7 +56,7 @@ export default function LoginPage() {
       {/* ══ COL 1 — Red branding panel ══════════════════════════════════ */}
       <div
         className="hidden lg:flex flex-col justify-between"
-        style={{ width: 360, flexShrink: 0, background: "#E84040", padding: "40px 36px" }}
+        style={{ width: 360, flexShrink: 0, background: "var(--color-primary)", padding: "40px 36px" }}
       >
         {/* Logo */}
         <div className="flex items-center">
@@ -120,11 +120,11 @@ export default function LoginPage() {
 
         {/* ── COL 2 — image "breathing room", optional tag line ──────── */}
         <div
+          className="hidden sm:flex"
           style={{
             flex: 1,
             position: "relative",
             zIndex: 5,
-            display: "flex",
             flexDirection: "column",
             justifyContent: "flex-end",
             padding: "0 0 52px 52px",
@@ -145,15 +145,13 @@ export default function LoginPage() {
 
         {/* ── COL 3 — glass login card ────────────────────────────────── */}
         <div
+          className="w-full sm:w-[460px] sm:flex-shrink-0 px-5 py-8 sm:px-10"
           style={{
-            width: 460,
-            flexShrink: 0,
             position: "relative",
             zIndex: 5,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: "32px 40px",
           }}
         >
           {/* Glass card */}
@@ -205,8 +203,8 @@ export default function LoginPage() {
                 <div style={{
                   display: "flex", alignItems: "flex-start", gap: 10,
                   borderRadius: 14, padding: "12px 14px",
-                  background: "rgba(232,64,64,0.18)",
-                  border: "1px solid rgba(232,64,64,0.4)",
+                  background: "rgba(var(--color-primary-rgb),0.18)",
+                  border: "1px solid rgba(var(--color-primary-rgb),0.4)",
                   backdropFilter: "blur(8px)",
                 }}>
                   <AlertCircle size={15} style={{ color: "#FF8080", flexShrink: 0, marginTop: 1 }} />
@@ -231,7 +229,7 @@ export default function LoginPage() {
                     background: "rgba(255,255,255,0.1)",
                     backdropFilter: "blur(12px)",
                     WebkitBackdropFilter: "blur(12px)",
-                    border: `1.5px solid ${fieldErr.username ? "rgba(232,64,64,0.7)" : "rgba(255,255,255,0.18)"}`,
+                    border: `1.5px solid ${fieldErr.username ? "rgba(var(--color-primary-rgb),0.7)" : "rgba(255,255,255,0.18)"}`,
                     borderRadius: 12, padding: "12px 16px",
                     fontSize: 14, color: "#FFFFFF", outline: "none",
                     transition: "border-color 0.2s, box-shadow 0.2s, background 0.2s",
@@ -272,7 +270,7 @@ export default function LoginPage() {
                       background: "rgba(255,255,255,0.1)",
                       backdropFilter: "blur(12px)",
                       WebkitBackdropFilter: "blur(12px)",
-                      border: `1.5px solid ${fieldErr.password ? "rgba(232,64,64,0.7)" : "rgba(255,255,255,0.18)"}`,
+                      border: `1.5px solid ${fieldErr.password ? "rgba(var(--color-primary-rgb),0.7)" : "rgba(255,255,255,0.18)"}`,
                       borderRadius: 12, padding: "12px 48px 12px 16px",
                       fontSize: 14, color: "#FFFFFF", outline: "none",
                       transition: "border-color 0.2s, box-shadow 0.2s, background 0.2s",
@@ -310,8 +308,8 @@ export default function LoginPage() {
                 style={{
                   width: "100%",
                   background: submitting
-                    ? "rgba(232,64,64,0.45)"
-                    : "linear-gradient(135deg, #E84040 0%, #FF5858 100%)",
+                    ? "rgba(var(--color-primary-rgb),0.45)"
+                    : "linear-gradient(135deg, var(--color-primary) 0%, #FF5858 100%)",
                   color: "#FFFFFF",
                   border: "1px solid rgba(255,255,255,0.18)",
                   borderRadius: 12,
@@ -319,7 +317,7 @@ export default function LoginPage() {
                   fontSize: 14, fontWeight: 700,
                   cursor: submitting ? "not-allowed" : "pointer",
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                  boxShadow: submitting ? "none" : "0 8px 28px rgba(232,64,64,0.5), inset 0 1px 0 rgba(255,255,255,0.22)",
+                  boxShadow: submitting ? "none" : "0 8px 28px rgba(var(--color-primary-rgb),0.5), inset 0 1px 0 rgba(255,255,255,0.22)",
                   transition: "all 0.2s",
                   marginTop: 4,
                   letterSpacing: "0.02em",

@@ -72,24 +72,24 @@ export function Heatmap({
       }}
     >
       <div className="mb-4">
-        <h3 className="font-semibold text-base" style={{ color: "#1A1A2E" }}>
+        <h3 className="font-semibold text-base" style={{ color: "var(--color-text-1)" }}>
           {title}
         </h3>
         {subtitle && (
-          <p className="text-xs mt-1" style={{ color: "#9CA3AF" }}>
+          <p className="text-xs mt-1" style={{ color: "var(--color-text-3)" }}>
             {subtitle}
           </p>
         )}
       </div>
 
       <div className="flex items-center justify-end gap-2 mb-3">
-        <span className="text-xs" style={{ color: "#9CA3AF" }}>Low</span>
+        <span className="text-xs" style={{ color: "var(--color-text-3)" }}>Low</span>
         <div className="flex gap-0.5">
           {colorScale.map((color, i) => (
             <div key={i} className="w-4 h-4 rounded-sm" style={{ background: color }} />
           ))}
         </div>
-        <span className="text-xs" style={{ color: "#9CA3AF" }}>High</span>
+        <span className="text-xs" style={{ color: "var(--color-text-3)" }}>High</span>
       </div>
 
       <div className="overflow-x-auto">
@@ -98,7 +98,7 @@ export function Heatmap({
             <div className="w-20" />
             <div className="flex gap-1">
               {xLabels.map((label) => (
-                <div key={label} className="w-10 text-center text-xs py-1" style={{ color: "#9CA3AF" }}>
+                <div key={label} className="w-10 text-center text-xs py-1" style={{ color: "var(--color-text-3)" }}>
                   {label}
                 </div>
               ))}
@@ -108,7 +108,7 @@ export function Heatmap({
           <div className="space-y-1 mt-1">
             {yLabels.map((yLabel) => (
               <div key={yLabel} className="flex items-center">
-                <div className="w-20 text-xs pr-2 text-right truncate" style={{ color: "#6B7280" }}>
+                <div className="w-20 text-xs pr-2 text-right truncate" style={{ color: "var(--color-text-2)" }}>
                   {yLabel}
                 </div>
                 <div className="flex gap-1">
@@ -122,7 +122,7 @@ export function Heatmap({
                         className="w-10 h-9 rounded-lg flex items-center justify-center text-xs font-medium cursor-pointer hover:scale-105 transition-transform relative group"
                         style={{
                           background: getColor(value),
-                          color: value > (max - min) / 2 ? "#fff" : "#6B7280",
+                          color: value > (max - min) / 2 ? "#fff" : "var(--color-text-2)",
                         }}
                       >
                         {value != null && value > 0 ? value.toFixed(0) : "—"}

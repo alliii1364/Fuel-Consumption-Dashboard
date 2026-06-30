@@ -36,7 +36,9 @@ export class DashboardController {
     @Query() query: DateRangeDto,
   ) {
     if (!query.from || !query.to) {
-      throw new BadRequestException("'from' and 'to' query params are required");
+      throw new BadRequestException(
+        "'from' and 'to' query params are required",
+      );
     }
 
     this.logger.log(
@@ -62,7 +64,9 @@ export class DashboardController {
     @Query() query: DateRangeDto,
   ) {
     if (!query.from || !query.to) {
-      throw new BadRequestException("'from' and 'to' query params are required");
+      throw new BadRequestException(
+        "'from' and 'to' query params are required",
+      );
     }
 
     this.logger.log(

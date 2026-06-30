@@ -15,6 +15,7 @@ const vehicles_module_1 = require("./vehicles/vehicles.module");
 const fuel_module_1 = require("./fuel/fuel.module");
 const dashboard_module_1 = require("./dashboard/dashboard.module");
 const reports_module_1 = require("./reports/reports.module");
+const dispatch_module_1 = require("./dispatch/dispatch.module");
 const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
 let AppModule = class AppModule {
@@ -30,6 +31,7 @@ exports.AppModule = AppModule = __decorate([
             fuel_module_1.FuelModule,
             dashboard_module_1.DashboardModule,
             reports_module_1.ReportsModule,
+            dispatch_module_1.DispatchModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

@@ -1,0 +1,20 @@
+# Self-hosted OSRM routing engine for the dispatch feature.
+# Serves route optimization (/trip), road geometry, and ETAs at :5000,
+# which the backend reaches via OSRM_URL (see fuel-backend/.env).
+#
+# One-time data prep (see osrm/README.md for details), run from this folder:
+#   export REGION=pakistan
+#   docker run -t -v "$PWD/data:/data" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/car.lua /data/$REGION-latest.osm.pbf
+#   docker run -t -v "$PWD/data:/data" ghcr.io/project-osrm/osrm-backend osrm-partition /data/$REGION-latest.osrm
+#   docker run -t -v "$PWD/data:/data" ghcr.io/project-osrm/osrm-backend osrm-customize /data/$REGION-latest.osrm
+# Then: docker compose up -d
+services:
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend
+    container_name: dispatch-osrm
+    command: osrm-routed --algorithm mld /data/${REGION:-pakistan}-latest.osrm
+    volumes:
+      - ./data:/data
+    ports:
+      - "5000:5000"
+    restart: unless-stopped

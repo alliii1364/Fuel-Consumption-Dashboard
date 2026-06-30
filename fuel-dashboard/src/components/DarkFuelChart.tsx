@@ -71,7 +71,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         return (
           <div key={p.dataKey} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
             <span style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, flexShrink: 0, display: "inline-block" }} />
-            <span style={{ color: "#6B7280" }}>Fuel:</span>
+            <span style={{ color: "var(--color-text-2)" }}>Fuel:</span>
             <span style={{ fontWeight: 700, color: dotColor }}>{val.toFixed(2)} litres</span>
           </div>
         );
@@ -141,20 +141,20 @@ export default function DarkFuelChart({
 
             <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
               {vehicleName && (
-                <p style={{ fontSize: 12, color: "#6B7280" }}>
-                  <span style={{ color: "#9CA3AF" }}>Object: </span>
+                <p style={{ fontSize: 12, color: "var(--color-text-2)" }}>
+                  <span style={{ color: "var(--color-text-3)" }}>Object: </span>
                   <span style={{ fontWeight: 600, color: "#1e3a5f" }}>{vehicleName}</span>
                 </p>
               )}
               {(from || to) && (
-                <p style={{ fontSize: 11, color: "#9CA3AF" }}>
+                <p style={{ fontSize: 11, color: "var(--color-text-3)" }}>
                   <span>Period: </span>
-                  <span style={{ color: "#6B7280" }}>{fmtPeriodRange(from, to)}</span>
+                  <span style={{ color: "var(--color-text-2)" }}>{fmtPeriodRange(from, to)}</span>
                 </p>
               )}
-              <p style={{ fontSize: 11, color: "#9CA3AF" }}>
+              <p style={{ fontSize: 11, color: "var(--color-text-3)" }}>
                 <span>Sensor: </span>
-                <span style={{ fontWeight: 600, color: "#6B7280" }}>{sensorName ?? "Fuel1"}</span>
+                <span style={{ fontWeight: 600, color: "var(--color-text-2)" }}>{sensorName ?? "Fuel1"}</span>
                 {consumption && (
                   <span style={{ marginLeft: 10 }}>
                     · Consumed{" "}
@@ -164,7 +164,7 @@ export default function DarkFuelChart({
                         : (consumption.consumed ?? 0).toFixed(1)} L
                     </span>
                     {consumption.netDrop != null && (
-                      <span style={{ fontSize: 10, color: "#9CA3AF", marginLeft: 3 }}>(net)</span>
+                      <span style={{ fontSize: 10, color: "var(--color-text-3)", marginLeft: 3 }}>(net)</span>
                     )}
                     {"  "}· Refueled <span style={{ color: "#22c55e", fontWeight: 600 }}>+{(consumption.refueled ?? 0).toFixed(1)} L</span>
                   </span>
@@ -182,7 +182,7 @@ export default function DarkFuelChart({
             }}>
               <div style={{ textAlign: "right" }}>
                 <p style={{ fontSize: 12, fontWeight: 700, color: "#1e3a5f" }}>{lastReading} litres</p>
-                <p style={{ fontSize: 10, color: "#6B7280" }}>{lastDt}</p>
+                <p style={{ fontSize: 10, color: "var(--color-text-2)" }}>{lastDt}</p>
               </div>
 
               {/* Period nav */}
@@ -228,7 +228,7 @@ export default function DarkFuelChart({
             <div style={{ width: 48, height: 48, borderRadius: 16, background: "#EFF6FF", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Fuel size={20} color="#93C5FD" />
             </div>
-            <p style={{ fontSize: 13, fontWeight: 500, color: "#9CA3AF" }}>No fuel data for this period</p>
+            <p style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-3)" }}>No fuel data for this period</p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={230}>

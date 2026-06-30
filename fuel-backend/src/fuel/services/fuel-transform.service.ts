@@ -2,7 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Parser } from 'expr-eval';
 import { FuelSensor } from './fuel-sensor-resolver.service';
 
-export type TransformMethod = 'formula' | 'calibration' | 'formula+calibration' | 'raw';
+export type TransformMethod =
+  | 'formula'
+  | 'calibration'
+  | 'formula+calibration'
+  | 'raw';
 
 export interface TransformResult {
   value: number | null;
@@ -26,7 +30,9 @@ export class FuelTransformService {
    */
   transform(rawValue: number, sensor: FuelSensor): TransformResult {
     const hasFormula = !!(sensor.formula && sensor.formula.trim() !== '');
-    const hasCalibration = !!(sensor.calibration && sensor.calibration.length > 0);
+    const hasCalibration = !!(
+      sensor.calibration && sensor.calibration.length > 0
+    );
 
     // Step 1: scale raw value with formula (if present)
     let scaledValue = rawValue;
@@ -38,8 +44,13 @@ export class FuelTransformService {
 
     // Step 2: map scaled value → liters via calibration table (if present)
     if (hasCalibration) {
-      const liters = this.interpolateCalibration(scaledValue, sensor.calibration);
-      const method: TransformMethod = hasFormula ? 'formula+calibration' : 'calibration';
+      const liters = this.interpolateCalibration(
+        scaledValue,
+        sensor.calibration,
+      );
+      const method: TransformMethod = hasFormula
+        ? 'formula+calibration'
+        : 'calibration';
       return { value: liters, method };
     }
 
@@ -85,13 +96,15 @@ export class FuelTransformService {
     points: Array<{ x: number; y: number }>,
   ): number {
     if (value <= points[0].x) return points[0].y;
-    if (value >= points[points.length - 1].x) return points[points.length - 1].y;
+    if (value >= points[points.length - 1].x)
+      return points[points.length - 1].y;
 
     for (let i = 0; i < points.length - 1; i++) {
       const p1 = points[i];
       const p2 = points[i + 1];
       if (value >= p1.x && value <= p2.x) {
-        const interpolated = p1.y + ((value - p1.x) * (p2.y - p1.y)) / (p2.x - p1.x);
+        const interpolated =
+          p1.y + ((value - p1.x) * (p2.y - p1.y)) / (p2.x - p1.x);
         return Math.round(interpolated * 1000) / 1000;
       }
     }

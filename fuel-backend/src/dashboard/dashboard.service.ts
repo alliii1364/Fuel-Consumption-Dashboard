@@ -241,7 +241,12 @@ export class DashboardService {
     for (const v of vehicleRows) {
       try {
         const sensor = await this.sensorResolver.resolveFuelSensor(v.imei);
-        const thrift = await this.thriftService.getThrift(v.imei, from, to, sensor);
+        const thrift = await this.thriftService.getThrift(
+          v.imei,
+          from,
+          to,
+          sensor,
+        );
 
         entries.push({
           rank: 0,
@@ -257,7 +262,9 @@ export class DashboardService {
           badge: null,
         });
       } catch {
-        this.logger.warn(`Skipping IMEI ${v.imei} in fleet ranking — no sensor/data`);
+        this.logger.warn(
+          `Skipping IMEI ${v.imei} in fleet ranking — no sensor/data`,
+        );
       }
     }
 

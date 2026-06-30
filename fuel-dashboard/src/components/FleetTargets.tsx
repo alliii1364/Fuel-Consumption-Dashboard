@@ -37,8 +37,8 @@ export default function FleetTargets({ vehicles, totalConsumed, loading }: Props
   const refuelPct = Math.min(Math.round((refueled / 200) * 100), 100);
 
   const getColor = (pct: number, invert = false) => {
-    if (invert) return pct >= 90 ? "#22C55E" : pct >= 70 ? "#F59E0B" : "#E84040";
-    return pct > 80 ? "#E84040" : pct > 60 ? "#F59E0B" : "#22C55E";
+    if (invert) return pct >= 90 ? "#22C55E" : pct >= 70 ? "#F59E0B" : "var(--color-primary)";
+    return pct > 80 ? "var(--color-primary)" : pct > 60 ? "#F59E0B" : "#22C55E";
   };
 
   const targets = [
@@ -64,15 +64,14 @@ export default function FleetTargets({ vehicles, totalConsumed, loading }: Props
       label: "Total Fuel Refueled",
       sub: `${(refueled ?? 0).toFixed(1)} L across fleet`,
       pct: refuelPct,
-      color: "#E84040",
+      color: "var(--color-primary)",
     },
   ];
 
   return (
     <div className="card p-5 anim-3">
       <div className="flex items-center justify-between mb-5">
-        <p className="text-sm font-bold" style={{ color: "#1A1A2E" }}>Fleet Targets</p>
-        <button className="text-xs font-semibold" style={{ color: "#E84040" }}>View all</button>
+        <p className="text-sm font-bold" style={{ color: "var(--color-text-1)" }}>Fleet Targets</p>
       </div>
 
       <div className="flex flex-col gap-4">
@@ -80,8 +79,8 @@ export default function FleetTargets({ vehicles, totalConsumed, loading }: Props
           <div key={i}>
             <div className="flex items-center justify-between mb-2">
               <div>
-                <p className="text-xs font-semibold" style={{ color: "#1A1A2E" }}>{t.label}</p>
-                <p className="text-xs mt-0.5" style={{ color: "#9CA3AF" }}>{t.sub}</p>
+                <p className="text-xs font-semibold" style={{ color: "var(--color-text-1)" }}>{t.label}</p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--color-text-3)" }}>{t.sub}</p>
               </div>
               <span className="text-sm font-bold ml-3 flex-shrink-0" style={{ color: t.color }}>{t.pct}%</span>
             </div>
@@ -95,7 +94,7 @@ export default function FleetTargets({ vehicles, totalConsumed, loading }: Props
       {/* Route efficiency highlight */}
       <div
         className="mt-5 rounded-xl p-4 text-center"
-        style={{ background: "#E84040" }}
+        style={{ background: "var(--color-primary)" }}
       >
         <p className="text-xs font-semibold mb-1" style={{ color: "rgba(255,255,255,0.75)" }}>
           Route Efficiency

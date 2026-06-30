@@ -1,11 +1,14 @@
 import { Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
+export type AppRole = 'manager' | 'driver';
 export interface JwtPayload {
     id: number;
     username: string;
-    email: string;
-    timezone: string;
+    email?: string;
+    timezone?: string;
+    role: AppRole;
+    driverId?: number;
 }
 declare const JwtStrategy_base: new (...args: [opt: import("passport-jwt").StrategyOptionsWithRequest] | [opt: import("passport-jwt").StrategyOptionsWithoutRequest]) => Strategy & {
     validate(...args: any[]): unknown;
