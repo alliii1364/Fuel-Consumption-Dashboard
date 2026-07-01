@@ -17,6 +17,18 @@ export interface TrailPoint {
 /** Which feed the live position is currently being driven by. */
 export type PositionSource = 'tracker' | 'phone' | 'none';
 
+export type StopVisitStatus = 'stopped' | 'skipped' | 'not_reached' | 'pending';
+
+export interface StopStatus {
+  /** Matches RouteStop.seq. */
+  seq: number;
+  status: StopVisitStatus;
+  /** Seconds spent at rest within the stop radius (only when 'stopped'). */
+  dwellS?: number;
+  /** ISO time of the first in-radius fix ('stopped' or 'skipped'). */
+  arrivedAt?: string;
+}
+
 export interface DeviationAnalysis {
   currentPosition: LatLng | null;
   lastSeen: Date | null;
@@ -32,6 +44,8 @@ export interface DeviationAnalysis {
   progressPct: number;
   visitedStopSeqs: number[];
   missedStopSeqs: number[];
+  /** Per-stop dwell-based status for the live monitor (display only). */
+  stopStatuses: StopStatus[];
 }
 
 /**
@@ -44,6 +58,12 @@ export interface DeviationAnalysis {
 export class DeviationService {
   /** A deviation must persist at least this long to count as off-route. */
   private readonly SUSTAIN_MS = 90_000;
+  /** At/under this speed (km/h) within a stop radius counts as "at rest". */
+  private readonly STOP_MAX_SPEED_KMH = 5;
+  /** A single in-radius fix at/under this speed (km/h) counts as parked (sparse data). */
+  private readonly STOP_STILL_SPEED_KMH = 2;
+  /** Minimum time at rest within the radius to count as a real stop. */
+  private readonly MIN_DWELL_MS = 120_000;
 
   /**
    * @param trail       the position trail (tracker primary, phone fallback)
@@ -58,6 +78,7 @@ export class DeviationService {
     trail: TrailPoint[],
     visitTrail: TrailPoint[] = trail,
     positionSource: PositionSource = 'tracker',
+    jobEnded = false,
   ): DeviationAnalysis {
     const visited = (pts: TrailPoint[]): { visitedStopSeqs: number[]; missedStopSeqs: number[] } => {
       const v: number[] = [];
@@ -71,6 +92,11 @@ export class DeviationService {
       return { visitedStopSeqs: v, missedStopSeqs: m };
     };
 
+    const geom: LatLng[] =
+      route.geometry.length >= 2
+        ? route.geometry
+        : route.stops.map((s) => ({ lat: s.lat, lng: s.lng }));
+
     const empty: DeviationAnalysis = {
       currentPosition: null,
       lastSeen: null,
@@ -82,14 +108,18 @@ export class DeviationService {
       progressPct: 0,
       // Even with no position trail, a bin may have been visited via another feed.
       ...visited(visitTrail),
+      stopStatuses: this.computeStopStatuses(route.stops, visitTrail, geom, 0, jobEnded),
     };
     if (trail.length === 0) return empty;
 
-    const geom: LatLng[] =
-      route.geometry.length >= 2
-        ? route.geometry
-        : route.stops.map((s) => ({ lat: s.lat, lng: s.lng }));
-    if (geom.length < 2) return { ...empty, currentPosition: trailLast(trail), positionSource };
+    if (geom.length < 2) {
+      return {
+        ...empty,
+        currentPosition: trailLast(trail),
+        positionSource,
+        stopStatuses: this.computeStopStatuses(route.stops, visitTrail, geom, 0, jobEnded),
+      };
+    }
 
     const buffer = route.corridorBufferM;
     let maxDeviationM = 0;
@@ -113,6 +143,7 @@ export class DeviationService {
     }
 
     const { visitedStopSeqs, missedStopSeqs } = visited(visitTrail);
+    const currentFraction = progressAlongPolyline(last, geom);
 
     return {
       currentPosition: { lat: last.lat, lng: last.lng },
@@ -122,10 +153,60 @@ export class DeviationService {
       distanceFromRouteM: Math.round(lastDist),
       offRoute,
       maxDeviationM: Math.round(maxDeviationM),
-      progressPct: Math.round(progressAlongPolyline(last, geom) * 100),
+      progressPct: Math.round(currentFraction * 100),
       visitedStopSeqs,
       missedStopSeqs,
+      stopStatuses: this.computeStopStatuses(route.stops, visitTrail, geom, currentFraction, jobEnded),
     };
+  }
+
+  /**
+   * Per-stop dwell classification (display only; does not affect
+   * visited/missed proximity semantics). A stop is:
+   *  - stopped: an in-radius fix was at/under STOP_MAX_SPEED_KMH and the
+   *    in-radius fixes span >= MIN_DWELL_MS; or (sparse data) a lone in-radius
+   *    fix at/under STOP_STILL_SPEED_KMH.
+   *  - skipped: entered the radius but did not meet the stop rule.
+   *  - not_reached: never entered the radius and the driver has moved past it
+   *    (by route progress) or the job has ended.
+   *  - pending: never entered the radius and the stop is still ahead.
+   */
+  private computeStopStatuses(
+    stops: RouteStop[],
+    visitTrail: TrailPoint[],
+    geom: LatLng[],
+    currentFraction: number,
+    jobEnded: boolean,
+  ): StopStatus[] {
+    return stops.map((s) => {
+      const inRadius = visitTrail
+        .filter(
+          (p) => haversineMeters(p, { lat: s.lat, lng: s.lng }) <= s.radiusM,
+        )
+        .sort((a, b) => a.ts.getTime() - b.ts.getTime());
+
+      if (inRadius.length > 0) {
+        const minSpeed = Math.min(...inRadius.map((p) => p.speed));
+        const spanMs =
+          inRadius[inRadius.length - 1].ts.getTime() - inRadius[0].ts.getTime();
+        const dwelled =
+          (minSpeed <= this.STOP_MAX_SPEED_KMH && spanMs >= this.MIN_DWELL_MS) ||
+          (inRadius.length === 1 && minSpeed <= this.STOP_STILL_SPEED_KMH);
+        return {
+          seq: s.seq,
+          status: dwelled ? 'stopped' : 'skipped',
+          ...(dwelled ? { dwellS: Math.round(spanMs / 1000) } : {}),
+          arrivedAt: inRadius[0].ts.toISOString(),
+        };
+      }
+
+      const stopFraction =
+        geom.length >= 2
+          ? progressAlongPolyline({ lat: s.lat, lng: s.lng }, geom)
+          : 0;
+      const passed = jobEnded || stopFraction < currentFraction;
+      return { seq: s.seq, status: passed ? 'not_reached' : 'pending' };
+    });
   }
 }
 

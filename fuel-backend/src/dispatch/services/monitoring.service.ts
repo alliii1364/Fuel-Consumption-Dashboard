@@ -120,6 +120,7 @@ export class MonitoringService {
       positionTrail,
       visitTrail,
       positionSource,
+      assignment.status === 'completed' || assignment.status === 'cancelled',
     );
 
     if (persist) {
