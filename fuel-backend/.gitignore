@@ -2,3 +2,11 @@
 # Firebase service-account key (secret)
 fcm-service-account.json
 google-services.json
+
+# Environment / secrets — never commit real values (use .env.example as the template)
+.env
+.env.local
+.env.*.local
+
+# Driver proof-of-delivery uploads (user data; use a persistent volume in prod)
+uploads/

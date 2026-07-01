@@ -11,7 +11,15 @@ async function bootstrap() {
     logger: ['log', 'warn', 'error', 'debug'],
   });
 
-  app.enableCors();
+  // Restrict CORS in production via CORS_ORIGINS (comma-separated allowlist,
+  // e.g. "https://dashboard.example.com,https://ifs.itecknologi.com"). When
+  // unset (local dev) all origins are allowed so the LAN/localhost dashboard
+  // and driver PWA keep working.
+  const corsOrigins = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  app.enableCors(corsOrigins.length ? { origin: corsOrigins } : {});
 
   // Serve driver-uploaded proof-of-delivery photos (outside the /api prefix,
   // so they bypass the response-envelope interceptor and stream raw).
