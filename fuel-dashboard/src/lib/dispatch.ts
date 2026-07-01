@@ -132,6 +132,15 @@ export interface RouteEvent {
 
 export type PositionSource = "tracker" | "phone" | "none";
 
+export type StopVisitStatus = "stopped" | "skipped" | "not_reached" | "pending";
+
+export interface StopStatus {
+  seq: number;
+  status: StopVisitStatus;
+  dwellS?: number;
+  arrivedAt?: string;
+}
+
 export interface DeviationAnalysis {
   currentPosition: LatLng | null;
   lastSeen: string | null;
@@ -143,6 +152,7 @@ export interface DeviationAnalysis {
   progressPct: number;
   visitedStopSeqs: number[];
   missedStopSeqs: number[];
+  stopStatuses: StopStatus[];
 }
 
 export interface LiveStatus {
