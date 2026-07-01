@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { X, AlertTriangle, CheckCircle2, Navigation, Gauge, Camera, Satellite, Smartphone } from "lucide-react";
+import { X, AlertTriangle, CheckCircle2, Navigation, Gauge, Camera, Satellite, Smartphone, CircleSlash, Circle, Clock, Info } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { getAssignmentLive, getAssignmentProof, LiveStatus, PodRecord, StopVisitStatus } from "@/lib/dispatch";
 
 const DispatchMap = dynamic(() => import("./DispatchMap"), { ssr: false });
@@ -19,6 +20,7 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
   const [live, setLive] = useState<LiveStatus | null>(null);
   const [pod, setPod] = useState<PodRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [showLegend, setShowLegend] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -113,18 +115,59 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
                       : "No signal"
                   }
                 />
-                <Metric
-                  label="Stops"
-                  value={
-                    `🟢 ${a.stopStatuses.filter((s) => s.status === "stopped").length}` +
-                    ` · 🟡 ${a.stopStatuses.filter((s) => s.status === "skipped").length}` +
-                    ` · ⚪ ${a.stopStatuses.filter((s) => s.status === "not_reached").length}` +
-                    ` · ⏳ ${a.stopStatuses.filter((s) => s.status === "pending").length}`
-                  }
-                />
+                <div className="flex items-center justify-between py-1.5 border-b" style={{ borderColor: "#F3F4F6" }}>
+                  <span className="text-xs text-gray-500">Stops</span>
+                  <span className="flex items-center gap-2.5">
+                    {STATUS_ORDER.map((s) => {
+                      const { Icon, color, label } = STATUS_UI[s];
+                      const count = a.stopStatuses.filter((x) => x.status === s).length;
+                      return (
+                        <span key={s} title={label} className="flex items-center gap-1 text-sm font-semibold text-gray-800">
+                          <Icon size={14} style={{ color }} />
+                          {count}
+                        </span>
+                      );
+                    })}
+                  </span>
+                </div>
 
                 <div className="mt-3">
-                  <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Stops ({live!.route.stops.length})</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-gray-500 uppercase">Stops ({live!.route.stops.length})</p>
+                    <button
+                      type="button"
+                      onClick={() => setShowLegend((v) => !v)}
+                      aria-label="Status color legend"
+                      aria-expanded={showLegend}
+                      title="What do the colors mean?"
+                      className="flex items-center gap-1 text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full border transition-colors"
+                      style={{
+                        borderColor: showLegend ? "var(--color-primary)" : "var(--color-border)",
+                        color: showLegend ? "var(--color-primary)" : "var(--color-text-3)",
+                        background: showLegend ? "rgba(var(--color-primary-rgb), 0.08)" : "transparent",
+                      }}
+                    >
+                      <Info size={12} />
+                      Legend
+                    </button>
+                  </div>
+
+                  {showLegend && (
+                    <div className="mb-2 rounded-lg border p-2.5 flex flex-col gap-1.5" style={{ borderColor: "var(--color-border)", background: "#F9FAFB" }}>
+                      <p className="text-[10px] font-semibold text-gray-500 uppercase">Marker &amp; stop colors</p>
+                      {STATUS_ORDER.map((s) => {
+                        const { Icon, color, label, desc } = STATUS_UI[s];
+                        return (
+                          <div key={s} className="flex items-start gap-2">
+                            <Icon size={13} style={{ color }} className="flex-shrink-0 mt-0.5" />
+                            <span className="text-xs text-gray-700">
+                              <span className="font-semibold">{label}</span> — {desc}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                   <div className="flex flex-col gap-1.5 max-h-56 overflow-auto">
                     {live!.route.stops.map((s) => {
                       const st = a.stopStatuses.find((x) => x.seq === s.seq);
@@ -208,21 +251,25 @@ function Metric({ icon, label, value }: { icon?: React.ReactNode; label: string;
   );
 }
 
-const STATUS_UI: Record<StopVisitStatus, { label: string; color: string }> = {
-  stopped: { label: "Stopped", color: "#16a34a" },
-  skipped: { label: "Skipped", color: "#f59e0b" },
-  not_reached: { label: "Not reached", color: "#9CA3AF" },
-  pending: { label: "Pending", color: "#2563eb" },
+const STATUS_UI: Record<StopVisitStatus, { label: string; color: string; Icon: LucideIcon; desc: string }> = {
+  stopped: { label: "Stopped", color: "#16a34a", Icon: CheckCircle2, desc: "Stopped at the bin (≤5 km/h for ≥2 min) — collected." },
+  skipped: { label: "Skipped", color: "#f59e0b", Icon: CircleSlash, desc: "Entered the bin's radius but didn't stop — drove through." },
+  not_reached: { label: "Not reached", color: "#9CA3AF", Icon: Circle, desc: "Never entered the radius and has moved past it (or job ended)." },
+  pending: { label: "Pending", color: "#2563eb", Icon: Clock, desc: "Not reached yet — job still in progress." },
 };
+
+const STATUS_ORDER: StopVisitStatus[] = ["stopped", "skipped", "not_reached", "pending"];
 
 function StopStatusBadge({ status, dwellS }: { status: StopVisitStatus; dwellS?: number }) {
   const ui = STATUS_UI[status];
+  const Icon = ui.Icon;
   const mins = dwellS != null ? Math.round(dwellS / 60) : null;
   return (
     <span
-      className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white flex-shrink-0"
+      className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white flex-shrink-0 inline-flex items-center gap-1"
       style={{ background: ui.color }}
     >
+      <Icon size={11} />
       {ui.label}
       {status === "stopped" && mins != null ? ` · ${mins}m` : ""}
     </span>
