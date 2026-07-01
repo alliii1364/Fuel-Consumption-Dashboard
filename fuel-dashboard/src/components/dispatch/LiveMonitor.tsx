@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { X, AlertTriangle, CheckCircle2, Navigation, Gauge, Camera, Satellite, Smartphone } from "lucide-react";
-import { getAssignmentLive, getAssignmentProof, LiveStatus, PodRecord } from "@/lib/dispatch";
+import { getAssignmentLive, getAssignmentProof, LiveStatus, PodRecord, StopVisitStatus } from "@/lib/dispatch";
 
 const DispatchMap = dynamic(() => import("./DispatchMap"), { ssr: false });
 
@@ -107,7 +107,33 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
                       : "No signal"
                   }
                 />
-                <Metric label="Pickups collected" value={`${a.visitedStopSeqs.length}/${a.visitedStopSeqs.length + a.missedStopSeqs.length}`} />
+                <Metric
+                  label="Stops"
+                  value={
+                    `🟢 ${a.stopStatuses.filter((s) => s.status === "stopped").length}` +
+                    ` · 🟡 ${a.stopStatuses.filter((s) => s.status === "skipped").length}` +
+                    ` · ⚪ ${a.stopStatuses.filter((s) => s.status === "not_reached").length}`
+                  }
+                />
+
+                <div className="mt-3">
+                  <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Stops ({live!.route.stops.length})</p>
+                  <div className="flex flex-col gap-1.5 max-h-56 overflow-auto">
+                    {live!.route.stops.map((s) => {
+                      const st = a.stopStatuses.find((x) => x.seq === s.seq);
+                      return (
+                        <div key={s.seq} className="flex items-center gap-2 text-xs bg-gray-50 rounded-lg px-2 py-1.5">
+                          <span className="w-5 h-5 rounded-full bg-gray-200 text-gray-600 font-bold flex items-center justify-center flex-shrink-0">
+                            {s.seq}
+                          </span>
+                          <span className="flex-1 min-w-0 truncate text-gray-700">{s.name || `Stop ${s.seq}`}</span>
+                          {st ? <StopStatusBadge status={st.status} dwellS={st.dwellS} /> : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <Metric label="Status" value={live!.assignment.status} />
 
                 <div className="mt-4">
@@ -172,5 +198,26 @@ function Metric({ icon, label, value }: { icon?: React.ReactNode; label: string;
       </span>
       <span className="text-sm font-semibold text-gray-800">{value}</span>
     </div>
+  );
+}
+
+const STATUS_UI: Record<StopVisitStatus, { label: string; color: string }> = {
+  stopped: { label: "Stopped", color: "#16a34a" },
+  skipped: { label: "Skipped", color: "#f59e0b" },
+  not_reached: { label: "Not reached", color: "#9CA3AF" },
+  pending: { label: "Pending", color: "#2563eb" },
+};
+
+function StopStatusBadge({ status, dwellS }: { status: StopVisitStatus; dwellS?: number }) {
+  const ui = STATUS_UI[status];
+  const mins = dwellS != null ? Math.round(dwellS / 60) : null;
+  return (
+    <span
+      className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white flex-shrink-0"
+      style={{ background: ui.color }}
+    >
+      {ui.label}
+      {status === "stopped" && mins != null ? ` · ${mins}m` : ""}
+    </span>
   );
 }
