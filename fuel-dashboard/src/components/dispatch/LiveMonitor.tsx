@@ -66,7 +66,13 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
               <DispatchMap
                 geometry={live.route.geometry}
                 depot={live.route.depot ? { lat: live.route.depot.lat, lng: live.route.depot.lng, name: live.route.depot.name } : null}
-                stops={live.route.stops.map((s) => ({ lat: s.lat, lng: s.lng, name: s.name, seq: s.seq }))}
+                stops={live.route.stops.map((s) => ({
+                  lat: s.lat,
+                  lng: s.lng,
+                  name: s.name,
+                  seq: s.seq,
+                  status: a?.stopStatuses.find((x) => x.seq === s.seq)?.status,
+                }))}
                 vehicle={pos ? { lat: pos.lat, lng: pos.lng, offRoute: a?.offRoute, label: live.assignment.vehicleName || "" } : null}
               />
             )}

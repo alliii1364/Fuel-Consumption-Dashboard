@@ -12,13 +12,14 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { LatLng } from "@/lib/dispatch";
+import { LatLng, StopVisitStatus } from "@/lib/dispatch";
 
 interface StopMarker {
   lat: number;
   lng: number;
   name?: string | null;
   seq?: number;
+  status?: StopVisitStatus;
 }
 
 interface Props {
@@ -37,6 +38,13 @@ interface Props {
 }
 
 const KARACHI: [number, number] = [24.8607, 67.0011];
+
+const STOP_STATUS_COLOR: Record<StopVisitStatus, string> = {
+  stopped: "#16a34a",
+  skipped: "#f59e0b",
+  not_reached: "#9CA3AF",
+  pending: "#2563eb",
+};
 
 function numberPin(seq: number, color: string) {
   return L.divIcon({
@@ -150,7 +158,7 @@ export default function DispatchMap({
         <Marker
           key={`stop-${i}`}
           position={[s.lat, s.lng]}
-          icon={numberPin(s.seq ?? i + 1, "#E84040")}
+          icon={numberPin(s.seq ?? i + 1, s.status ? STOP_STATUS_COLOR[s.status] : "#E84040")}
         >
           <Popup>
             <b>{s.name || `Stop ${s.seq ?? i + 1}`}</b>
