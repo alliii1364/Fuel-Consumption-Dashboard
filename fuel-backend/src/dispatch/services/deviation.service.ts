@@ -117,7 +117,6 @@ export class DeviationService {
         ...empty,
         currentPosition: trailLast(trail),
         positionSource,
-        stopStatuses: this.computeStopStatuses(route.stops, visitTrail, geom, 0, jobEnded),
       };
     }
 

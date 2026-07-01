@@ -118,7 +118,8 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
                   value={
                     `🟢 ${a.stopStatuses.filter((s) => s.status === "stopped").length}` +
                     ` · 🟡 ${a.stopStatuses.filter((s) => s.status === "skipped").length}` +
-                    ` · ⚪ ${a.stopStatuses.filter((s) => s.status === "not_reached").length}`
+                    ` · ⚪ ${a.stopStatuses.filter((s) => s.status === "not_reached").length}` +
+                    ` · ⏳ ${a.stopStatuses.filter((s) => s.status === "pending").length}`
                   }
                 />
 
