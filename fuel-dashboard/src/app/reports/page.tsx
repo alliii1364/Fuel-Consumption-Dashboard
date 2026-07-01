@@ -427,7 +427,6 @@ function ReportsPage() {
             engineHoursData={engineHoursData}
             vehicleStatusData={vehicleStatusData}
             tripsData={tripsData}
-            theftLocationData={theftLocationData}
             vehicles={vehicles}
           />
         ) : (
