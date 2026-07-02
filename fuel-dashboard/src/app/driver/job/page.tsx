@@ -120,67 +120,76 @@ function DriverJobDetailInner() {
   const canCapturePod = a.status === "en_route" || a.status === "arrived";
 
   return (
-    <div className="max-w-md mx-auto p-4 pb-28">
-      <button onClick={() => router.push("/driver")} className="flex items-center gap-1 text-sm text-gray-500 mb-3">
-        <ArrowLeft size={16} /> Back
-      </button>
-
-      {offline && (
-        <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
-          <WifiOff size={14} /> Offline — showing the last saved copy of this job.
-        </div>
-      )}
-
-      <div className="bg-white rounded-xl p-4 shadow-sm mb-3">
-        <h1 className="font-bold text-gray-800">{route.name}</h1>
-        <p className="text-xs text-gray-500">{a.vehicleName || a.imei} · {a.priority} priority</p>
-        <div className="mt-2 inline-block text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ background: "#7c3aed" }}>
-          {a.status}
-        </div>
-        {route.totalDistanceKm != null && (
-          <p className="text-xs text-gray-500 mt-2">
-            {route.totalDistanceKm.toFixed(1)} km
-            {route.totalDurationS ? ` · ~${Math.round(route.totalDurationS / 60)} min` : ""}
-          </p>
-        )}
-      </div>
-
-      <div className="bg-white rounded-xl p-4 shadow-sm">
-        <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Stops ({route.stops.length})</p>
-        <div className="flex flex-col gap-2">
-          {route.stops.map((s, i) => (
-            <div key={s.stopId ?? i} className="flex items-start gap-2.5">
-              <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5" style={{ background: i === route.stops.length - 1 ? "#16a34a" : "var(--color-primary)" }}>
-                {i === route.stops.length - 1 ? <Flag size={12} /> : i + 1}
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-800">{s.name || `Stop ${i + 1}`}</p>
-                <a
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-blue-600 flex items-center gap-1"
-                >
-                  <MapPin size={11} /> Navigate
-                </a>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {canCapturePod && (
-        <button
-          onClick={captureProof}
-          disabled={podBusy}
-          className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border disabled:opacity-50"
-          style={{ borderColor: podDone ? "#16a34a" : "var(--color-border)", color: podDone ? "#16a34a" : "#374151", background: "#fff" }}
-        >
-          {podDone ? <><CheckCircle2 size={16} /> Proof captured</> : <><Camera size={16} /> {podBusy ? "Uploading…" : "Capture proof of delivery"}</>}
+    <div className="max-w-md mx-auto pb-28">
+      {/* Native-style app bar */}
+      <header className="sticky top-0 z-10 flex items-center gap-2 px-3 py-3 shadow-sm" style={{ background: "var(--color-primary)" }}>
+        <button onClick={() => router.push("/driver")} aria-label="Back" className="p-1 -ml-1" style={{ color: "rgba(255,255,255,0.95)" }}>
+          <ArrowLeft size={20} />
         </button>
-      )}
+        <div className="min-w-0">
+          <h1 className="font-bold text-white leading-tight truncate">{route.name}</h1>
+          <p className="text-[11px] truncate" style={{ color: "rgba(255,255,255,0.85)" }}>
+            {a.vehicleName || a.imei} · {a.priority} priority
+          </p>
+        </div>
+      </header>
 
-      {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
+      <div className="p-4">
+        {offline && (
+          <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+            <WifiOff size={14} /> Offline — showing the last saved copy of this job.
+          </div>
+        )}
+
+        <div className="bg-white rounded-xl px-4 py-3 shadow-sm mb-3 flex items-center justify-between">
+          <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ background: "#7c3aed" }}>
+            {a.status}
+          </span>
+          {route.totalDistanceKm != null && (
+            <p className="text-xs text-gray-500 tabular-nums">
+              {route.totalDistanceKm.toFixed(1)} km
+              {route.totalDurationS ? ` · ~${Math.round(route.totalDurationS / 60)} min` : ""}
+            </p>
+          )}
+        </div>
+
+        <div className="bg-white rounded-xl p-4 shadow-sm">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Stops ({route.stops.length})</p>
+          <div className="flex flex-col gap-2">
+            {route.stops.map((s, i) => (
+              <div key={s.stopId ?? i} className="flex items-start gap-2.5">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5" style={{ background: i === route.stops.length - 1 ? "#16a34a" : "var(--color-primary)" }}>
+                  {i === route.stops.length - 1 ? <Flag size={12} /> : i + 1}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-800">{s.name || `Stop ${i + 1}`}</p>
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-blue-600 flex items-center gap-1"
+                  >
+                    <MapPin size={11} /> Navigate
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {canCapturePod && (
+          <button
+            onClick={captureProof}
+            disabled={podBusy}
+            className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border disabled:opacity-50"
+            style={{ borderColor: podDone ? "#16a34a" : "var(--color-border)", color: podDone ? "#16a34a" : "#374151", background: "#fff" }}
+          >
+            {podDone ? <><CheckCircle2 size={16} /> Proof captured</> : <><Camera size={16} /> {podBusy ? "Uploading…" : "Capture proof of delivery"}</>}
+          </button>
+        )}
+
+        {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
+      </div>
 
       {next && (
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t" style={{ borderColor: "var(--color-border)", paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}>
