@@ -127,9 +127,12 @@ export class FuelConsumptionService {
   // same rows aren't re-fetched and re-analysed several times per page load.
   private readonly consumptionCache = new Map<
     string,
-    { at: number; promise: Promise<ConsumptionResult> }
+    { at: number; ttl: number; promise: Promise<ConsumptionResult> }
   >();
   private readonly CONSUMPTION_TTL_MS = 60_000;
+  // A range that ends safely in the past is immutable, so its result can be
+  // cached far longer (repeat views of a past month become instant).
+  private readonly CONSUMPTION_HISTORICAL_TTL_MS = 30 * 60_000;
 
   constructor(
     private readonly transform: FuelTransformService,
@@ -201,10 +204,15 @@ export class FuelConsumptionService {
     const key = `${imei}|${from.toISOString()}|${to.toISOString()}|${sensor.sensorId}|${fcrJson}`;
     const now = Date.now();
     const hit = this.consumptionCache.get(key);
-    if (hit && now - hit.at < this.CONSUMPTION_TTL_MS) return hit.promise;
+    if (hit && now - hit.at < hit.ttl) return hit.promise;
 
+    // Immutable (fully-past) ranges can be cached far longer than live ones.
+    const ttl =
+      to.getTime() < now - 5 * 60_000
+        ? this.CONSUMPTION_HISTORICAL_TTL_MS
+        : this.CONSUMPTION_TTL_MS;
     const promise = this.computeConsumption(imei, from, to, sensor, fcrJson);
-    this.consumptionCache.set(key, { at: now, promise });
+    this.consumptionCache.set(key, { at: now, ttl, promise });
     // Never cache a failure — let the next caller retry.
     promise.catch(() => {
       const cur = this.consumptionCache.get(key);
