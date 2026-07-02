@@ -212,7 +212,13 @@ export class DashboardService {
       };
     };
 
-    const computed = await mapWithConcurrency(vehicleRows, 4, computeVehicle);
+    // Process vehicles ONE AT A TIME. The fuel analysis is heavy synchronous
+    // CPU work on Node's single thread, so running vehicles concurrently gives
+    // no CPU speedup and instead loads several large result sets into memory at
+    // once — which saturated the process and made every endpoint slow. Keeping
+    // it sequential bounds peak memory; the real speedup comes from the cache,
+    // the forced index, and (future) downsampling — not concurrency.
+    const computed = await mapWithConcurrency(vehicleRows, 1, computeVehicle);
 
     const vehicles: VehicleSummary[] = [];
     let totalConsumed = 0;
