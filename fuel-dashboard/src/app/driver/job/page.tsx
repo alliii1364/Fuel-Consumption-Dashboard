@@ -111,8 +111,8 @@ function DriverJobDetailInner() {
   }
 
   if (!data) {
-    if (error) return <div className="min-h-screen flex items-center justify-center p-6 text-center text-sm text-red-600">{error}</div>;
-    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
+    if (error) return <div className="min-h-full flex items-center justify-center p-6 text-center text-sm text-red-600">{error}</div>;
+    return <div className="min-h-full flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
   }
 
   const { assignment: a, route } = data;
@@ -183,7 +183,7 @@ function DriverJobDetailInner() {
       {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
 
       {next && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t" style={{ borderColor: "var(--color-border)" }}>
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t" style={{ borderColor: "var(--color-border)", paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}>
           <button
             onClick={() => advance(next.to)}
             disabled={busy}
@@ -200,7 +200,7 @@ function DriverJobDetailInner() {
 
 export default function DriverJobDetail() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>}>
+    <Suspense fallback={<div className="min-h-full flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>}>
       <DriverJobDetailInner />
     </Suspense>
   );

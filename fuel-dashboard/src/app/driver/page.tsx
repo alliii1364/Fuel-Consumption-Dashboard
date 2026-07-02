@@ -165,5 +165,7 @@ function JobList({ token, onLogout, onOpen }: { token: string; onLogout: () => v
 }
 
 function Center({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-screen flex items-center justify-center p-4">{children}</div>;
+  // min-h-full (not min-h-screen): fill the driver layout's scroll container
+  // exactly so the login/loading screen never adds its own extra scroll.
+  return <div className="min-h-full flex items-center justify-center p-4">{children}</div>;
 }
