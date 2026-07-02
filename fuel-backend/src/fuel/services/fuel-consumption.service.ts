@@ -121,6 +121,16 @@ export interface PythonDropAlert {
 export class FuelConsumptionService {
   private readonly logger = new Logger(FuelConsumptionService.name);
 
+  // Short-lived cache of consumption results keyed by imei+range+sensor. It
+  // dedupes the dashboard's burst of overlapping/duplicate requests (fleet
+  // summary + per-vehicle panels) and reuses the result within the TTL, so the
+  // same rows aren't re-fetched and re-analysed several times per page load.
+  private readonly consumptionCache = new Map<
+    string,
+    { at: number; promise: Promise<ConsumptionResult> }
+  >();
+  private readonly CONSUMPTION_TTL_MS = 60_000;
+
   constructor(
     private readonly transform: FuelTransformService,
     private readonly dynQuery: DynamicTableQueryService,
@@ -176,7 +186,41 @@ export class FuelConsumptionService {
     }
   }
 
+  /**
+   * Consumption for a vehicle over a range. Cached briefly (and de-duplicated
+   * while in flight) so the dashboard's overlapping requests reuse one
+   * computation instead of each re-fetching + re-analysing the same rows.
+   */
   async getConsumption(
+    imei: string,
+    from: Date,
+    to: Date,
+    sensor: FuelSensor,
+    fcrJson: string,
+  ): Promise<ConsumptionResult> {
+    const key = `${imei}|${from.toISOString()}|${to.toISOString()}|${sensor.sensorId}|${fcrJson}`;
+    const now = Date.now();
+    const hit = this.consumptionCache.get(key);
+    if (hit && now - hit.at < this.CONSUMPTION_TTL_MS) return hit.promise;
+
+    const promise = this.computeConsumption(imei, from, to, sensor, fcrJson);
+    this.consumptionCache.set(key, { at: now, promise });
+    // Never cache a failure — let the next caller retry.
+    promise.catch(() => {
+      const cur = this.consumptionCache.get(key);
+      if (cur && cur.promise === promise) this.consumptionCache.delete(key);
+    });
+    // Bound memory: drop the oldest entries once the cache grows large.
+    if (this.consumptionCache.size > 300) {
+      const oldest = [...this.consumptionCache.entries()]
+        .sort((a, b) => a[1].at - b[1].at)
+        .slice(0, 100);
+      for (const [k] of oldest) this.consumptionCache.delete(k);
+    }
+    return promise;
+  }
+
+  private async computeConsumption(
     imei: string,
     from: Date,
     to: Date,

@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
-import { FuelSensorResolverService } from '../fuel/services/fuel-sensor-resolver.service';
+import { FuelSensorResolverService, FuelSensor } from '../fuel/services/fuel-sensor-resolver.service';
 import { FuelConsumptionService } from '../fuel/services/fuel-consumption.service';
 import { DynamicTableQueryService } from '../fuel/services/dynamic-table-query.service';
 import { FuelTransformService } from '../fuel/services/fuel-transform.service';
@@ -49,6 +49,31 @@ export interface FleetRanking {
   ranking: FleetRankEntry[];
   bestVehicle: FleetRankEntry | null;
   worstVehicle: FleetRankEntry | null;
+}
+
+/**
+ * Map `items` through `fn` with at most `limit` running at once, preserving
+ * input order in the result. Lets the dashboard analyse several vehicles in
+ * parallel without firing every heavy query at the DB simultaneously.
+ */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const workers = Array.from(
+    { length: Math.min(Math.max(1, limit), items.length || 1) },
+    async () => {
+      while (next < items.length) {
+        const idx = next++;
+        results[idx] = await fn(items[idx]);
+      }
+    },
+  );
+  await Promise.all(workers);
+  return results;
 }
 
 @Injectable()
@@ -104,33 +129,33 @@ export class DashboardService {
 
     const staleMinutes = this.config.get<number>('STALE_THRESHOLD_MINUTES', 30);
     const now = Date.now();
-    const vehicles: VehicleSummary[] = [];
-    let totalConsumed = 0;
-    let totalCost = 0;
-    let hasCost = false;
+    const staleMs = staleMinutes * 60 * 1000;
 
-    for (const v of vehicleRows) {
+    // Per-vehicle fuel summary. getConsumption is heavy (fetches + analyses the
+    // full range), so the fleet is processed with bounded concurrency below
+    // instead of one-at-a-time — the old sequential loop was the main cause of
+    // dashboard-summary timeouts (504) on wide date ranges. Returns null for a
+    // vehicle with no fuel sensor (excluded from the dashboard entirely).
+    const computeVehicle = async (
+      v: (typeof vehicleRows)[number],
+    ): Promise<{ summary: VehicleSummary; consumed: number; cost: number | null } | null> => {
       const lastSeenDate = this.safeDate(v.dt_tracker);
-      const staleMs = staleMinutes * 60 * 1000;
       const isOnline =
         lastSeenDate !== null && now - lastSeenDate.getTime() < staleMs;
+
+      let sensor: FuelSensor;
+      try {
+        sensor = await this.sensorResolver.resolveFuelSensor(v.imei);
+      } catch {
+        return null; // no fuel sensor → not part of the fuel dashboard
+      }
 
       let consumed = 0;
       let refueled = 0;
       let cost: number | null = null;
       let currentFuel: number | null = null;
-      let unit = 'L';
-
-      // Only include vehicles that have a fuel sensor configured.
-      // Vehicles without a sensor have no fuel data to show, so they must
-      // not inflate the vehicle count, offline count, or consumption totals.
-      let hasSensor = false;
 
       try {
-        const sensor = await this.sensorResolver.resolveFuelSensor(v.imei);
-        hasSensor = true;
-        unit = sensor.units || 'L';
-
         const result = await this.consumptionService.getConsumption(
           v.imei,
           from,
@@ -139,16 +164,14 @@ export class DashboardService {
           v.fcr ?? '',
         );
 
-        // Mass-balance formula: actual fuel used = (firstFuel + refueled) − lastFuel
-        //   = netDrop + refueled  (where netDrop = firstFuel − lastFuel)
-        // This matches exactly what the Routes page "Period Summary" shows.
-        // Falls back to the drop-sum only when boundary readings are unavailable.
+        // Mass-balance: actual fuel used = netDrop + refueled (matches the
+        // Routes "Period Summary"); fall back to drop-sum when boundaries are
+        // unavailable.
         if (result.netDrop !== null) {
           consumed = Math.max(0, result.netDrop + result.refueled);
         } else {
           consumed = result.consumed;
         }
-
         refueled = result.refueled;
         cost = result.estimatedCost;
 
@@ -161,40 +184,48 @@ export class DashboardService {
             new Date(latestRow.dt_tracker).toISOString(),
           );
           if (rawValue !== null) {
-            const { value } = this.transform.transform(rawValue, sensor);
-            currentFuel = value;
+            currentFuel = this.transform.transform(rawValue, sensor).value;
           }
         }
       } catch (err) {
-        if (hasSensor) {
-          // Sensor exists but consumption computation failed — still include the vehicle.
-          this.logger.warn(
-            `Could not compute fuel summary for IMEI ${v.imei}: ${String(err)}`,
-          );
-        }
-        // No sensor → silently skip; vehicle is irrelevant to the fuel dashboard.
+        // Sensor exists but consumption failed — still include the vehicle.
+        this.logger.warn(
+          `Could not compute fuel summary for IMEI ${v.imei}: ${String(err)}`,
+        );
       }
 
-      if (!hasSensor) continue;
+      return {
+        consumed,
+        cost,
+        summary: {
+          imei: v.imei,
+          name: v.name,
+          plateNumber: v.plate_number,
+          consumed: Math.round(consumed * 100) / 100,
+          refueled: Math.round(refueled * 100) / 100,
+          cost,
+          lastSeen: lastSeenDate ? lastSeenDate.toISOString() : null,
+          status: isOnline ? 'online' : 'offline',
+          currentFuel,
+          unit: sensor.units || 'L',
+        },
+      };
+    };
 
-      totalConsumed += consumed;
-      if (cost !== null) {
-        totalCost += cost;
+    const computed = await mapWithConcurrency(vehicleRows, 4, computeVehicle);
+
+    const vehicles: VehicleSummary[] = [];
+    let totalConsumed = 0;
+    let totalCost = 0;
+    let hasCost = false;
+    for (const c of computed) {
+      if (!c) continue; // vehicle without a sensor
+      vehicles.push(c.summary);
+      totalConsumed += c.consumed;
+      if (c.cost !== null) {
+        totalCost += c.cost;
         hasCost = true;
       }
-
-      vehicles.push({
-        imei: v.imei,
-        name: v.name,
-        plateNumber: v.plate_number,
-        consumed: Math.round(consumed * 100) / 100,
-        refueled: Math.round(refueled * 100) / 100,
-        cost,
-        lastSeen: lastSeenDate ? lastSeenDate.toISOString() : null,
-        status: isOnline ? 'online' : 'offline',
-        currentFuel,
-        unit,
-      });
     }
 
     return {
