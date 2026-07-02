@@ -148,7 +148,7 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
                       }}
                     >
                       <Info size={12} />
-                      Legend
+                      Info
                     </button>
                   </div>
 
