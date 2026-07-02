@@ -3,6 +3,17 @@ import RegisterSW from "./RegisterSW";
 
 export const metadata: Metadata = {
   title: "FuelIQ Driver",
+  // Make "Add to Home Screen" launch fullscreen (no browser chrome) like a
+  // native app. `appleWebApp` emits the iOS tags; `mobile-web-app-capable`
+  // covers Android/Chrome. Pairs with manifest `display: standalone`.
+  appleWebApp: {
+    capable: true,
+    title: "FuelIQ Driver",
+    statusBarStyle: "black-translucent",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
 };
 
 export const viewport: Viewport = {

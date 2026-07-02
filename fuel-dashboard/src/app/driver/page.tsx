@@ -126,27 +126,33 @@ function JobList({ token, onLogout, onOpen }: { token: string; onLogout: () => v
   }, [token, onOpen]);
 
   return (
-    <div className="max-w-md mx-auto p-4">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="font-bold text-gray-800">My Jobs</h1>
-          <p className="text-xs text-gray-500">
+    <div className="max-w-md mx-auto">
+      {/* Native-style app bar */}
+      <header
+        className="sticky top-0 z-10 flex items-center justify-between px-4 py-3.5 shadow-sm"
+        style={{ background: "var(--color-primary)" }}
+      >
+        <div className="min-w-0">
+          <h1 className="font-bold text-white leading-tight">My Jobs</h1>
+          <p className="text-[11px] truncate" style={{ color: "rgba(255,255,255,0.85)" }}>
             {driverNameFromToken(token)}{offline ? " · offline" : ""}
           </p>
         </div>
-        <button onClick={onLogout} className="text-gray-400"><LogOut size={18} /></button>
-      </div>
+        <button onClick={onLogout} aria-label="Log out" className="p-1 -mr-1" style={{ color: "rgba(255,255,255,0.9)" }}>
+          <LogOut size={18} />
+        </button>
+      </header>
 
-      {loading && <Center><Loader2 className="animate-spin text-primary" /></Center>}
+      <div className="p-4 flex flex-col gap-2.5">
+        {loading && <div className="flex justify-center py-12"><Loader2 className="animate-spin text-primary" /></div>}
 
-      {!loading && jobs.length === 0 && (
-        <EmptyState icon={Inbox} title="No active jobs" description="New assignments from your dispatcher will appear here." />
-      )}
+        {!loading && jobs.length === 0 && (
+          <EmptyState icon={Inbox} title="No active jobs" description="New assignments from your dispatcher will appear here." />
+        )}
 
-      <div className="flex flex-col gap-2.5">
         {jobs.map((j) => (
-          <button key={j.assignmentId} onClick={() => onOpen(j.assignmentId)} className="text-left bg-white rounded-xl p-3.5 shadow-sm flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(var(--color-primary-rgb), 0.08)" }}>
+          <button key={j.assignmentId} onClick={() => onOpen(j.assignmentId)} className="text-left bg-white rounded-xl p-4 shadow-sm flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(var(--color-primary-rgb), 0.08)" }}>
               <MapPin size={18} className="text-primary" />
             </div>
             <div className="flex-1 min-w-0">
