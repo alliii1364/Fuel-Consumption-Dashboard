@@ -95,4 +95,19 @@ describe('DeviationService stop classification', () => {
     expect(a.missedStopSeqs).toContain(2);
     expect(statusOf(a, 1)).toBe('skipped');
   });
+
+  it('does not inflate dwell when the vehicle revisits the bin much later', () => {
+    const s = stop(1, 0, 0.01);
+    // Visit A: parked ~150s at the bin.
+    const A = [pt(0, 0, 0.01, 0), pt(90_000, 0, 0.01, 0), pt(150_000, 0, 0.01, 0)];
+    // ~2h gap, then Visit B: parked ~150s again.
+    const B = [pt(7_350_000, 0, 0.01, 0), pt(7_440_000, 0, 0.01, 0), pt(7_500_000, 0, 0.01, 0)];
+    const trail = [...A, ...B];
+    const a = svc.analyze(route([s]), trail, trail, 'tracker');
+    expect(statusOf(a, 1)).toBe('stopped');
+    const ss = a.stopStatuses.find((x) => x.seq === 1)!;
+    // dwell reflects a single ~150s visit, NOT the ~2h first-to-last span (7500s).
+    expect(ss.dwellS).toBeGreaterThanOrEqual(150);
+    expect(ss.dwellS).toBeLessThanOrEqual(200);
+  });
 });

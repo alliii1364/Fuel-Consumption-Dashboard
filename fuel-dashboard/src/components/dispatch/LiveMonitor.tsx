@@ -260,10 +260,20 @@ const STATUS_UI: Record<StopVisitStatus, { label: string; color: string; Icon: L
 
 const STATUS_ORDER: StopVisitStatus[] = ["stopped", "skipped", "not_reached", "pending"];
 
+// Human-readable dwell duration. Uses "s" / "min" / "h" (never a bare "m",
+// which collides with the metres shown elsewhere in the panel).
+function formatDwell(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const totalMin = Math.round(seconds / 60);
+  if (totalMin < 60) return `${totalMin} min`;
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
+
 function StopStatusBadge({ status, dwellS }: { status: StopVisitStatus; dwellS?: number }) {
   const ui = STATUS_UI[status];
   const Icon = ui.Icon;
-  const mins = dwellS != null ? Math.round(dwellS / 60) : null;
   return (
     <span
       className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white flex-shrink-0 inline-flex items-center gap-1"
@@ -271,7 +281,7 @@ function StopStatusBadge({ status, dwellS }: { status: StopVisitStatus; dwellS?:
     >
       <Icon size={11} />
       {ui.label}
-      {status === "stopped" && mins != null ? ` · ${mins}m` : ""}
+      {status === "stopped" && dwellS != null ? ` · ${formatDwell(dwellS)}` : ""}
     </span>
   );
 }

@@ -64,6 +64,14 @@ export class DeviationService {
   private readonly STOP_STILL_SPEED_KMH = 2;
   /** Minimum time at rest within the radius to count as a real stop. */
   private readonly MIN_DWELL_MS = 120_000;
+  /**
+   * Max gap between consecutive in-radius fixes that still counts as ONE
+   * continuous stay. A larger gap means the vehicle left and came back later,
+   * so those fixes belong to separate visits — this prevents dwell from
+   * ballooning to the whole assignment window when a bin is revisited (or sits
+   * near where the vehicle parks).
+   */
+  private readonly DWELL_GAP_MS = 10 * 60_000;
 
   /**
    * @param trail       the position trail (tracker primary, phone fallback)
@@ -186,15 +194,16 @@ export class DeviationService {
 
       if (inRadius.length > 0) {
         const minSpeed = Math.min(...inRadius.map((p) => p.speed));
-        const spanMs =
-          inRadius[inRadius.length - 1].ts.getTime() - inRadius[0].ts.getTime();
+        // Longest single continuous at-rest stay (not the first-to-last span,
+        // which would inflate on revisits / parking near the bin).
+        const restMs = this.longestRestMs(inRadius);
         const dwelled =
-          (minSpeed <= this.STOP_MAX_SPEED_KMH && spanMs >= this.MIN_DWELL_MS) ||
+          restMs >= this.MIN_DWELL_MS ||
           (inRadius.length === 1 && minSpeed <= this.STOP_STILL_SPEED_KMH);
         return {
           seq: s.seq,
           status: dwelled ? 'stopped' : 'skipped',
-          ...(dwelled ? { dwellS: Math.round(spanMs / 1000) } : {}),
+          ...(dwelled && restMs > 0 ? { dwellS: Math.round(restMs / 1000) } : {}),
           arrivedAt: inRadius[0].ts.toISOString(),
         };
       }
@@ -206,6 +215,38 @@ export class DeviationService {
       const passed = jobEnded || stopFraction < currentFraction;
       return { seq: s.seq, status: passed ? 'not_reached' : 'pending' };
     });
+  }
+
+  /**
+   * Longest single continuous "at rest" stay (ms) across in-radius fixes.
+   * Splits the (time-sorted) fixes into visits wherever the gap between two
+   * consecutive fixes exceeds DWELL_GAP_MS, then returns the longest visit
+   * that stayed at/under STOP_MAX_SPEED_KMH. This is the actual parked
+   * duration of one visit — not the first-to-last span, which inflates when
+   * the vehicle revisits the bin or parks near it later in the window.
+   */
+  private longestRestMs(inRadius: TrailPoint[]): number {
+    if (inRadius.length === 0) return 0;
+    let best = 0;
+    let segStartTs = inRadius[0].ts.getTime();
+    let segMinSpeed = inRadius[0].speed;
+    for (let i = 1; i <= inRadius.length; i++) {
+      const prevTs = inRadius[i - 1].ts.getTime();
+      const gap = i < inRadius.length ? inRadius[i].ts.getTime() - prevTs : Infinity;
+      if (gap > this.DWELL_GAP_MS) {
+        // close the current segment at the previous fix
+        if (segMinSpeed <= this.STOP_MAX_SPEED_KMH) {
+          best = Math.max(best, prevTs - segStartTs);
+        }
+        if (i < inRadius.length) {
+          segStartTs = inRadius[i].ts.getTime();
+          segMinSpeed = inRadius[i].speed;
+        }
+      } else {
+        segMinSpeed = Math.min(segMinSpeed, inRadius[i].speed);
+      }
+    }
+    return best;
   }
 }
 
