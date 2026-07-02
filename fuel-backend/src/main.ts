@@ -21,10 +21,13 @@ async function bootstrap() {
     .filter(Boolean);
   app.enableCors(corsOrigins.length ? { origin: corsOrigins } : {});
 
-  // Serve driver-uploaded proof-of-delivery photos (outside the /api prefix,
-  // so they bypass the response-envelope interceptor and stream raw).
+  // Serve driver-uploaded proof-of-delivery photos under /api/uploads so they
+  // ride the same reverse-proxy route as the API (many prod setups only proxy
+  // /api to this backend; a bare /uploads path would hit the frontend and
+  // 404). Static middleware streams the file raw — it never enters Nest's
+  // controller/interceptor pipeline, so the response envelope doesn't apply.
   const uploadsDir = process.env.UPLOADS_DIR || join(process.cwd(), 'uploads');
-  app.useStaticAssets(uploadsDir, { prefix: '/uploads/' });
+  app.useStaticAssets(uploadsDir, { prefix: '/api/uploads/' });
 
   app.setGlobalPrefix('api');
 

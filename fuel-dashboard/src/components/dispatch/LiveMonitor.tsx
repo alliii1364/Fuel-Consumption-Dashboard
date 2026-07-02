@@ -249,7 +249,7 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
                           {p.photoPath && (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              src={`${API_BASE}/uploads/${p.photoPath}`}
+                              src={`${API_BASE}/api/uploads/${p.photoPath}`}
                               alt="Proof of delivery"
                               className="w-14 h-14 rounded object-cover flex-shrink-0"
                             />
