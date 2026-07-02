@@ -21,6 +21,18 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
   const [pod, setPod] = useState<PodRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [showLegend, setShowLegend] = useState(false);
+  // Remember the user's distance-unit preference across sessions. Lazy init is
+  // safe here: this modal only mounts client-side (opened on click), so there
+  // is no SSR pass to cause a hydration mismatch.
+  const [distKm, setDistKm] = useState<boolean>(() => {
+    try { return localStorage.getItem("fueliq_dist_unit") === "km"; } catch { return false; }
+  });
+  function setUnit(km: boolean) {
+    setDistKm(km);
+    try { localStorage.setItem("fueliq_dist_unit", km ? "km" : "m"); } catch {}
+  }
+  const fmtDistance = (m: number | null): string =>
+    m == null ? "—" : distKm ? `${(m / 1000).toFixed(2)} km` : `${m} m`;
 
   const load = useCallback(async () => {
     try {
@@ -62,7 +74,7 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-0 flex-1 overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-0 flex-1 overflow-hidden">
           <div style={{ minHeight: 380 }}>
             {live && (
               <DispatchMap
@@ -80,13 +92,13 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
             )}
           </div>
 
-          <div className="p-4 overflow-auto border-l" style={{ borderColor: "var(--color-border)" }}>
-            {error && <p className="text-xs text-red-600 mb-2">{error}</p>}
+          <div className="p-5 overflow-auto border-l" style={{ borderColor: "var(--color-border)" }}>
+            {error && <p className="text-xs text-red-600 mb-3">{error}</p>}
 
             {a && (
               <>
                 <div
-                  className="rounded-xl p-3 mb-3 flex items-center gap-2"
+                  className="rounded-xl px-3.5 py-3 mb-4 flex items-center gap-2"
                   style={{ background: a.offRoute ? "rgba(239,68,68,0.08)" : "rgba(34,197,94,0.08)" }}
                 >
                   {a.offRoute ? (
@@ -100,11 +112,32 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
                 </div>
 
                 <Metric icon={<Navigation size={14} />} label="Progress" value={`${a.progressPct}%`} />
-                <Metric
-                  icon={<Gauge size={14} />}
-                  label="Distance from route"
-                  value={a.distanceFromRouteM != null ? `${a.distanceFromRouteM} m` : "—"}
-                />
+                <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: "#F3F4F6" }}>
+                  <span className="text-xs text-gray-500 flex items-center gap-1.5">
+                    <Gauge size={14} />
+                    Distance from route
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-gray-800 tabular-nums">{fmtDistance(a.distanceFromRouteM)}</span>
+                    <span className="inline-flex rounded-md overflow-hidden border" style={{ borderColor: "var(--color-border)" }}>
+                      {([["m", false], ["km", true]] as const).map(([lbl, km]) => (
+                        <button
+                          key={lbl}
+                          type="button"
+                          onClick={() => setUnit(km)}
+                          aria-pressed={distKm === km}
+                          className="px-1.5 py-0.5 text-[10px] font-bold transition-colors"
+                          style={{
+                            background: distKm === km ? "var(--color-primary)" : "transparent",
+                            color: distKm === km ? "#fff" : "var(--color-text-3)",
+                          }}
+                        >
+                          {lbl}
+                        </button>
+                      ))}
+                    </span>
+                  </div>
+                </div>
                 <Metric label="Speed" value={a.speed != null ? `${a.speed} km/h` : "—"} />
                 <Metric
                   icon={a.positionSource === "phone" ? <Smartphone size={14} /> : <Satellite size={14} />}
@@ -115,7 +148,7 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
                       : "No signal"
                   }
                 />
-                <div className="flex items-center justify-between py-1.5 border-b" style={{ borderColor: "#F3F4F6" }}>
+                <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: "#F3F4F6" }}>
                   <span className="text-xs text-gray-500">Stops</span>
                   <span className="flex items-center gap-2.5">
                     {STATUS_ORDER.map((s) => {
@@ -131,9 +164,9 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
                   </span>
                 </div>
 
-                <div className="mt-3">
+                <div className="mt-5">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-semibold text-gray-500 uppercase">Stops ({live!.route.stops.length})</p>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Stops ({live!.route.stops.length})</p>
                     <button
                       type="button"
                       onClick={() => setShowLegend((v) => !v)}
@@ -186,8 +219,8 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
 
                 <Metric label="Status" value={live!.assignment.status} />
 
-                <div className="mt-4">
-                  <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Event log</p>
+                <div className="mt-5">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Event log</p>
                   <div className="flex flex-col gap-1.5 max-h-48 overflow-auto">
                     {live!.events.length === 0 && <p className="text-xs text-gray-400">No events yet.</p>}
                     {live!.events.map((ev) => (
@@ -206,8 +239,8 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
                 </div>
 
                 {pod.length > 0 && (
-                  <div className="mt-4">
-                    <p className="text-xs font-semibold text-gray-500 uppercase mb-2 flex items-center gap-1.5">
+                  <div className="mt-5">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
                       <Camera size={13} /> Proof of delivery ({pod.length})
                     </p>
                     <div className="flex flex-col gap-2">
@@ -241,12 +274,12 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
 
 function Metric({ icon, label, value }: { icon?: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between py-1.5 border-b" style={{ borderColor: "#F3F4F6" }}>
+    <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: "#F3F4F6" }}>
       <span className="text-xs text-gray-500 flex items-center gap-1.5">
         {icon}
         {label}
       </span>
-      <span className="text-sm font-semibold text-gray-800">{value}</span>
+      <span className="text-sm font-semibold text-gray-800 tabular-nums">{value}</span>
     </div>
   );
 }
