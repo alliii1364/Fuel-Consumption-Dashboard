@@ -10,6 +10,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  userScalable: false, // app-like: no pinch/double-tap zoom
 };
 
 export default function DriverLayout({ children }: { children: React.ReactNode }) {
@@ -21,6 +22,7 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
   // clear of the notch.
   return (
     <div
+      className="driver-app"
       style={{
         height: "100dvh",
         overflowY: "auto",

@@ -142,6 +142,28 @@ h1, h2, h3, h4, h5 { letter-spacing: -0.012em; }
 .tabular-nums { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
 
 /* ══════════════════════════════════════════════
+   DRIVER PWA — native-app touch feel (mobile)
+   Scoped to .driver-app so the manager dashboard is unaffected.
+══════════════════════════════════════════════ */
+.driver-app {
+  -webkit-tap-highlight-color: transparent;  /* no grey/blue flash on tap */
+  -webkit-touch-callout: none;               /* no long-press callout menu */
+  user-select: none;                         /* app-like: text isn't selectable */
+  -webkit-user-select: none;
+  overscroll-behavior: none;                 /* no pull-to-refresh / rubber-band */
+  touch-action: manipulation;                /* kill double-tap-zoom + 300ms delay */
+}
+/* Inputs still need a caret and selection. */
+.driver-app input,
+.driver-app textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+/* Tactile press feedback on tappable controls. */
+.driver-app button { transition: transform 0.08s ease; }
+.driver-app button:active { transform: scale(0.97); }
+
+/* ══════════════════════════════════════════════
    APP BACKGROUND
 ══════════════════════════════════════════════ */
 .bg-app {
