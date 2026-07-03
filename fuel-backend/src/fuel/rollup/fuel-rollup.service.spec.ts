@@ -199,4 +199,77 @@ describe('FuelRollupService', () => {
     // and for the trailing edge
     expect(getConsumption).toHaveBeenCalledWith(IMEI, fullDayEnd, partialTo, SENSOR, FCR);
   });
+
+  // ---------------------------------------------------------------------------
+  // 6. Fix 1 — sub-day range (fullDays=[]) → getConsumption called ONCE, no double-count
+  // ---------------------------------------------------------------------------
+  test('6. sub-day range: getConsumption called exactly once, result equals single edge', async () => {
+    // Both from and to are non-aligned and lie within the same Karachi day.
+    // 2026-06-01 in Karachi = 2026-05-31T19:00Z → 2026-06-01T19:00Z
+    // Pick a window entirely inside that: 20:00Z → 23:00Z (same UTC day, same Karachi day)
+    const subFrom = new Date('2026-06-01T20:00:00.000Z');
+    const subTo   = new Date('2026-06-01T23:00:00.000Z');
+
+    const edgeConsumptionResult = {
+      consumed: 3, refueled: 0, estimatedCost: 300, unit: 'L',
+      refuels: [], drops: [], firstFuel: 98, lastFuel: 95, netDrop: 3, samples: 20,
+    };
+    const getConsumption = jest.fn().mockResolvedValue(edgeConsumptionResult);
+    const getDays = jest.fn().mockResolvedValue([]);
+
+    const svc = new FuelRollupService(makeConsumptionService(getConsumption), makeRepository(getDays));
+
+    const result = await svc.getConsumptionViaRollup(IMEI, subFrom, subTo, SENSOR, FCR);
+
+    // getConsumption called exactly once (no double-edge double-counting)
+    expect(getConsumption).toHaveBeenCalledTimes(1);
+    expect(getConsumption).toHaveBeenCalledWith(IMEI, subFrom, subTo, SENSOR, FCR);
+
+    // getDays should NOT have been called (early return before cache read)
+    expect(getDays).not.toHaveBeenCalled();
+
+    // Result equals reconstructRange of the single edge
+    const expectedEdge = {
+      day: 'edge',
+      consumed: Math.max(0, edgeConsumptionResult.netDrop + edgeConsumptionResult.refueled), // 3
+      refueled: edgeConsumptionResult.refueled,
+      netDrop: edgeConsumptionResult.netDrop,
+      firstFuel: edgeConsumptionResult.firstFuel,
+      lastFuel: edgeConsumptionResult.lastFuel,
+      cost: edgeConsumptionResult.estimatedCost,
+      refuels: edgeConsumptionResult.refuels,
+    };
+    const expected = reconstructRange([expectedEdge]);
+    expect(result).toEqual(expected);
+  });
+
+  // ---------------------------------------------------------------------------
+  // 7. Fix 3 — edge() mass-balance formula: max(0, netDrop + refueled) asserted
+  //    on the resulting RangeMetrics.consumed, not just on the stored row.
+  // ---------------------------------------------------------------------------
+  test('7. edge mass-balance: result.consumed reflects max(0, netDrop + refueled)', async () => {
+    // Use a sub-day range (fullDays=[]) so the ONLY source of consumed is the edge().
+    // Known values: netDrop=15, refueled=10 → consumed=max(0,15+10)=25.
+    const subFrom = new Date('2026-06-01T20:00:00.000Z');
+    const subTo   = new Date('2026-06-01T23:00:00.000Z');
+
+    const edgeConsumptionResult = {
+      consumed: 999, // ignored when netDrop != null
+      refueled: 10, estimatedCost: 1500, unit: 'L',
+      refuels: [], drops: [], firstFuel: 120, lastFuel: 105, netDrop: 15, samples: 40,
+    };
+    const getConsumption = jest.fn().mockResolvedValue(edgeConsumptionResult);
+    const svc = new FuelRollupService(makeConsumptionService(getConsumption), makeRepository());
+
+    const result = await svc.getConsumptionViaRollup(IMEI, subFrom, subTo, SENSOR, FCR);
+
+    // The edge formula: max(0, netDrop + refueled) = max(0, 15 + 10) = 25
+    // reconstructRange picks mass-balance because firstFuel=120, lastFuel=105 are non-null:
+    //   netDrop = 120 - 105 = 15; consumed = max(0, 15 + 10) = 25
+    expect(result.consumed).toBe(25);
+    expect(result.refueled).toBe(10);
+    expect(result.netDrop).toBe(15);
+    expect(result.firstFuel).toBe(120);
+    expect(result.lastFuel).toBe(105);
+  });
 });

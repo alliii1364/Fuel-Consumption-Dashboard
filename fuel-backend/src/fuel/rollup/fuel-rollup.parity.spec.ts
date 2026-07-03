@@ -15,7 +15,11 @@
  * To run: FUEL_ROLLUP_PARITY_DB=1 npx jest fuel-rollup.parity
  */
 
+import { INestApplication } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import { getDataSourceToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { AppModule } from '../../app.module';
 import { FuelConsumptionService } from '../services/fuel-consumption.service';
 import { FuelDailyRepository } from './fuel-daily.repository';
 import { FuelRollupService } from './fuel-rollup.service';
@@ -28,32 +32,31 @@ const IMEI = 'REPLACE_WITH_REAL_IMEI';
 const FCR = '{}';
 
 describe.skip('FuelRollupService parity (skip unless FUEL_ROLLUP_PARITY_DB=1)', () => {
+  let app: INestApplication;
   let rollup: FuelRollupService;
-  let consumptionService!: FuelConsumptionService;
+  let consumptionService: FuelConsumptionService;
   let sensor: any;
 
   beforeAll(async () => {
     if (SKIP) return;
-    // Bootstrap: instantiate with a real DataSource connected to the test/prod DB.
-    // Adjust connection options to match your environment.
-    const ds = new DataSource({
-      type: 'mysql',
-      // host/port/username/password/database from env or hardcoded for manual run
-      host: process.env.DB_HOST ?? 'localhost',
-      port: Number(process.env.DB_PORT ?? 3306),
-      username: process.env.DB_USER ?? 'root',
-      password: process.env.DB_PASS ?? '',
-      database: process.env.DB_NAME ?? 'fueldb',
-    });
-    await ds.initialize();
+    // Bootstrap the full NestJS application so all providers (TypeORM DataSource,
+    // FuelConsumptionService, FuelDailyRepository, etc.) are properly wired.
+    const moduleRef = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
 
-    const dailyRepo = new FuelDailyRepository(ds as any);
-    // FuelConsumptionService has more dependencies — wire them up manually or
-    // bootstrap via NestJS test module as needed.
-    // This is left as a placeholder for the manual run setup.
-    // consumptionService = ... (instantiate with ds)
+    app = moduleRef.createNestApplication();
+    await app.init();
+
+    consumptionService = app.get(FuelConsumptionService);
+    const dataSource = app.get<DataSource>(getDataSourceToken());
+    const dailyRepo = new FuelDailyRepository(dataSource as any);
     rollup = new FuelRollupService(consumptionService, dailyRepo);
     // sensor = await sensorResolver.resolveAllFuelSensors(IMEI)[0];
+  });
+
+  afterAll(async () => {
+    if (!SKIP) await app?.close();
   });
 
   it('rollup-reconstructed metrics equal whole-range getConsumption (tolerance 0.5 L)', async () => {

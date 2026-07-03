@@ -29,8 +29,9 @@ export class FuelRollupService {
       consumed: r.netDrop !== null ? Math.max(0, r.netDrop + r.refueled) : r.consumed,
       refueled: r.refueled, netDrop: r.netDrop, firstFuel: r.firstFuel, lastFuel: r.lastFuel,
       cost: r.estimatedCost, refuels: r.refuels,
-      firstTs: r.refuels[0] ? new Date(r.refuels[0].at) : null, // ts fields best-effort
-      lastTs: null, samples: r.samples,
+      firstTs: r.refuels[0] ? new Date(r.refuels[0].at) : null,
+      lastTs: r.refuels.length ? new Date(r.refuels[r.refuels.length - 1].at) : null,
+      samples: r.samples,
     });
   }
 
@@ -42,6 +43,15 @@ export class FuelRollupService {
    *  table, which holds the full history. */
   async getConsumptionViaRollup(imei: string, from: Date, to: Date, sensor: FuelSensor, fcr: string): Promise<RangeMetrics> {
     const fullDays = karachiDayStrs(from, to);
+
+    // Fast-path: range is entirely within one Karachi day — no full days, no cache
+    // read needed. A single edge call covers the whole window; without this guard
+    // the leading-edge (firstFullStart=to) and trailing-edge (lastFullEnd=from)
+    // branches would both fire and double-count every litre.
+    if (fullDays.length === 0) {
+      return reconstructRange([await this.edge(imei, sensor, fcr, from, to)]);
+    }
+
     const dailyRows = await this.daily.getDays(imei, sensor.sensorId, fullDays);
     const have = new Set(dailyRows.map((d) => d.day));
 
