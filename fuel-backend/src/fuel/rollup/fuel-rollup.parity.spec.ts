@@ -12,7 +12,20 @@
  * (fuel-rollup.service.spec.ts) — those tests only verify orchestration logic.
  * Only this test, run against real data, constitutes verification of that semantic.
  *
- * To run: FUEL_ROLLUP_PARITY_DB=1 npx jest fuel-rollup.parity
+ * HOW TO RUN:
+ *   1. Set PARITY_IMEI to a real vehicle IMEI that has fuel data in the target DB.
+ *   2. Edit FCR below if needed (JSON fuel-config-rules for that vehicle).
+ *   3. Edit the date range in the test body if needed.
+ *   4. Point DATABASE_URL / DB env vars at the real DB.
+ *   5. Run:
+ *        FUEL_ROLLUP_PARITY_DB=1 PARITY_IMEI=<real_imei> npx jest fuel-rollup.parity
+ *
+ * The test validates the literal-edge boundary semantic: the day-by-day rollup sum
+ * must equal the whole-range getConsumption result within tolerance (0.5 L).
+ * This MUST pass before enabling FUEL_ROLLUP=1 in production.
+ *
+ * When FUEL_ROLLUP_PARITY_DB is unset the entire suite is skipped — 0 tests run,
+ * no DB connection is opened.
  */
 
 import { INestApplication } from '@nestjs/common';
@@ -21,21 +34,27 @@ import { getDataSourceToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../app.module';
 import { FuelConsumptionService } from '../services/fuel-consumption.service';
+import { FuelSensor, FuelSensorResolverService } from '../services/fuel-sensor-resolver.service';
 import { FuelDailyRepository } from './fuel-daily.repository';
 import { FuelRollupService } from './fuel-rollup.service';
 import { karachiDayStrs } from './karachi-day.util';
 
 const SKIP = !process.env.FUEL_ROLLUP_PARITY_DB;
 
-// Replace these with a known vehicle + sensor before running manually:
-const IMEI = 'REPLACE_WITH_REAL_IMEI';
+// ---------------------------------------------------------------------------
+// OPERATOR-EDIT CONSTANTS — set before running manually:
+// ---------------------------------------------------------------------------
+/** Real vehicle IMEI. Override via env: PARITY_IMEI=<imei> or edit here. */
+const IMEI = process.env.PARITY_IMEI ?? 'REPLACE_WITH_REAL_IMEI';
+/** Fuel-config-rules JSON for the vehicle. Edit if the vehicle uses custom rules. */
 const FCR = '{}';
+// ---------------------------------------------------------------------------
 
-describe.skip('FuelRollupService parity (skip unless FUEL_ROLLUP_PARITY_DB=1)', () => {
+(SKIP ? describe.skip : describe)('FuelRollupService parity (skip unless FUEL_ROLLUP_PARITY_DB=1)', () => {
   let app: INestApplication;
   let rollup: FuelRollupService;
   let consumptionService: FuelConsumptionService;
-  let sensor: any;
+  let sensor: FuelSensor;
 
   beforeAll(async () => {
     if (SKIP) return;
@@ -52,7 +71,10 @@ describe.skip('FuelRollupService parity (skip unless FUEL_ROLLUP_PARITY_DB=1)', 
     const dataSource = app.get<DataSource>(getDataSourceToken());
     const dailyRepo = new FuelDailyRepository(dataSource as any);
     rollup = new FuelRollupService(consumptionService, dailyRepo);
-    // sensor = await sensorResolver.resolveAllFuelSensors(IMEI)[0];
+
+    // Resolve the primary fuel sensor for the vehicle under test.
+    const resolver = app.get(FuelSensorResolverService);
+    sensor = await resolver.resolveFuelSensor(IMEI);
   });
 
   afterAll(async () => {

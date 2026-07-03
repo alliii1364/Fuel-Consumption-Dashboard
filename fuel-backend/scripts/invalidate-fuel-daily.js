@@ -25,12 +25,14 @@ async function main() {
   console.log(`[invalidate] Removing cached fd_fuel_daily rows for imei=${imei} ...`);
 
   const app = await NestFactory.createApplicationContext(AppModule, { logger: ['error', 'warn'] });
-  const repo = app.get(FuelDailyRepository);
 
-  await repo.deleteVehicle(imei);
-  console.log(`[invalidate] Done — all fd_fuel_daily rows for ${imei} removed.`);
-
-  await app.close();
+  try {
+    const repo = app.get(FuelDailyRepository);
+    await repo.deleteVehicle(imei);
+    console.log(`[invalidate] Done — all fd_fuel_daily rows for ${imei} removed.`);
+  } finally {
+    await app.close();
+  }
 }
 
 main().catch((e) => {

@@ -44,54 +44,65 @@ async function main() {
 
   const app = await NestFactory.createApplicationContext(AppModule, { logger: ['error', 'warn'] });
 
-  const rollup   = app.get(FuelRollupService);
-  const sensors  = app.get(FuelSensorResolverService);
-  const repo     = app.get(FuelDailyRepository);
+  try {
+    const rollup   = app.get(FuelRollupService);
+    const sensors  = app.get(FuelSensorResolverService);
+    const repo     = app.get(FuelDailyRepository);
 
-  // Raw DataSource is needed only to list vehicles — borrow it from the repo.
-  // FuelDailyRepository uses @InjectDataSource(), so access its ds via the
-  // TypeORM DataSource token registered in the module.
-  const { DataSource } = require('typeorm');
-  const ds = app.get(DataSource);
+    // Raw DataSource is needed only to list vehicles — borrow it from the repo.
+    // FuelDailyRepository uses @InjectDataSource(), so access its ds via the
+    // TypeORM DataSource token registered in the module.
+    const { DataSource } = require('typeorm');
+    const ds = app.get(DataSource);
 
-  // List all vehicles that have reported recently (or all, for a full backfill)
-  const vehicles = await ds.query('SELECT imei, fcr FROM gs_objects');
-  const total = vehicles.length;
-  console.log(`[backfill] Found ${total} vehicles`);
+    // List all vehicles that have reported recently (or all, for a full backfill)
+    const vehicles = await ds.query('SELECT imei, fcr FROM gs_objects');
+    const total = vehicles.length;
+    console.log(`[backfill] Found ${total} vehicles`);
 
-  // Compute the date window once — last DAYS Karachi days up to now
-  const to   = new Date();
-  const from = new Date(to.getTime() - DAYS * 24 * 60 * 60 * 1000);
-  const allDays = karachiDayStrs(from, to);
-  console.log(`[backfill] Window: ${allDays[0]} → ${allDays[allDays.length - 1]} (${allDays.length} days)`);
+    // Compute the date window once — last DAYS Karachi days up to now
+    const to   = new Date();
+    const from = new Date(to.getTime() - DAYS * 24 * 60 * 60 * 1000);
+    const allDays = karachiDayStrs(from, to);
+    console.log(`[backfill] Window: ${allDays[0]} → ${allDays[allDays.length - 1]} (${allDays.length} days)`);
 
-  for (let i = 0; i < total; i++) {
-    const { imei, fcr } = vehicles[i];
+    for (let i = 0; i < total; i++) {
+      const { imei, fcr } = vehicles[i];
 
-    let sensor;
-    try {
-      sensor = await sensors.resolveFuelSensor(imei);
-    } catch (e) {
-      console.log(`[backfill] [${i + 1}/${total}] ${imei}: no fuel sensor, skipping`);
-      await sleep(SLEEP);
-      continue;
-    }
-
-    let newDays = 0;
-    for (const day of allDays) {
-      const already = await repo.hasDay(imei, sensor.sensorId, day);
-      if (!already) {
-        await rollup.computeAndStoreDay(imei, sensor, day, fcr ?? '');
-        newDays++;
+      let sensor;
+      try {
+        sensor = await sensors.resolveFuelSensor(imei);
+      } catch (e) {
+        console.log(`[${i + 1}/${total}] ${imei}: no fuel sensor, skipped`);
+        await sleep(SLEEP);
+        continue;
       }
+
+      // Explicit guard: resolveFuelSensor should throw on no-sensor, but guard
+      // defensively in case it ever returns falsy to prevent a crash on sensor.sensorId.
+      if (!sensor || sensor.sensorId == null) {
+        console.log(`[${i + 1}/${total}] ${imei}: no fuel sensor, skipped`);
+        await sleep(SLEEP);
+        continue;
+      }
+
+      let newDays = 0;
+      for (const day of allDays) {
+        const already = await repo.hasDay(imei, sensor.sensorId, day);
+        if (!already) {
+          await rollup.computeAndStoreDay(imei, sensor, day, fcr ?? '');
+          newDays++;
+        }
+      }
+
+      console.log(`[backfill] [${i + 1}/${total}] ${imei}: ${newDays} new day(s) stored`);
+      await sleep(SLEEP);
     }
 
-    console.log(`[backfill] [${i + 1}/${total}] ${imei}: ${newDays} new day(s) stored`);
-    await sleep(SLEEP);
+    console.log('[backfill] Done.');
+  } finally {
+    await app.close();
   }
-
-  console.log('[backfill] Done.');
-  await app.close();
 }
 
 main().catch((e) => {
