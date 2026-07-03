@@ -4,6 +4,7 @@ import {
   NestModule,
   RequestMethod,
 } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { FuelController } from './fuel.controller';
 import { FuelSensorResolverService } from './services/fuel-sensor-resolver.service';
 import { FuelTransformService } from './services/fuel-transform.service';
@@ -15,8 +16,12 @@ import { ThriftService } from './services/thrift.service';
 import { TheftDetectionService } from './services/theft-detection.service';
 import { TripAnalyzerService } from './services/trip-analyzer.service';
 import { FuelAnomalyMiddleware } from '../common/middleware/fuel-anomaly.middleware';
+import { FuelDailyRepository } from './rollup/fuel-daily.repository';
+import { FuelRollupService } from './rollup/fuel-rollup.service';
+import { FuelRollupCron } from './rollup/fuel-rollup.cron';
 
 @Module({
+  imports: [ScheduleModule.forRoot()],
   controllers: [FuelController],
   providers: [
     FuelSensorResolverService,
@@ -29,6 +34,9 @@ import { FuelAnomalyMiddleware } from '../common/middleware/fuel-anomaly.middlew
     TheftDetectionService,
     TripAnalyzerService,
     FuelAnomalyMiddleware,
+    FuelDailyRepository,
+    FuelRollupService,
+    FuelRollupCron,
   ],
   exports: [
     FuelSensorResolverService,
@@ -41,6 +49,7 @@ import { FuelAnomalyMiddleware } from '../common/middleware/fuel-anomaly.middlew
     TheftDetectionService,
     TripAnalyzerService,
     FuelAnomalyMiddleware,
+    FuelRollupService,
   ],
 })
 export class FuelModule implements NestModule {

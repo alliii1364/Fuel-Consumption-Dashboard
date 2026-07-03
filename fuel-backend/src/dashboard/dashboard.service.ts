@@ -8,6 +8,7 @@ import { DynamicTableQueryService } from '../fuel/services/dynamic-table-query.s
 import { FuelTransformService } from '../fuel/services/fuel-transform.service';
 import { ThriftService } from '../fuel/services/thrift.service';
 import { ThriftRating } from '../fuel/services/thrift.service';
+import { FuelRollupService } from '../fuel/rollup/fuel-rollup.service';
 
 export interface VehicleSummary {
   imei: string;
@@ -88,6 +89,7 @@ export class DashboardService {
     private readonly dynQuery: DynamicTableQueryService,
     private readonly transform: FuelTransformService,
     private readonly thriftService: ThriftService,
+    private readonly rollup: FuelRollupService,
   ) {}
 
   /** Returns a valid Date or null — guards against MySQL zero-date (0000-00-00). */
@@ -156,13 +158,10 @@ export class DashboardService {
       let currentFuel: number | null = null;
 
       try {
-        const result = await this.consumptionService.getConsumption(
-          v.imei,
-          from,
-          to,
-          sensor,
-          v.fcr ?? '',
-        );
+        const useRollup = process.env.FUEL_ROLLUP === '1';
+        const result = useRollup
+          ? await this.rollup.getConsumptionViaRollup(v.imei, from, to, sensor, v.fcr ?? '')
+          : await this.consumptionService.getConsumption(v.imei, from, to, sensor, v.fcr ?? '');
 
         // Mass-balance: actual fuel used = netDrop + refueled (matches the
         // Routes "Period Summary"); fall back to drop-sum when boundaries are
@@ -173,7 +172,7 @@ export class DashboardService {
           consumed = result.consumed;
         }
         refueled = result.refueled;
-        cost = result.estimatedCost;
+        cost = useRollup ? (result as any).cost : (result as any).estimatedCost;
 
         const latestRow = await this.dynQuery.getLatestRow(v.imei);
         if (latestRow) {

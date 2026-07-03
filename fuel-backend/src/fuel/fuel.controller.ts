@@ -27,6 +27,7 @@ import { FuelHistoryDto } from './dto/fuel-history.dto';
 import { FuelConsumptionDto } from './dto/fuel-consumption.dto';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { FuelRollupService } from './rollup/fuel-rollup.service';
 
 @Controller('vehicles/:imei/fuel')
 @UseGuards(AuthGuard('jwt'), ImeiOwnershipGuard)
@@ -43,6 +44,7 @@ export class FuelController {
     private readonly thriftService: ThriftService,
     private readonly theftDetectionService: TheftDetectionService,
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly rollupService: FuelRollupService,
   ) {}
 
   /**
@@ -206,9 +208,33 @@ export class FuelController {
 
     const { from, to } = this.parseDateRange(query.from, query.to);
     const fcrJson = await this.getFcr(imei);
+    const useRollup = process.env.FUEL_ROLLUP === '1';
 
     if (sensorIdStr) {
       const sensor = await this.resolveSensor(imei, sensorIdStr);
+      if (useRollup) {
+        const result = await this.rollupService.getConsumptionViaRollup(imei, from, to, sensor, fcrJson);
+        return {
+          success: true,
+          message: 'Fuel consumption calculated',
+          data: {
+            imei,
+            from: from.toISOString(),
+            to: to.toISOString(),
+            consumed: result.consumed,
+            refueled: result.refueled,
+            estimatedCost: result.cost,
+            unit: sensor.units || 'L',
+            refuelEvents: result.refuels.length,
+            samples: 0,
+            refuels: result.refuels,
+            drops: [],
+            firstFuel: result.firstFuel,
+            lastFuel: result.lastFuel,
+            netDrop: result.netDrop,
+          },
+        };
+      }
       const result = await this.consumptionService.getConsumption(
         imei,
         from,
@@ -227,6 +253,29 @@ export class FuelController {
     const sensors = await this.sensorResolver.resolveAllFuelSensors(imei);
 
     if (sensors.length === 1) {
+      if (useRollup) {
+        const result = await this.rollupService.getConsumptionViaRollup(imei, from, to, sensors[0], fcrJson);
+        return {
+          success: true,
+          message: 'Fuel consumption calculated',
+          data: {
+            imei,
+            from: from.toISOString(),
+            to: to.toISOString(),
+            consumed: result.consumed,
+            refueled: result.refueled,
+            estimatedCost: result.cost,
+            unit: sensors[0].units || 'L',
+            refuelEvents: result.refuels.length,
+            samples: 0,
+            refuels: result.refuels,
+            drops: [],
+            firstFuel: result.firstFuel,
+            lastFuel: result.lastFuel,
+            netDrop: result.netDrop,
+          },
+        };
+      }
       const result = await this.consumptionService.getConsumption(
         imei,
         from,
@@ -244,7 +293,17 @@ export class FuelController {
     // Multi-tank: calculate per tank then aggregate
     const tankResults = await Promise.all(
       sensors.map((sensor) =>
-        this.consumptionService.getConsumption(imei, from, to, sensor, fcrJson),
+        useRollup
+          ? this.rollupService.getConsumptionViaRollup(imei, from, to, sensor, fcrJson).then((result) => ({
+              consumed: result.consumed,
+              refueled: result.refueled,
+              estimatedCost: result.cost,
+              refuelEvents: result.refuels.length,
+              samples: 0,
+              refuels: result.refuels,
+              drops: [] as any[],
+            }))
+          : this.consumptionService.getConsumption(imei, from, to, sensor, fcrJson),
       ),
     );
 
@@ -324,6 +383,7 @@ export class FuelController {
 
     const { from, to } = this.parseDateRange(query.from, query.to);
     const fcrJson = await this.getFcr(imei);
+    const useRollup = process.env.FUEL_ROLLUP === '1';
     const sensors = sensorIdStr
       ? [await this.resolveSensor(imei, sensorIdStr)]
       : await this.sensorResolver.resolveAllFuelSensors(imei);
@@ -339,14 +399,10 @@ export class FuelController {
     }> = [];
 
     for (const sensor of sensors) {
-      const result = await this.consumptionService.getConsumption(
-        imei,
-        from,
-        to,
-        sensor,
-        fcrJson,
-      );
-      for (const r of result.refuels) {
+      const refuels = useRollup
+        ? (await this.rollupService.getConsumptionViaRollup(imei, from, to, sensor, fcrJson)).refuels
+        : (await this.consumptionService.getConsumption(imei, from, to, sensor, fcrJson)).refuels;
+      for (const r of refuels) {
         allRefuels.push({
           sensorId: sensor.sensorId,
           sensorName: sensor.name,
