@@ -268,6 +268,8 @@ export function reconstructRange(parts: DailyMetrics[]): RangeMetrics {
   - `upsertDay(imei:string, sensorId:number, m: DailyMetrics & { firstTs:Date|null; lastTs:Date|null; samples:number }): Promise<void>`
   - `getDays(imei:string, sensorId:number, dayStrs:string[]): Promise<DailyMetrics[]>`
   - `hasDay(imei:string, sensorId:number, day:string): Promise<boolean>`
+  - `deleteVehicle(imei:string): Promise<void>` — invalidate a vehicle's cache (unit replacement)
+  - `deleteOrphans(): Promise<number>` — drop rows whose imei is gone from gs_objects
 
 - [ ] **Step 1: Write failing test (row → DailyMetrics mapping is the risk)**
 
@@ -364,6 +366,22 @@ export class FuelDailyRepository {
     );
     return r.length > 0;
   }
+
+  /** Invalidation — drop all cached rows for a vehicle (run after a unit
+   *  replacement / IMEI reuse so the next query recomputes cleanly). */
+  async deleteVehicle(imei: string): Promise<void> {
+    await this.ds.query(`DELETE FROM fd_fuel_daily WHERE imei=?`, [imei]);
+  }
+
+  /** Orphan cleanup — cached rows whose imei no longer exists in gs_objects. */
+  async deleteOrphans(): Promise<number> {
+    const r: any = await this.ds.query(
+      `DELETE fd FROM fd_fuel_daily fd
+       LEFT JOIN gs_objects o ON o.imei = fd.imei
+       WHERE o.imei IS NULL`,
+    );
+    return r?.affectedRows ?? 0;
+  }
 }
 ```
 
@@ -445,12 +463,29 @@ export class FuelRollupService {
     });
   }
 
-  /** Range metrics from rollup rows + edge-day recompute. */
+  /** Range metrics from cached rollup rows + compute-on-miss for absent full
+   *  days + edge-day recompute. fd_fuel_daily is a CACHE: any full day not
+   *  present is recomputed from raw and stored (never assumed 0). This is what
+   *  makes the read path correct across backfill gaps AND IMEI renames — after
+   *  a rename the new imei simply misses and recomputes from its (renamed) raw
+   *  table, which holds the full history. */
   async getConsumptionViaRollup(imei: string, from: Date, to: Date, sensor: FuelSensor, fcr: string): Promise<RangeMetrics> {
     const fullDays = karachiDayStrs(from, to);
     const dailyRows = await this.daily.getDays(imei, sensor.sensorId, fullDays);
+    const have = new Set(dailyRows.map((d) => d.day));
 
-    const parts: DailyMetrics[] = [...dailyRows];
+    // Compute-on-miss: any full day not in the cache is computed from raw now
+    // (and stored for next time). Never drop/zero a missing day.
+    for (const day of fullDays) {
+      if (!have.has(day)) {
+        await this.computeAndStoreDay(imei, sensor, day, fcr);
+      }
+    }
+    const rows = have.size === fullDays.length
+      ? dailyRows
+      : await this.daily.getDays(imei, sensor.sensorId, fullDays);
+
+    const parts: DailyMetrics[] = [...rows];
     // Leading partial day (range starts mid-day)
     if (!isDayAligned(from)) {
       const firstFullStart = fullDays.length ? dayUtcRange(fullDays[0]).start : to;
@@ -487,6 +522,7 @@ export class FuelRollupService {
 **Files:**
 - Create: `fuel-backend/src/fuel/rollup/fuel-rollup.cron.ts`
 - Create: `fuel-backend/scripts/backfill-fuel-daily.js`
+- Create: `fuel-backend/scripts/invalidate-fuel-daily.js` (drop one vehicle's cached rows after a unit swap: bootstraps a context, resolves `FuelDailyRepository`, calls `deleteVehicle(process.argv[2])`)
 
 **Interfaces:**
 - Consumes: `FuelRollupService`, `FuelSensorResolverService`, `DataSource` (to list vehicles).
@@ -593,6 +629,7 @@ FUEL_ROLLUP=0
 4. Run the parity check for 2–3 vehicles/ranges → confirm numbers match.
 5. Set `FUEL_ROLLUP=1` in prod `.env` → `pm2 restart 30` → measure. Cron keeps it current.
 6. Rollback anytime: `FUEL_ROLLUP=0` + restart.
+7. **After a unit replacement / IMEI rename**: `node scripts/invalidate-fuel-daily.js <newIMEI>` (drops that vehicle's cached rows so it recomputes cleanly). Not strictly required — the cache computes-on-miss and the cron recomputes recent days — but do it if an IMEI was *reused* to avoid a stale hit.
 
 ## Self-Review
 

@@ -89,10 +89,17 @@ cost / refuel_events`. No new fuel math — same code path.
   skipping days already present, with a short pause between vehicles. Resumable
   (idempotent upsert on the PK).
 
+### `fd_fuel_daily` is a CACHE, not a source of truth
+Correctness never depends on the rollup being complete. Any day not present (or
+invalidated) is computed from raw on demand. This makes the whole feature safe
+against backfill gaps and — critically — **IMEI renames** (see below).
+
 ### Query path (range `[from, to]`)
-- **Full Karachi-days inside the range** → read from `fd_fuel_daily` (fast).
-- **Partial edge days** (range not day-aligned) → recompute only those 1–2 days
-  from raw via the existing service (small).
+- **Full Karachi-days inside the range** → use the cached `fd_fuel_daily` row if
+  present; **otherwise recompute that day from raw** (via the existing service)
+  and store it. **Never assume 0 for a missing full day.**
+- **Partial edge days** (range not day-aligned) → always recompute those 1–2
+  days from raw via the existing service (small).
 - **Reconstruct range metrics** (identical to today's summary math):
   - `refueled = Σ daily refueled` (+ edge days)
   - `rangeNetDrop = firstDay.first_fuel − lastDay.last_fuel`
@@ -106,6 +113,32 @@ cost / refuel_events`. No new fuel math — same code path.
 `fuel/history` (arbitrary-interval time-series — needs a separate downsampled
 series) and `fuel/stats` (min/max/avg — needs different daily aggregates).
 Those keep today's raw path and are a Phase 2.
+
+## IMEI rename / unit replacement (domain fact — must handle)
+
+When a tracker unit is replaced, the system does **not** create a new table:
+it **renames the old IMEI to the new IMEI** in `gs_objects` (whose PK *is*
+`imei` — there is no separate stable object id) **and renames the raw table**
+`gs_object_data_<oldIMEI>` → `gs_object_data_<newIMEI>`. So the renamed table
+carries the vehicle's full history under the new IMEI.
+
+Because `fd_fuel_daily` is a cache with compute-on-miss, this is handled with no
+special logic on the read path:
+- After a rename A→B, a query for **B** finds no cached rows for the old dates →
+  it **recomputes them from raw** — and `gs_object_data_B` (the renamed table)
+  has that full history → correct numbers.
+- The old `fd_fuel_daily` rows keyed by **A** are simply never queried again
+  (A is gone from `gs_objects`). They are harmless orphans.
+
+Operational safeguards:
+- **Invalidation on replacement**: `FuelDailyRepository.deleteVehicle(imei)` +
+  a tiny script `scripts/invalidate-fuel-daily.js <imei>` to drop a vehicle's
+  cached rows, forcing a clean recompute — run this after a known unit swap (in
+  case an IMEI is *reused* and could otherwise return a stale cache hit).
+- **Orphan cleanup** (optional cron/manual): delete `fd_fuel_daily` rows whose
+  `imei` is not in `gs_objects`.
+- The incremental cron recomputes the last ~2 days regardless, so current data
+  self-corrects after a swap.
 
 ## Accuracy — the main technical risk
 
