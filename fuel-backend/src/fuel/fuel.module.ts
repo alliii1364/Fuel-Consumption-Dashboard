@@ -4,7 +4,6 @@ import {
   NestModule,
   RequestMethod,
 } from '@nestjs/common';
-import { ScheduleModule } from '@nestjs/schedule';
 import { FuelController } from './fuel.controller';
 import { FuelSensorResolverService } from './services/fuel-sensor-resolver.service';
 import { FuelTransformService } from './services/fuel-transform.service';
@@ -21,7 +20,7 @@ import { FuelRollupService } from './rollup/fuel-rollup.service';
 import { FuelRollupCron } from './rollup/fuel-rollup.cron';
 
 @Module({
-  imports: [ScheduleModule.forRoot()],
+  imports: [],
   controllers: [FuelController],
   providers: [
     FuelSensorResolverService,

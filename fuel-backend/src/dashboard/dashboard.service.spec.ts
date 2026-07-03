@@ -122,6 +122,24 @@ describe('DashboardService — FUEL_ROLLUP flag routing', () => {
     expect(summary.vehicles).toHaveLength(1);
   });
 
+  // T1b: rollup mass-balance formula — consumed = max(0, netDrop + refueled)
+  // ROLLUP_RESULT: netDrop=30, refueled=20 → expected consumed = max(0,30+20) = 50
+  test('T1b: rollup path applies mass-balance: consumed = max(0, netDrop + refueled)', async () => {
+    process.env.FUEL_ROLLUP = '1';
+    // Override rollup result so netDrop is explicitly non-null and distinct from consumed field
+    const rollupResultWithNetDrop = { ...ROLLUP_RESULT, netDrop: 30, refueled: 20, consumed: 999 }; // consumed field ignored when netDrop present
+    const { svc } = makeDashboardService({
+      getConsumptionViaRollup: jest.fn().mockResolvedValue(rollupResultWithNetDrop),
+    });
+
+    const summary = await svc.getSummary(1, FROM, TO);
+
+    // consumed should be max(0, netDrop + refueled) = max(0, 30 + 20) = 50
+    expect(summary.vehicles[0].consumed).toBe(50);
+    // Totals should reflect the same mass-balance value
+    expect(summary.totals.consumed).toBe(50);
+  });
+
   // T2: FUEL_ROLLUP=0 → raw path called, rollup path NOT called
   test('T2: FUEL_ROLLUP=0 → consumptionService.getConsumption called; rollup.getConsumptionViaRollup NOT called', async () => {
     process.env.FUEL_ROLLUP = '0';
