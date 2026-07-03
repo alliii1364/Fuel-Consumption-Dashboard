@@ -6,7 +6,9 @@
 // resumable: days already present in fd_fuel_daily are skipped via hasDay().
 //
 // Usage:
-//   node scripts/backfill-fuel-daily.js [--days=120] [--sleep=300]
+//   node scripts/backfill-fuel-daily.js [--days=120] [--sleep=300] [--imei=A,B]
+//   --imei : optional comma-separated IMEI list to backfill ONLY those vehicles
+//            (omit to backfill the whole fleet).
 //
 // DO NOT run against production without ops sign-off.  READ-only on gs_*;
 // writes only fd_fuel_daily.
@@ -29,8 +31,19 @@ function parseArg(name, defaultVal) {
   return found ? parseInt(found.slice(flag.length), 10) : defaultVal;
 }
 
+function parseStrArg(name) {
+  const flag = `--${name}=`;
+  const found = process.argv.slice(2).find((a) => a.startsWith(flag));
+  return found ? found.slice(flag.length) : null;
+}
+
 const DAYS  = parseArg('days', 120);
 const SLEEP = parseArg('sleep', 300);
+// Optional comma-separated IMEI whitelist (trimmed, empties dropped).
+const IMEIS = (parseStrArg('imei') || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -55,10 +68,25 @@ async function main() {
     const { DataSource } = require('typeorm');
     const ds = app.get(DataSource);
 
-    // List all vehicles that have reported recently (or all, for a full backfill)
-    const vehicles = await ds.query('SELECT imei, fcr FROM gs_objects');
+    // List vehicles: the given IMEI whitelist, or the whole fleet.
+    let vehicles;
+    if (IMEIS.length) {
+      const placeholders = IMEIS.map(() => '?').join(',');
+      vehicles = await ds.query(
+        `SELECT imei, fcr FROM gs_objects WHERE imei IN (${placeholders})`,
+        IMEIS,
+      );
+      const foundImeis = new Set(vehicles.map((v) => String(v.imei)));
+      const missing = IMEIS.filter((i) => !foundImeis.has(i));
+      if (missing.length) {
+        console.log(`[backfill] WARNING: not found in gs_objects: ${missing.join(', ')}`);
+      }
+      console.log(`[backfill] Targeting ${vehicles.length} of ${IMEIS.length} requested IMEI(s)`);
+    } else {
+      vehicles = await ds.query('SELECT imei, fcr FROM gs_objects');
+      console.log(`[backfill] Found ${vehicles.length} vehicles (full fleet)`);
+    }
     const total = vehicles.length;
-    console.log(`[backfill] Found ${total} vehicles`);
 
     // Compute the date window once — last DAYS Karachi days up to now
     const to   = new Date();
