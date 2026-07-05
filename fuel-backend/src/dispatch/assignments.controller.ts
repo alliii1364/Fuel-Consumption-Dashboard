@@ -21,6 +21,7 @@ import { RouteRepository } from './services/route.repository';
 import { MonitoringService } from './services/monitoring.service';
 import { DriverAppRepository } from './services/driver-app.repository';
 import { PushService } from './services/push.service';
+import { StopCompletionRepository } from './services/stop-completion.repository';
 import { CreateAssignmentDto, UpdateStatusDto } from './dto/dispatch.dto';
 import { assertManagerTransition } from './services/status.util';
 
@@ -35,6 +36,7 @@ export class AssignmentsController {
     private readonly monitoring: MonitoringService,
     private readonly driverApp: DriverAppRepository,
     private readonly push: PushService,
+    private readonly stopCompletions: StopCompletionRepository,
   ) {}
 
   @Post()
@@ -126,6 +128,7 @@ export class AssignmentsController {
     const assignment = await this.assignments.get(req.user.id, id);
     const { analysis, route } = await this.monitoring.evaluate(assignment, false);
     const events = await this.assignments.listEvents(id, 50);
+    const stopCompletions = await this.stopCompletions.listForAssignment(id);
     return {
       success: true,
       message: 'Live status',
@@ -142,6 +145,7 @@ export class AssignmentsController {
           totalDistanceKm: route.totalDistanceKm,
         },
         events,
+        stopCompletions,
       },
     };
   }

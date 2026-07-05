@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -23,6 +24,8 @@ import {
 } from './services/assignment.repository';
 import { RouteRepository } from './services/route.repository';
 import { DriverAppRepository } from './services/driver-app.repository';
+import { StopCompletionRepository } from './services/stop-completion.repository';
+import { StopCompletionService } from './services/stop-completion.service';
 import {
   ProofOfDeliveryDto,
   RegisterDeviceDto,
@@ -42,6 +45,8 @@ export class DriverPortalController {
     private readonly assignments: AssignmentRepository,
     private readonly routes: RouteRepository,
     private readonly driverApp: DriverAppRepository,
+    private readonly stopCompletions: StopCompletionService,
+    private readonly stopCompletionRepo: StopCompletionRepository,
   ) {}
 
   @Get('jobs')
@@ -54,6 +59,9 @@ export class DriverPortalController {
   async jobDetail(@Request() req: any, @Param('id', ParseIntPipe) id: number) {
     const assignment = await this.assignments.getForDriver(req.user.driverId, id);
     const route = await this.routes.get(assignment.userId, assignment.routeId);
+    const stopCompletions = await this.stopCompletionRepo.listForAssignment(
+      assignment.assignmentId,
+    );
     return {
       success: true,
       message: 'Job fetched',
@@ -67,6 +75,7 @@ export class DriverPortalController {
           totalDistanceKm: route.totalDistanceKm,
           totalDurationS: route.totalDurationS,
         },
+        stopCompletions,
       },
     };
   }
@@ -186,5 +195,51 @@ export class DriverPortalController {
     });
 
     return { success: true, message: 'Proof captured', data: { podId, photoPath } };
+  }
+
+  /**
+   * Driver marks a bin complete: requires a photo and a GPS fix; the fix is
+   * verified against the bin's geofence (out-of-range accepted but flagged).
+   * Completing the last bin auto-completes the job.
+   */
+  @Post('jobs/:id/stops/:stopId/complete')
+  @UseInterceptors(FileInterceptor('photo'))
+  async completeStop(
+    @Request() req: any,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('stopId', ParseIntPipe) stopId: number,
+    @UploadedFile() file: { buffer: Buffer; originalname: string } | undefined,
+    @Body() body: Record<string, string>,
+  ) {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('A photo is required to complete a bin');
+    }
+    const lat = Number(body.lat);
+    const lng = Number(body.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      throw new BadRequestException('Location is required — enable GPS and try again');
+    }
+
+    const dir = join(UPLOADS_DIR, 'completions');
+    await fs.mkdir(dir, { recursive: true });
+    const ext =
+      (file.originalname.split('.').pop() || 'jpg').replace(/[^a-z0-9]/gi, '') || 'jpg';
+    const name = `bin_${id}_${stopId}_${Date.now()}.${ext}`;
+    await fs.writeFile(join(dir, name), file.buffer);
+
+    const accuracyM =
+      body.accuracyM != null && body.accuracyM !== '' ? Number(body.accuracyM) : null;
+    const data = await this.stopCompletions.complete(req.user.driverId, id, stopId, {
+      lat,
+      lng,
+      accuracyM: Number.isFinite(accuracyM as number) ? accuracyM : null,
+      note: body.note || null,
+      photoPath: `completions/${name}`,
+    });
+    return {
+      success: true,
+      message: data.jobCompleted ? 'Bin completed — job finished' : 'Bin completed',
+      data,
+    };
   }
 }
