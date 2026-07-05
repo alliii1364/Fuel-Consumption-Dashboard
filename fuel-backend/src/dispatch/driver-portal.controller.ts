@@ -229,13 +229,20 @@ export class DriverPortalController {
 
     const accuracyM =
       body.accuracyM != null && body.accuracyM !== '' ? Number(body.accuracyM) : null;
-    const data = await this.stopCompletions.complete(req.user.driverId, id, stopId, {
-      lat,
-      lng,
-      accuracyM: Number.isFinite(accuracyM as number) ? accuracyM : null,
-      note: body.note || null,
-      photoPath: `completions/${name}`,
-    });
+    let data;
+    try {
+      data = await this.stopCompletions.complete(req.user.driverId, id, stopId, {
+        lat,
+        lng,
+        accuracyM: Number.isFinite(accuracyM as number) ? accuracyM : null,
+        note: body.note || null,
+        photoPath: `completions/${name}`,
+      });
+    } catch (err) {
+      // Validation failed after the photo hit disk — don't leave an orphan.
+      await fs.unlink(join(dir, name)).catch(() => {});
+      throw err;
+    }
     return {
       success: true,
       message: data.jobCompleted ? 'Bin completed — job finished' : 'Bin completed',
