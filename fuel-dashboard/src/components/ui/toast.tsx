@@ -97,7 +97,20 @@ function Toaster({ items, onClose }: { items: ToastItem[]; onClose: (id: number)
             </div>
             <div
               className={`flex-1 min-w-0${t.href ? " cursor-pointer" : ""}`}
+              role={t.href ? "button" : undefined}
+              tabIndex={t.href ? 0 : undefined}
               onClick={t.href ? () => { window.location.href = t.href!; onClose(t.id); } : undefined}
+              onKeyDown={
+                t.href
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        window.location.href = t.href!;
+                        onClose(t.id);
+                      }
+                    }
+                  : undefined
+              }
             >
               <p className="text-sm font-semibold" style={{ color: "var(--color-text-1)" }}>{t.title}</p>
               {t.description && (
