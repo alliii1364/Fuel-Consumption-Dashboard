@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ToastProvider } from "@/components/ui";
+import AlertWatcher from "@/components/AlertWatcher";
 
 // Self-hosted brand font. `variable` exposes it as --font-inter, which the
 // --font-sans design token (globals.css) consumes ahead of the system stack.
@@ -24,7 +25,10 @@ export default function RootLayout({
     <html lang="en" className={inter.variable}>
       <body>
         <ToastProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <AlertWatcher />
+            {children}
+          </AuthProvider>
         </ToastProvider>
       </body>
     </html>

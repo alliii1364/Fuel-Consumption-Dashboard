@@ -13,6 +13,8 @@ interface ToastItem {
   title: string;
   description?: string;
   duration?: number;
+  /** When set, clicking the toast body navigates here. */
+  href?: string;
 }
 
 interface ToastApi {
@@ -93,7 +95,10 @@ function Toaster({ items, onClose }: { items: ToastItem[]; onClose: (id: number)
             >
               <Icon size={15} style={{ color: s.color }} />
             </div>
-            <div className="flex-1 min-w-0">
+            <div
+              className={`flex-1 min-w-0${t.href ? " cursor-pointer" : ""}`}
+              onClick={t.href ? () => { window.location.href = t.href!; onClose(t.id); } : undefined}
+            >
               <p className="text-sm font-semibold" style={{ color: "var(--color-text-1)" }}>{t.title}</p>
               {t.description && (
                 <p className="text-xs mt-0.5 break-words" style={{ color: "var(--color-text-2)" }}>{t.description}</p>
