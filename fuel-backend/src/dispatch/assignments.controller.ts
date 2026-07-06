@@ -56,6 +56,7 @@ export class AssignmentsController {
       priority: dto.priority,
       scheduledStart: dto.scheduledStart ?? null,
       notes: dto.notes ?? null,
+      persistent: dto.persistent,
     });
     const data = await this.assignments.get(req.user.id, id);
     // Notify the driver's device(s) of the new job (best-effort).
@@ -243,5 +244,21 @@ export class AssignmentsController {
       data: { jobId: String(id), type: 'cancel' },
     });
     return { success: true, message: 'Assignment cancelled', data };
+  }
+
+  @Patch(':id/persistent')
+  async setPersistent(@Request() req: any, @Param('id', ParseIntPipe) id: number, @Body() dto: { persistent: boolean }) {
+    await this.assignments.get(req.user.id, id); // ownership
+    await this.assignments.setPersistent(req.user.id, id, !!dto.persistent);
+    const data = await this.assignments.get(req.user.id, id);
+    return { success: true, message: 'Updated', data };
+  }
+
+  @Post(':id/reset')
+  async reset(@Request() req: any, @Param('id', ParseIntPipe) id: number) {
+    await this.assignments.get(req.user.id, id); // ownership
+    await this.assignments.resetAssignment(id);
+    const data = await this.assignments.get(req.user.id, id);
+    return { success: true, message: 'Assignment reset for a new run', data };
   }
 }

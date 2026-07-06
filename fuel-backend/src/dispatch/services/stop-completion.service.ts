@@ -18,6 +18,8 @@ export interface CompleteStopResult {
   completion: StopCompletion;
   /** True when this was the last bin and the job flipped to completed. */
   jobCompleted: boolean;
+  /** True when this was the last bin of a persistent job and it was reset instead. */
+  jobReset: boolean;
   stopCompletions: StopCompletion[];
 }
 
@@ -113,21 +115,21 @@ export class StopCompletionService {
 
     const all = await this.completions.listForAssignment(assignmentId);
     const done = new Set(all.map((c) => c.stopId));
-    const jobCompleted = route.stops.every(
-      (s) => s.stopId != null && done.has(s.stopId),
-    );
-    if (jobCompleted) {
-      await this.assignments.setStatus(
-        assignmentId,
-        assignment.status,
-        'completed',
-        'system',
-      );
+    const allDone = route.stops.every((s) => s.stopId != null && done.has(s.stopId));
+    let jobReset = false;
+    if (allDone) {
+      if ((assignment as any).persistent) {
+        await this.assignments.resetAssignment(assignmentId);
+        jobReset = true;
+      } else {
+        await this.assignments.setStatus(assignmentId, assignment.status, 'completed', 'system');
+      }
     }
 
     return {
       completion: all.find((c) => c.stopId === stopId)!,
-      jobCompleted,
+      jobCompleted: allDone && !jobReset,
+      jobReset,
       stopCompletions: all,
     };
   }

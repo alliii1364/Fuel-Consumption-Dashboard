@@ -7,6 +7,7 @@ function makeFakes(opts: {
   status?: string;
   stops?: Array<{ stopId: number; seq: number; name: string; lat: number; lng: number; radiusM: number }>;
   existing?: StopCompletion[];
+  persistent?: boolean;
 }) {
   const stops = opts.stops ?? [
     { stopId: 11, seq: 1, name: 'Bin 1', lat: 0, lng: 0, radiusM: 100 },
@@ -23,9 +24,11 @@ function makeFakes(opts: {
       routeId: 7,
       driverId: 3,
       status: opts.status ?? 'en_route',
+      persistent: opts.persistent ?? false,
     })),
     addEvent: jest.fn(async (_id: number, e: any) => { events.push(e); }),
     setStatus: jest.fn(async (...args: any[]) => { statusCalls.push(args); }),
+    resetAssignment: jest.fn(async () => {}),
   };
   const routes = { get: jest.fn(async () => ({ stops })) };
   let nextId = 100;
@@ -122,5 +125,16 @@ describe('StopCompletionService.complete', () => {
     const f = makeFakes({});
     const r = await f.svc.complete(3, 5, 11, { lat: 0, lng: 0.0001, photoPath: null }, false);
     expect(r.completion.stopId).toBe(11);
+  });
+
+  it('resets a persistent job instead of completing it on the last bin', async () => {
+    const f = makeFakes({
+      persistent: true,
+      existing: [{ id: 1, assignmentId: 5, stopId: 11, driverId: 3, lat: 0, lng: 0, accuracyM: null, distanceM: 5, inRange: true, photoPath: 'p', note: null, createdAt: new Date() }],
+    });
+    const r = await f.svc.complete(3, 5, 12, { lat: 0, lng: 0.0101, photoPath: 'p' }, true);
+    expect(r.jobReset).toBe(true);
+    expect(f.assignments.resetAssignment).toHaveBeenCalledWith(5);
+    expect(f.statusCalls).toHaveLength(0); // did NOT setStatus('completed')
   });
 });

@@ -36,6 +36,7 @@ export interface AssignmentRecord {
   createdAt: Date;
   startedAt: Date | null;
   completedAt: Date | null;
+  persistent: boolean;
 }
 
 export interface RouteEvent {
@@ -72,13 +73,14 @@ export class AssignmentRepository {
       priority?: string;
       scheduledStart?: string | null;
       notes?: string | null;
+      persistent?: boolean;
     },
   ): Promise<number> {
     await this.assertOwnership(userId, data.routeId, data.driverId, data.imei);
     const result = await this.ds.query(
       `INSERT INTO fd_assignments
-         (user_id, route_id, driver_id, imei, status, priority, scheduled_start, notes, assigned_at)
-       VALUES (?, ?, ?, ?, 'assigned', ?, ?, ?, NOW())`,
+         (user_id, route_id, driver_id, imei, status, priority, scheduled_start, notes, persistent, assigned_at)
+       VALUES (?, ?, ?, ?, 'assigned', ?, ?, ?, ?, NOW())`,
       [
         userId,
         data.routeId,
@@ -87,6 +89,7 @@ export class AssignmentRepository {
         data.priority || 'normal',
         data.scheduledStart ? new Date(data.scheduledStart) : null,
         data.notes ?? null,
+        data.persistent ? 1 : 0,
       ],
     );
     const id = result.insertId as number;
@@ -379,6 +382,24 @@ export class AssignmentRepository {
     return rows[0]?.max_id ?? 0;
   }
 
+  async setPersistent(userId: number, assignmentId: number, persistent: boolean): Promise<void> {
+    await this.ds.query(
+      `UPDATE fd_assignments SET persistent = ? WHERE assignment_id = ? AND user_id = ?`,
+      [persistent ? 1 : 0, assignmentId, userId],
+    );
+  }
+
+  /** Reset a (persistent) assignment for a fresh run: clear completions, reopen. */
+  async resetAssignment(assignmentId: number): Promise<void> {
+    await this.ds.query(`DELETE FROM fd_stop_completions WHERE assignment_id = ?`, [assignmentId]);
+    await this.ds.query(
+      `UPDATE fd_assignments SET status = 'assigned', completed_at = NULL, progress_pct = NULL, off_route = 0
+       WHERE assignment_id = ?`,
+      [assignmentId],
+    );
+    await this.addEvent(assignmentId, { type: 'run_reset', actor: 'system', note: 'Assignment reset for a new run' });
+  }
+
   private map(r: any): AssignmentRecord {
     return {
       assignmentId: r.assignment_id,
@@ -401,6 +422,7 @@ export class AssignmentRepository {
       createdAt: r.created_at,
       startedAt: r.started_at,
       completedAt: r.completed_at,
+      persistent: r.persistent === 1,
     };
   }
 }

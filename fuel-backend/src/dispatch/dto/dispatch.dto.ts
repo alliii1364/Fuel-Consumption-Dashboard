@@ -223,6 +223,10 @@ export class CreateAssignmentDto {
   @IsString()
   @MaxLength(1024)
   notes?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  persistent?: boolean;
 }
 
 export class UpdateStatusDto {
