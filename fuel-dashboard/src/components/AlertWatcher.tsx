@@ -7,7 +7,6 @@ import { useToast } from "@/components/ui";
 import { getDeviationAlerts } from "@/lib/dispatch";
 
 const POLL_MS = 20_000;
-const CURSOR_KEY = "fueliq_alert_cursor";
 
 /**
  * Portal-wide deviation popups: polls the alert feed while a manager is
@@ -15,7 +14,7 @@ const CURSOR_KEY = "fueliq_alert_cursor";
  * localStorage so a refresh doesn't re-toast). Inert on driver/login pages.
  */
 export default function AlertWatcher() {
-  const { token } = useAuth();
+  const { token, username } = useAuth();
   const pathname = usePathname();
   const toast = useToast();
   const busy = useRef(false);
@@ -26,18 +25,19 @@ export default function AlertWatcher() {
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
+    const cursorKey = `fueliq_alert_cursor_${username || "anon"}`;
 
     async function poll() {
       if (busy.current || cancelled) return;
       busy.current = true;
       try {
-        const raw = localStorage.getItem(CURSOR_KEY);
+        const raw = localStorage.getItem(cursorKey);
         const since = raw != null && raw !== "" ? Number(raw) : NaN;
         const { cursor, alerts } = await getDeviationAlerts(
           token!,
           Number.isFinite(since) ? since : undefined,
         );
-        localStorage.setItem(CURSOR_KEY, String(cursor));
+        localStorage.setItem(cursorKey, String(cursor));
         if (!cancelled) {
           for (const a of alerts) {
             toast.show({
@@ -59,7 +59,7 @@ export default function AlertWatcher() {
     void poll();
     const id = setInterval(() => void poll(), POLL_MS);
     return () => { cancelled = true; clearInterval(id); };
-  }, [enabled, token, toast]);
+  }, [enabled, token, username, toast]);
 
   return null;
 }
