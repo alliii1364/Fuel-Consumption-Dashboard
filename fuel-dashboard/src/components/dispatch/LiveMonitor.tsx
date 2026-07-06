@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { X, AlertTriangle, CheckCircle2, Navigation, Gauge, Camera, Satellite, Smartphone, CircleSlash, Circle, Clock, Info } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { getAssignmentLive, getAssignmentProof, LiveStatus, PodRecord, StopVisitStatus, StopCompletion } from "@/lib/dispatch";
+import { getAssignmentLive, getAssignmentProof, setEventRemark, LiveStatus, PodRecord, RouteEvent, StopVisitStatus, StopCompletion } from "@/lib/dispatch";
 
 const DispatchMap = dynamic(() => import("./DispatchMap"), { ssr: false });
 
@@ -21,6 +21,7 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
   const [pod, setPod] = useState<PodRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [showLegend, setShowLegend] = useState(false);
+  const [remarks, setRemarks] = useState<Record<number, string>>({});
   // Remember the user's distance-unit preference across sessions. Lazy init is
   // safe here: this modal only mounts client-side (opened on click), so there
   // is no SSR pass to cause a hydration mismatch.
@@ -53,6 +54,14 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
     const id = setInterval(load, 15_000); // poll every 15s
     return () => clearInterval(id);
   }, [load]);
+
+  async function saveRemark(ev: RouteEvent) {
+    if (!token) return;
+    try {
+      await setEventRemark(token, assignmentId, ev.eventId, remarks[ev.eventId] ?? "");
+      await load();
+    } catch { /* surfaced on next poll */ }
+  }
 
   const a = live?.analysis;
   const completionByStop = new Map(
@@ -246,6 +255,20 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
                         </span>{" "}
                         <span className="text-gray-500">{ev.note || ev.toStatus || ""}</span>
                         <div className="text-gray-400">{new Date(ev.createdAt).toLocaleString()}</div>
+                        {(ev.type === "deviation" || ev.type === "stop_skipped") && (
+                          <div className="mt-1 flex gap-1">
+                            <input
+                              defaultValue={ev.remark ?? ""}
+                              onChange={(e) => setRemarks((m) => ({ ...m, [ev.eventId]: e.target.value }))}
+                              placeholder="Add reason…"
+                              className="flex-1 min-w-0 px-1.5 py-0.5 border rounded text-[11px]"
+                              style={{ borderColor: "#E5E7EB" }}
+                            />
+                            <button onClick={() => saveRemark(ev)} className="px-2 py-0.5 rounded text-[11px] font-semibold text-white" style={{ background: "var(--color-primary)" }}>
+                              Save
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

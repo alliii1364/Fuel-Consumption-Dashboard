@@ -40,9 +40,12 @@ export default function AlertWatcher() {
         localStorage.setItem(cursorKey, String(cursor));
         if (!cancelled) {
           for (const a of alerts) {
+            const isSkip = a.alertType === "stop_skipped";
             toast.show({
               tone: "error",
-              title: `${a.driverName || "Driver"} is ${a.distanceM != null ? `${a.distanceM}m ` : ""}off route`,
+              title: isSkip
+                ? `${a.driverName || "Driver"} skipped ${a.stopName || "a stop"}`
+                : `${a.driverName || "Driver"} is ${a.distanceM != null ? `${a.distanceM}m ` : ""}off route`,
               description: `${a.routeName || "Route"} — tap to open the live monitor`,
               href: "/dispatch/monitor",
               duration: 10_000,

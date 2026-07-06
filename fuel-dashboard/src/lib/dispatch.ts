@@ -129,6 +129,7 @@ export interface RouteEvent {
   distanceM: number | null;
   actor: string;
   note: string | null;
+  remark?: string | null;
   createdAt: string;
 }
 
@@ -154,6 +155,8 @@ export interface DeviationAlert {
   driverName: string | null;
   routeName: string | null;
   distanceM: number | null;
+  alertType: string;
+  stopName: string | null;
   at: string;
 }
 
@@ -516,6 +519,14 @@ export const getDeviationAlerts = (token: string, sinceEventId?: number) =>
   request<{ cursor: number; alerts: DeviationAlert[] }>(
     `/assignments/alerts${sinceEventId != null ? `?sinceEventId=${sinceEventId}` : ""}`,
     {},
+    token,
+  );
+
+/** Operator-supplied reason for a deviation/skip event, saved on the RouteEvent row. */
+export const setEventRemark = (token: string, assignmentId: number, eventId: number, remark: string) =>
+  request<{ eventId: number; remark: string }>(
+    `/assignments/${assignmentId}/events/${eventId}/remark`,
+    { method: "PATCH", body: JSON.stringify({ remark }) },
     token,
   );
 
