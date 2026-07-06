@@ -27,7 +27,9 @@ and capture proof of delivery.
 - JDK 17 at `~/tools/jdk17`, Android SDK at `~/Android/Sdk` (platform-tools,
   android-34, build-tools 34).
 - Backend reachable from the device. The API base URL is **baked at build
-  time** via `NEXT_PUBLIC_API_URL` (default `http://192.168.18.199:3007`).
+  time** via `NEXT_PUBLIC_API_URL` (default `https://ifs.itecknologi.com`,
+  i.e. the app calls `https://ifs.itecknologi.com/api`). Override it for LAN
+  testing, e.g. `NEXT_PUBLIC_API_URL=http://192.168.18.199:3007`.
 
 ## Build a debug APK
 
@@ -36,8 +38,11 @@ export JAVA_HOME="$HOME/tools/jdk17"
 export ANDROID_HOME="$HOME/Android/Sdk"
 
 cd fuel-driver-app
-# 1) export the driver UI (point at your backend) + bundle + sync
-NEXT_PUBLIC_API_URL="http://<backend-ip>:3007" npm run build
+# 1) export the driver UI + bundle + sync.
+#    Defaults to the production backend (https://ifs.itecknologi.com).
+npm run build
+#    For a LAN test build instead, override the base URL:
+# NEXT_PUBLIC_API_URL="http://<backend-ip>:3007" npm run build
 # 2) assemble
 cd android && ./gradlew assembleDebug
 # → app/build/outputs/apk/debug/app-debug.apk
