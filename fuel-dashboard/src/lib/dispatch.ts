@@ -113,6 +113,7 @@ export interface Assignment {
   lastSeen: string | null;
   progressPct: number | null;
   offRoute: boolean;
+  persistent: boolean;
   createdAt: string;
   startedAt: string | null;
   completedAt: string | null;
@@ -343,6 +344,7 @@ export const createAssignment = (
     priority?: string;
     scheduledStart?: string;
     notes?: string;
+    persistent?: boolean;
   },
 ) => request<Assignment>("/assignments", { method: "POST", body: JSON.stringify(body) }, token);
 
@@ -375,6 +377,12 @@ export const setAssignmentStatus = (token: string, id: number, status: string) =
 
 export const cancelAssignment = (token: string, id: number) =>
   request<Assignment>(`/assignments/${id}/cancel`, { method: "PATCH" }, token);
+
+export const resetAssignment = (token: string, id: number) =>
+  request<Assignment>(`/assignments/${id}/reset`, { method: "POST" }, token);
+
+export const setAssignmentPersistent = (token: string, id: number, persistent: boolean) =>
+  request<Assignment>(`/assignments/${id}/persistent`, { method: "PATCH", body: JSON.stringify({ persistent }) }, token);
 
 // ─── Manager: settings ─────────────────────────────────────────────────────────
 

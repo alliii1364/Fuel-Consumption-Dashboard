@@ -18,7 +18,7 @@ import {
   getRoutes, getRoute, deleteRoute, getImportableRoutes, importRoute,
   getDrivers, setDriverPin, disableDriverLogin,
   createDriver, updateDriver, deleteDriver,
-  getAssignments, createAssignment, setAssignmentStatus, cancelAssignment,
+  getAssignments, createAssignment, setAssignmentStatus, cancelAssignment, resetAssignment, setAssignmentPersistent,
   getSettings, updateSettings,
   RouteSummary, ImportableRoute, DriverRecord, DriverInput, Assignment, RouteDetail,
 } from "@/lib/dispatch";
@@ -472,6 +472,7 @@ function AssignmentsPanel({
   const [priority, setPriority] = useState("normal");
   const [scheduledStart, setScheduledStart] = useState("");
   const [notes, setNotes] = useState("");
+  const [persistent, setPersistent] = useState(false);
 
   function create() {
     if (!routeId || !driverId || !imei) { toast.error("Pick a route, driver and vehicle"); return; }
@@ -480,9 +481,10 @@ function AssignmentsPanel({
         routeId: +routeId, driverId: +driverId, imei, priority,
         scheduledStart: scheduledStart ? new Date(scheduledStart).toISOString() : undefined,
         notes: notes.trim() || undefined,
+        persistent,
       });
       toast.success("Assignment dispatched");
-      setRouteId(""); setDriverId(""); setImei(""); setScheduledStart(""); setNotes("");
+      setRouteId(""); setDriverId(""); setImei(""); setScheduledStart(""); setNotes(""); setPersistent(false);
       onChange();
     }, "Failed to create assignment");
   }
@@ -520,7 +522,7 @@ function AssignmentsPanel({
             />
           </Field>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-end mt-2">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-2 items-end mt-2">
           <Field label="Notes">
             <input
               value={notes}
@@ -530,6 +532,10 @@ function AssignmentsPanel({
               style={{ borderColor: "#E5E7EB" }}
             />
           </Field>
+          <label className="flex items-center gap-2 text-xs text-gray-600">
+            <input type="checkbox" checked={persistent} onChange={(e) => setPersistent(e.target.checked)} />
+            Persistent
+          </label>
           <button onClick={create} className="flex items-center justify-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold text-white" style={{ background: "var(--color-primary)" }}>
             <Plus size={15} /> Dispatch
           </button>
@@ -547,9 +553,12 @@ function AssignmentsPanel({
                   <p className="font-semibold text-gray-800 text-sm truncate">{a.routeName}</p>
                   <p className="text-xs text-gray-500 truncate">{a.driverName} · {a.vehicleName || a.imei}</p>
                 </div>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white flex-shrink-0" style={{ background: STATUS_COLORS[a.status] }}>
-                  {a.status}
-                </span>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ background: STATUS_COLORS[a.status] }}>
+                    {a.status}
+                  </span>
+                  {a.persistent && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-semibold">persistent</span>}
+                </div>
               </div>
               {(a.priority && a.priority !== "normal") && (
                 <p className="text-[10px] uppercase font-bold mt-1 text-gray-400">priority: {a.priority}</p>
@@ -572,6 +581,11 @@ function AssignmentsPanel({
                     className="text-xs font-semibold text-gray-700"
                   >
                     → {NEXT[a.status]}
+                  </button>
+                )}
+                {a.persistent && (
+                  <button onClick={async () => { await resetAssignment(token, a.assignmentId); run(async () => { await onChange(); }, "Failed to reload"); }} className="text-xs text-indigo-600 font-semibold">
+                    New run
                   </button>
                 )}
                 {a.status !== "completed" && a.status !== "cancelled" && (
