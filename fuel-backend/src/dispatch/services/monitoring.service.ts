@@ -180,11 +180,14 @@ export class MonitoringService {
       });
     }
 
-    // Skip alerts — emit each missed stop once.
+    // Skip alerts — emit each genuinely-skipped stop once (NOT merely not-yet-reached).
     const skipped = new Set(
       await this.assignments.listSkippedStopIds(assignment.assignmentId),
     );
-    for (const seq of analysis.missedStopSeqs) {
+    const skippedSeqs = analysis.stopStatuses
+      .filter((s) => s.status === 'skipped')
+      .map((s) => s.seq);
+    for (const seq of skippedSeqs) {
       const stop: any = stopsBySeq.get(seq);
       if (!stop || skipped.has(stop.stopId)) continue;
       await this.assignments.addEvent(assignment.assignmentId, {

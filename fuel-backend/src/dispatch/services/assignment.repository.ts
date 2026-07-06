@@ -300,14 +300,18 @@ export class AssignmentRepository {
     eventId: number,
     remark: string,
   ): Promise<boolean> {
-    const res = await this.ds.query(
-      `UPDATE fd_route_events e
+    const rows = await this.ds.query(
+      `SELECT 1 FROM fd_route_events e
        JOIN fd_assignments a ON a.assignment_id = e.assignment_id
-       SET e.remark = ?
-       WHERE e.event_id = ? AND e.assignment_id = ? AND a.user_id = ?`,
-      [remark, eventId, assignmentId, userId],
+       WHERE e.event_id = ? AND e.assignment_id = ? AND a.user_id = ? LIMIT 1`,
+      [eventId, assignmentId, userId],
     );
-    return (res?.affectedRows ?? 0) > 0;
+    if (!rows.length) return false;
+    await this.ds.query(
+      `UPDATE fd_route_events SET remark = ? WHERE event_id = ?`,
+      [remark, eventId],
+    );
+    return true;
   }
 
   /** Most recent deviation event timestamp — used to throttle repeat alerts. */
