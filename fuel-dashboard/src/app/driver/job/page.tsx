@@ -237,7 +237,7 @@ function DriverJobDetailInner() {
           />
         </div>
 
-        {activeStop && jobActive && (
+        {activeStop && activeStop.stopId != null && jobActive && (
           <button
             onClick={() => activeStop.stopId != null && completeBin(activeStop.stopId)}
             disabled={completingStopId != null}

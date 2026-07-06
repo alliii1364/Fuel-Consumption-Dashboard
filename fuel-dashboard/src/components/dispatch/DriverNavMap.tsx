@@ -17,7 +17,7 @@ const icon = (color: string) =>
 
 function Recenter({ center }: { center: LatLng | null }) {
   const map = useMap();
-  useEffect(() => { if (center) map.setView([center.lat, center.lng], map.getZoom() < 14 ? 15 : map.getZoom()); }, [center, map]);
+  useEffect(() => { if (center) map.setView([center.lat, center.lng], map.getZoom() < 14 ? 15 : map.getZoom()); }, [center?.lat, center?.lng, map]);
   return null;
 }
 
