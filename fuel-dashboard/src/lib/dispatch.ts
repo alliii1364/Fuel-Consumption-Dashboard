@@ -76,6 +76,8 @@ export interface RouteDetail extends Omit<RouteSummary, "stopCount" | "depotName
   notes: string | null;
   depot: RouteDepot | null;
   stops: RouteStop[];
+  /** True when OSRM was unreachable and the route was saved with straight-line geometry. */
+  degraded?: boolean;
 }
 
 export interface ImportableRoute {

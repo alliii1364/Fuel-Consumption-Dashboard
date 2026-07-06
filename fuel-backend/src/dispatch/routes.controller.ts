@@ -86,7 +86,7 @@ export class RoutesController {
         stops: planned.stops,
       });
       const data = await this.routes.get(req.user.id, routeId);
-      return { success: true, message: 'Route created', data };
+      return { success: true, message: 'Route created', data: { ...data, degraded: planned.degraded } };
     }
 
     const planned = await this.planner.plan(bins, dto.optimize ?? false);
@@ -102,7 +102,7 @@ export class RoutesController {
       stops: planned.stops,
     });
     const data = await this.routes.get(req.user.id, routeId);
-    return { success: true, message: 'Route created', data };
+    return { success: true, message: 'Route created', data: { ...data, degraded: planned.degraded } };
   }
 
   /** Import a legacy gs_user_routes polyline into an editable fd_route. */
@@ -214,6 +214,7 @@ export class RoutesController {
       notes: dto.notes,
     };
     // Re-plan geometry only when stops are provided.
+    let degraded = false;
     if (dto.stops) {
       const bins = this.toStops(dto.stops);
 
@@ -237,10 +238,11 @@ export class RoutesController {
       patch.totalDurationS = planned.durationS;
       patch.optimized = planned.optimized;
       patch.depot = depot;
+      degraded = planned.degraded;
     }
     await this.routes.update(req.user.id, routeId, patch);
     const data = await this.routes.get(req.user.id, routeId);
-    return { success: true, message: 'Route updated', data };
+    return { success: true, message: 'Route updated', data: { ...data, degraded } };
   }
 
   @Delete(':routeId')

@@ -148,12 +148,14 @@ export default function RouteBuilder({ token, onSaved, editRoute, onCancelEdit, 
     };
     try {
       if (isEdit && editRoute) {
-        await updateRoute(token, editRoute.routeId, payload);
-        notify?.success("Route updated", name.trim());
+        const saved = await updateRoute(token, editRoute.routeId, payload);
+        if (saved?.degraded) notify?.error("Saved without optimization", "Routing engine unreachable — straight-line route used. Check OSRM.");
+        else notify?.success("Route updated", name.trim());
         onCancelEdit?.();
       } else {
-        await createRoute(token, payload);
-        notify?.success("Route created", name.trim());
+        const saved = await createRoute(token, payload);
+        if (saved?.degraded) notify?.error("Saved without optimization", "Routing engine unreachable — straight-line route used. Check OSRM.");
+        else notify?.success("Route created", name.trim());
         resetForm();
       }
       onSaved();
