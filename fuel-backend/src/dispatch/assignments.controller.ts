@@ -22,7 +22,8 @@ import { MonitoringService } from './services/monitoring.service';
 import { DriverAppRepository } from './services/driver-app.repository';
 import { PushService } from './services/push.service';
 import { StopCompletionRepository } from './services/stop-completion.repository';
-import { CreateAssignmentDto, UpdateStatusDto } from './dto/dispatch.dto';
+import { ManagerSettingsRepository } from './services/manager-settings.repository';
+import { CreateAssignmentDto, UpdateStatusDto, UpdateSettingsDto } from './dto/dispatch.dto';
 import { assertManagerTransition } from './services/status.util';
 
 /** Manager-facing dispatch: create, list, monitor and control assignments. */
@@ -37,6 +38,7 @@ export class AssignmentsController {
     private readonly driverApp: DriverAppRepository,
     private readonly push: PushService,
     private readonly stopCompletions: StopCompletionRepository,
+    private readonly settings: ManagerSettingsRepository,
   ) {}
 
   @Post()
@@ -121,6 +123,19 @@ export class AssignmentsController {
     const alerts = await this.assignments.listDeviationAlertsSince(req.user.id, since);
     const cursor = alerts.length ? alerts[alerts.length - 1].eventId : since;
     return { success: true, message: `${alerts.length} alert(s)`, data: { cursor, alerts } };
+  }
+
+  @Get('settings')
+  async getSettings(@Request() req: any) {
+    const data = await this.settings.getSettings(req.user.id);
+    return { success: true, message: 'Settings', data };
+  }
+
+  @Patch('settings')
+  async updateSettings(@Request() req: any, @Body() dto: UpdateSettingsDto) {
+    await this.settings.upsertSettings(req.user.id, { requireBinPhoto: dto.requireBinPhoto });
+    const data = await this.settings.getSettings(req.user.id);
+    return { success: true, message: 'Settings updated', data };
   }
 
   @Get(':id')

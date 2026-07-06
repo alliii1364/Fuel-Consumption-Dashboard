@@ -231,6 +231,11 @@ export class UpdateStatusDto {
   status: string;
 }
 
+export class UpdateSettingsDto {
+  @IsBoolean()
+  requireBinPhoto: boolean;
+}
+
 // ── Driver Android app ───────────────────────────────────────────────────────
 
 export class RegisterDeviceDto {

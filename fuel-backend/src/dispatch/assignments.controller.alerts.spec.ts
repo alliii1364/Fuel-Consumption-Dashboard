@@ -8,6 +8,7 @@ function makeController(fake: Partial<Record<string, any>>) {
     null as any,      // driverApp
     null as any,      // push
     null as any,      // stopCompletions
+    null as any,      // settings
   );
 }
 

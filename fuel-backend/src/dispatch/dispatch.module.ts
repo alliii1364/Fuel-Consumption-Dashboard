@@ -19,6 +19,7 @@ import { DeviationService } from './services/deviation.service';
 import { MonitoringService } from './services/monitoring.service';
 import { StopCompletionRepository } from './services/stop-completion.repository';
 import { StopCompletionService } from './services/stop-completion.service';
+import { ManagerSettingsRepository } from './services/manager-settings.repository';
 
 /**
  * Fleet dispatch: route planning (manual/KML/OSRM-optimized), driver
@@ -49,6 +50,7 @@ import { StopCompletionService } from './services/stop-completion.service';
     MonitoringService,
     StopCompletionRepository,
     StopCompletionService,
+    ManagerSettingsRepository,
   ],
   exports: [AssignmentRepository, RouteRepository, OsrmClientService],
 })
