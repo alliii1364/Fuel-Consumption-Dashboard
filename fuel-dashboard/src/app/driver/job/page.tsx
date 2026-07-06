@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Loader2, ArrowLeft, MapPin, Flag, Camera, CheckCircle2, WifiOff } from "lucide-react";
-import { getMyJob, updateMyJobStatus, uploadProof, Assignment, RouteDetail } from "@/lib/dispatch";
+import { getMyJob, updateMyJobStatus, uploadProof, completeStop, Assignment, RouteDetail, StopCompletion } from "@/lib/dispatch";
 import { getDriverToken } from "@/lib/driverSession";
 import { storeGet, storeSet, cacheKeys } from "@/lib/native/store";
 import { capturePhoto } from "@/lib/native/camera";
@@ -19,7 +19,7 @@ const NEXT: Record<string, { to: string; label: string } | null> = {
   cancelled: null,
 };
 
-type JobData = { assignment: Assignment; route: RouteDetail };
+type JobData = { assignment: Assignment; route: RouteDetail; stopCompletions: StopCompletion[] };
 
 function DriverJobDetailInner() {
   const search = useSearchParams();
@@ -32,6 +32,7 @@ function DriverJobDetailInner() {
   const [busy, setBusy] = useState(false);
   const [podBusy, setPodBusy] = useState(false);
   const [podDone, setPodDone] = useState(false);
+  const [completingStopId, setCompletingStopId] = useState<number | null>(null);
   const tracking = useRef(false);
 
   useEffect(() => {
@@ -110,6 +111,41 @@ function DriverJobDetailInner() {
     }
   }
 
+  async function completeBin(stopId: number) {
+    if (!token) return;
+    setCompletingStopId(stopId);
+    setError(null);
+    try {
+      const photo = await capturePhoto();
+      if (!photo) { setCompletingStopId(null); return; }
+      const pos = await new Promise<GeolocationPosition | null>((resolve) => {
+        if (typeof navigator === "undefined" || !navigator.geolocation) return resolve(null);
+        navigator.geolocation.getCurrentPosition(
+          (p) => resolve(p),
+          () => resolve(null),
+          { enableHighAccuracy: true, timeout: 10000 },
+        );
+      });
+      if (!pos) {
+        setError("Location is required — enable GPS and try again");
+        return;
+      }
+      await completeStop(token, id, stopId, {
+        photo: photo.blob,
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        accuracyM: pos.coords.accuracy,
+      });
+      await load();
+    } catch (e: any) {
+      // 409 (already completed) just means our view was stale — refresh.
+      if (String(e?.message).includes("already completed")) await load();
+      else setError(e?.message || "Failed to complete bin");
+    } finally {
+      setCompletingStopId(null);
+    }
+  }
+
   if (!data) {
     if (error) return <div className="min-h-full flex items-center justify-center p-6 text-center text-sm text-red-600">{error}</div>;
     return <div className="min-h-full flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
@@ -118,6 +154,9 @@ function DriverJobDetailInner() {
   const { assignment: a, route } = data;
   const next = NEXT[a.status];
   const canCapturePod = a.status === "en_route" || a.status === "arrived";
+  const completions = data.stopCompletions ?? [];
+  const completionByStop = new Map(completions.map((c) => [c.stopId, c]));
+  const jobActive = a.status === "accepted" || a.status === "en_route" || a.status === "arrived";
 
   return (
     <div className="max-w-md mx-auto pb-28">
@@ -154,26 +193,53 @@ function DriverJobDetailInner() {
         </div>
 
         <div className="bg-white rounded-xl p-4 shadow-sm">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Stops ({route.stops.length})</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+            Bins ({completions.length}/{route.stops.length} done)
+          </p>
           <div className="flex flex-col gap-2">
-            {route.stops.map((s, i) => (
-              <div key={s.stopId ?? i} className="flex items-start gap-2.5">
-                <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5" style={{ background: i === route.stops.length - 1 ? "#16a34a" : "var(--color-primary)" }}>
-                  {i === route.stops.length - 1 ? <Flag size={12} /> : i + 1}
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-800">{s.name || `Stop ${i + 1}`}</p>
-                  <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs text-blue-600 flex items-center gap-1"
+            {route.stops.map((s, i) => {
+              const done = s.stopId != null ? completionByStop.get(s.stopId) : undefined;
+              return (
+                <div key={s.stopId ?? i} className="flex items-start gap-2.5">
+                  <div
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5"
+                    style={{ background: done ? "#16a34a" : i === route.stops.length - 1 ? "#16a34a" : "var(--color-primary)" }}
                   >
-                    <MapPin size={11} /> Navigate
-                  </a>
+                    {done ? <CheckCircle2 size={13} /> : i === route.stops.length - 1 ? <Flag size={12} /> : i + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800">{s.name || `Stop ${i + 1}`}</p>
+                    {done ? (
+                      <p className="text-xs flex items-center gap-1.5" style={{ color: done.inRange ? "#16a34a" : "#d97706" }}>
+                        <CheckCircle2 size={11} />
+                        {new Date(done.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        {!done.inRange && ` · out of range · ${done.distanceM}m`}
+                      </p>
+                    ) : (
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-blue-600 flex items-center gap-1"
+                      >
+                        <MapPin size={11} /> Navigate
+                      </a>
+                    )}
+                  </div>
+                  {!done && jobActive && s.stopId != null && (
+                    <button
+                      onClick={() => completeBin(s.stopId!)}
+                      disabled={completingStopId != null}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-white flex-shrink-0 disabled:opacity-50"
+                      style={{ background: "#16a34a" }}
+                    >
+                      <Camera size={12} />
+                      {completingStopId === s.stopId ? "Saving…" : "Complete"}
+                    </button>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
