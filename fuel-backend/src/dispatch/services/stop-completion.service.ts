@@ -70,18 +70,29 @@ export class StopCompletionService {
       input.accuracyM,
     );
 
-    await this.completions.add({
-      assignmentId,
-      stopId,
-      driverId,
-      lat: input.lat,
-      lng: input.lng,
-      accuracyM: input.accuracyM ?? null,
-      distanceM: check.distanceM,
-      inRange: check.inRange,
-      photoPath: input.photoPath,
-      note: input.note ?? null,
-    });
+    try {
+      await this.completions.add({
+        assignmentId,
+        stopId,
+        driverId,
+        lat: input.lat,
+        lng: input.lng,
+        accuracyM: input.accuracyM ?? null,
+        distanceM: check.distanceM,
+        inRange: check.inRange,
+        photoPath: input.photoPath,
+        note: input.note ?? null,
+      });
+    } catch (err: any) {
+      // Lost a double-submit race to the DB unique key — same outcome as the pre-check.
+      if (err?.code === 'ER_DUP_ENTRY' || err?.driverError?.code === 'ER_DUP_ENTRY') {
+        throw new ConflictException({
+          message: 'Bin already completed',
+          completion: await this.completions.getForStop(assignmentId, stopId),
+        });
+      }
+      throw err;
+    }
 
     const label = stop.name || `stop ${stop.seq}`;
     await this.assignments.addEvent(assignmentId, {

@@ -88,6 +88,14 @@ describe('StopCompletionService.complete', () => {
     await expect(f.svc.complete(3, 5, 11, AT_BIN_1)).rejects.toThrow(ConflictException);
   });
 
+  it('maps a duplicate-key race on insert to a 409, not a raw DB error', async () => {
+    const f = makeFakes({});
+    f.completions.add.mockImplementationOnce(async () => {
+      throw Object.assign(new Error('dup'), { code: 'ER_DUP_ENTRY' });
+    });
+    await expect(f.svc.complete(3, 5, 11, AT_BIN_1)).rejects.toThrow(ConflictException);
+  });
+
   it('auto-completes the job when the last bin lands', async () => {
     const f = makeFakes({
       existing: [{
