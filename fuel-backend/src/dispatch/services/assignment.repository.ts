@@ -294,6 +294,55 @@ export class AssignmentRepository {
     return rows.length ? rows[0].created_at : null;
   }
 
+  /** One row per deviation event newer than the cursor, across this manager's assignments. */
+  async listDeviationAlertsSince(
+    userId: number,
+    sinceEventId: number,
+    limit = 20,
+  ): Promise<
+    Array<{
+      eventId: number;
+      assignmentId: number;
+      driverName: string | null;
+      routeName: string | null;
+      distanceM: number | null;
+      at: Date;
+    }>
+  > {
+    const rows = await this.ds.query(
+      `SELECT e.event_id, e.assignment_id, e.distance_m, e.created_at,
+              d.driver_name, r.name AS route_name
+       FROM fd_route_events e
+       JOIN fd_assignments a ON a.assignment_id = e.assignment_id
+       LEFT JOIN gs_user_object_drivers d ON d.driver_id = a.driver_id
+       LEFT JOIN fd_routes r ON r.route_id = a.route_id
+       WHERE a.user_id = ? AND e.type = 'deviation' AND e.event_id > ?
+       ORDER BY e.event_id ASC
+       LIMIT ?`,
+      [userId, sinceEventId, limit],
+    );
+    return rows.map((r: any) => ({
+      eventId: r.event_id,
+      assignmentId: r.assignment_id,
+      driverName: r.driver_name ?? null,
+      routeName: r.route_name ?? null,
+      distanceM: r.distance_m,
+      at: r.created_at,
+    }));
+  }
+
+  /** Highest event id across this manager's assignments — the alert bootstrap cursor. */
+  async maxEventId(userId: number): Promise<number> {
+    const rows = await this.ds.query(
+      `SELECT MAX(e.event_id) AS max_id
+       FROM fd_route_events e
+       JOIN fd_assignments a ON a.assignment_id = e.assignment_id
+       WHERE a.user_id = ?`,
+      [userId],
+    );
+    return rows[0]?.max_id ?? 0;
+  }
+
   private map(r: any): AssignmentRecord {
     return {
       assignmentId: r.assignment_id,

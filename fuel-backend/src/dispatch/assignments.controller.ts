@@ -105,6 +105,24 @@ export class AssignmentsController {
     return { success: true, message: `${data.length} active`, data };
   }
 
+  /**
+   * Deviation alert feed for the portal-wide popup watcher. Without
+   * `sinceEventId` it only returns the current cursor (no toast flood on
+   * first load); with it, every deviation event since — the client toasts
+   * each and stores the advanced cursor.
+   */
+  @Get('alerts')
+  async alerts(@Request() req: any, @Query('sinceEventId') sinceEventId?: string) {
+    const since = sinceEventId != null ? Number(sinceEventId) : NaN;
+    if (!Number.isFinite(since)) {
+      const cursor = await this.assignments.maxEventId(req.user.id);
+      return { success: true, message: 'Alert cursor', data: { cursor, alerts: [] } };
+    }
+    const alerts = await this.assignments.listDeviationAlertsSince(req.user.id, since);
+    const cursor = alerts.length ? alerts[alerts.length - 1].eventId : since;
+    return { success: true, message: `${alerts.length} alert(s)`, data: { cursor, alerts } };
+  }
+
   @Get(':id')
   async get(@Request() req: any, @Param('id', ParseIntPipe) id: number) {
     const data = await this.assignments.get(req.user.id, id);
