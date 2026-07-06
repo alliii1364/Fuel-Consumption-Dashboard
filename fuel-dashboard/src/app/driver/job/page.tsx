@@ -19,7 +19,7 @@ const NEXT: Record<string, { to: string; label: string } | null> = {
   cancelled: null,
 };
 
-type JobData = { assignment: Assignment; route: RouteDetail; stopCompletions: StopCompletion[] };
+type JobData = { assignment: Assignment; route: RouteDetail; stopCompletions: StopCompletion[]; requirePhoto: boolean };
 
 function DriverJobDetailInner() {
   const search = useSearchParams();
@@ -116,8 +116,11 @@ function DriverJobDetailInner() {
     setCompletingStopId(stopId);
     setError(null);
     try {
-      const photo = await capturePhoto();
-      if (!photo) { setCompletingStopId(null); return; }
+      let photo: { blob: Blob } | null = null;
+      if (data?.requirePhoto) {
+        photo = await capturePhoto();
+        if (!photo) { setCompletingStopId(null); return; }
+      }
       const pos = await new Promise<GeolocationPosition | null>((resolve) => {
         if (typeof navigator === "undefined" || !navigator.geolocation) return resolve(null);
         navigator.geolocation.getCurrentPosition(
@@ -131,7 +134,7 @@ function DriverJobDetailInner() {
         return;
       }
       await completeStop(token, id, stopId, {
-        photo: photo.blob,
+        photo: photo?.blob,
         lat: pos.coords.latitude,
         lng: pos.coords.longitude,
         accuracyM: pos.coords.accuracy,

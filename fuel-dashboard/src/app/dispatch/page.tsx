@@ -19,6 +19,7 @@ import {
   getDrivers, setDriverPin, disableDriverLogin,
   createDriver, updateDriver, deleteDriver,
   getAssignments, createAssignment, setAssignmentStatus, cancelAssignment,
+  getSettings, updateSettings,
   RouteSummary, ImportableRoute, DriverRecord, DriverInput, Assignment, RouteDetail,
 } from "@/lib/dispatch";
 
@@ -43,6 +44,7 @@ export default function DispatchPage() {
   const [monitorId, setMonitorId] = useState<number | null>(null);
   const [viewRoute, setViewRoute] = useState<RouteDetail | null>(null);
   const [editRoute, setEditRoute] = useState<RouteDetail | null>(null);
+  const [requirePhoto, setRequirePhoto] = useState(true);
 
   const handle401 = useCallback(() => { logout(); router.replace("/login"); }, [logout, router]);
 
@@ -59,14 +61,22 @@ export default function DispatchPage() {
   const reload = useCallback(async () => {
     if (!token) return;
     await run(async () => {
-      const [r, imp, d, v, a] = await Promise.all([
+      const [r, imp, d, v, a, s] = await Promise.all([
         getRoutes(token), getImportableRoutes(token), getDrivers(token),
         getVehicles(token, false).then((x) => x.vehicles).catch(() => []),
-        getAssignments(token),
+        getAssignments(token), getSettings(token),
       ]);
       setRoutes(r); setImportable(imp); setDrivers(d); setVehicles(v); setAssignments(a);
+      setRequirePhoto(s.requireBinPhoto);
     }, "Failed to load dispatch data");
   }, [token, run]);
+
+  async function togglePhoto() {
+    if (!token) return;
+    const next = !requirePhoto;
+    setRequirePhoto(next);
+    try { await updateSettings(token, next); } catch { setRequirePhoto(!next); }
+  }
 
   useEffect(() => {
     if (!authLoading && !token) router.replace("/login");
@@ -129,17 +139,23 @@ export default function DispatchPage() {
             <Radio size={14} /> Live monitor
           </button>
         </div>
-        <div className="flex gap-1 mt-2">
-          {tabs.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setTab(id)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold"
-              style={tab === id ? { background: "var(--color-primary)", color: "#fff" } : { color: "var(--color-text-2)" }}
-            >
-              <Icon size={14} /> {label}
-            </button>
-          ))}
+        <div className="flex items-center justify-between mt-2">
+          <div className="flex gap-1">
+            {tabs.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setTab(id)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold"
+                style={tab === id ? { background: "var(--color-primary)", color: "#fff" } : { color: "var(--color-text-2)" }}
+              >
+                <Icon size={14} /> {label}
+              </button>
+            ))}
+          </div>
+          <label className="flex items-center gap-2 text-xs text-gray-600">
+            <input type="checkbox" checked={requirePhoto} onChange={togglePhoto} />
+            Require completion photo from drivers
+          </label>
         </div>
       </div>
 

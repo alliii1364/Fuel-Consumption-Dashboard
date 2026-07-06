@@ -373,6 +373,20 @@ export const setAssignmentStatus = (token: string, id: number, status: string) =
 export const cancelAssignment = (token: string, id: number) =>
   request<Assignment>(`/assignments/${id}/cancel`, { method: "PATCH" }, token);
 
+// ─── Manager: settings ─────────────────────────────────────────────────────────
+
+export interface ManagerSettings { requireBinPhoto: boolean }
+
+export const getSettings = (token: string) =>
+  request<ManagerSettings>("/assignments/settings", {}, token);
+
+export const updateSettings = (token: string, requireBinPhoto: boolean) =>
+  request<ManagerSettings>(
+    "/assignments/settings",
+    { method: "PATCH", body: JSON.stringify({ requireBinPhoto }) },
+    token,
+  );
+
 // ─── Driver PWA ────────────────────────────────────────────────────────────────
 
 export interface DriverLoginResponse {
@@ -391,7 +405,9 @@ export const getMyJobs = (token: string) =>
   request<Assignment[]>("/me/jobs", {}, token);
 
 export const getMyJob = (token: string, id: number) =>
-  request<{ assignment: Assignment; route: RouteDetail; stopCompletions: StopCompletion[] }>(`/me/jobs/${id}`, {}, token);
+  request<{ assignment: Assignment; route: RouteDetail; stopCompletions: StopCompletion[]; requirePhoto: boolean }>(
+    `/me/jobs/${id}`, {}, token,
+  );
 
 export const updateMyJobStatus = (token: string, id: number, status: string) =>
   request<Assignment>(
@@ -471,16 +487,16 @@ export async function uploadProof(
   return json.data;
 }
 
-/** Driver marks a bin complete — photo + GPS required (multipart). */
+/** Driver marks a bin complete — GPS required, photo required only when the manager's setting demands it (multipart). */
 export async function completeStop(
   token: string,
   jobId: number,
   stopId: number,
-  data: { photo: Blob; lat: number; lng: number; accuracyM?: number; note?: string },
+  data: { photo?: Blob; lat: number; lng: number; accuracyM?: number; note?: string },
 ): Promise<{ completion: StopCompletion; jobCompleted: boolean; stopCompletions: StopCompletion[] }> {
   const base = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3007"}/api`;
   const form = new FormData();
-  form.append("photo", data.photo, "bin.jpg");
+  if (data.photo) form.append("photo", data.photo, "bin.jpg");
   form.append("lat", String(data.lat));
   form.append("lng", String(data.lng));
   if (data.accuracyM != null) form.append("accuracyM", String(data.accuracyM));
