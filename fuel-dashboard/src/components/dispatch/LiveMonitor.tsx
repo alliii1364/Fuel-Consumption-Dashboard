@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { X, AlertTriangle, CheckCircle2, Navigation, Gauge, Camera, Satellite, Smartphone, CircleSlash, Circle, Clock, Info } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { getAssignmentLive, getAssignmentProof, LiveStatus, PodRecord, StopVisitStatus } from "@/lib/dispatch";
+import { getAssignmentLive, getAssignmentProof, LiveStatus, PodRecord, StopVisitStatus, StopCompletion } from "@/lib/dispatch";
 
 const DispatchMap = dynamic(() => import("./DispatchMap"), { ssr: false });
 
@@ -55,6 +55,9 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
   }, [load]);
 
   const a = live?.analysis;
+  const completionByStop = new Map(
+    (live?.stopCompletions ?? []).map((c: StopCompletion) => [c.stopId, c]),
+  );
   const pos = a?.currentPosition ?? null;
 
   return (
@@ -204,12 +207,22 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
                   <div className="flex flex-col gap-1.5 max-h-56 overflow-auto">
                     {live!.route.stops.map((s) => {
                       const st = a.stopStatuses.find((x) => x.seq === s.seq);
+                      const done = s.stopId != null ? completionByStop.get(s.stopId) : undefined;
                       return (
                         <div key={s.seq} className="flex items-center gap-2 text-xs bg-gray-50 rounded-lg px-2 py-1.5">
                           <span className="w-5 h-5 rounded-full bg-gray-200 text-gray-600 font-bold flex items-center justify-center flex-shrink-0">
                             {s.seq}
                           </span>
                           <span className="flex-1 min-w-0 truncate text-gray-700">{s.name || `Stop ${s.seq}`}</span>
+                          {done && (
+                            <span
+                              className="px-1.5 py-0.5 rounded-full font-bold text-white flex-shrink-0"
+                              style={{ background: done.inRange ? "#16a34a" : "#d97706" }}
+                              title={done.inRange ? "Driver confirmed at bin" : `Driver confirmed out of range (${done.distanceM}m)`}
+                            >
+                              {done.inRange ? "✓ done" : `✓ ${done.distanceM}m off`}
+                            </span>
+                          )}
                           {st ? <StopStatusBadge status={st.status} dwellS={st.dwellS} /> : null}
                         </div>
                       );
