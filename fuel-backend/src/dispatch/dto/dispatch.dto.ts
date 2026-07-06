@@ -236,6 +236,12 @@ export class UpdateSettingsDto {
   requireBinPhoto: boolean;
 }
 
+export class SetRemarkDto {
+  @IsString()
+  @MaxLength(512)
+  remark: string;
+}
+
 // ── Driver Android app ───────────────────────────────────────────────────────
 
 export class RegisterDeviceDto {

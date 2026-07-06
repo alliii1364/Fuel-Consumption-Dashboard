@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  NotFoundException,
   Param,
   ParseIntPipe,
   Patch,
@@ -23,7 +24,12 @@ import { DriverAppRepository } from './services/driver-app.repository';
 import { PushService } from './services/push.service';
 import { StopCompletionRepository } from './services/stop-completion.repository';
 import { ManagerSettingsRepository } from './services/manager-settings.repository';
-import { CreateAssignmentDto, UpdateStatusDto, UpdateSettingsDto } from './dto/dispatch.dto';
+import {
+  CreateAssignmentDto,
+  UpdateStatusDto,
+  UpdateSettingsDto,
+  SetRemarkDto,
+} from './dto/dispatch.dto';
 import { assertManagerTransition } from './services/status.util';
 
 /** Manager-facing dispatch: create, list, monitor and control assignments. */
@@ -149,6 +155,18 @@ export class AssignmentsController {
     await this.assignments.get(req.user.id, id); // ownership check
     const data = await this.assignments.listEvents(id);
     return { success: true, message: `${data.length} event(s)`, data };
+  }
+
+  @Patch(':id/events/:eventId/remark')
+  async setRemark(
+    @Request() req: any,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('eventId', ParseIntPipe) eventId: number,
+    @Body() dto: SetRemarkDto,
+  ) {
+    const ok = await this.assignments.setEventRemark(req.user.id, id, eventId, dto.remark);
+    if (!ok) throw new NotFoundException('Event not found');
+    return { success: true, message: 'Remark saved', data: { eventId, remark: dto.remark } };
   }
 
   /**

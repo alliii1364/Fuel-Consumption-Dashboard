@@ -180,6 +180,23 @@ export class MonitoringService {
       });
     }
 
+    // Skip alerts — emit each missed stop once.
+    const skipped = new Set(
+      await this.assignments.listSkippedStopIds(assignment.assignmentId),
+    );
+    for (const seq of analysis.missedStopSeqs) {
+      const stop: any = stopsBySeq.get(seq);
+      if (!stop || skipped.has(stop.stopId)) continue;
+      await this.assignments.addEvent(assignment.assignmentId, {
+        type: 'stop_skipped',
+        stopId: stop.stopId,
+        lat: stop.lat,
+        lng: stop.lng,
+        actor: 'system',
+        note: `Skipped ${stop.name || 'stop ' + seq}`,
+      });
+    }
+
     // Geofence auto-advance: reaching the final stop flips an in-progress job to "arrived".
     const lastStop: any = route.stops[route.stops.length - 1];
     const advanceable: AssignmentStatus[] = ['accepted', 'en_route'];

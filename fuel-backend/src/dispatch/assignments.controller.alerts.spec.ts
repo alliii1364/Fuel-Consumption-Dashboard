@@ -23,8 +23,8 @@ describe('GET /assignments/alerts', () => {
 
   it('returns alerts newer than the cursor and advances it', async () => {
     const alerts = [
-      { eventId: 901, assignmentId: 5, driverName: 'Ahmed', routeName: 'North', distanceM: 480, at: new Date() },
-      { eventId: 905, assignmentId: 6, driverName: 'Bilal', routeName: 'South', distanceM: 220, at: new Date() },
+      { eventId: 901, assignmentId: 5, driverName: 'Ahmed', routeName: 'North', distanceM: 480, alertType: 'deviation', stopName: null, at: new Date() },
+      { eventId: 905, assignmentId: 6, driverName: 'Bilal', routeName: 'South', distanceM: null, alertType: 'stop_skipped', stopName: 'Bin 6', at: new Date() },
     ];
     const list = jest.fn(async () => alerts);
     const ctl = makeController({ listDeviationAlertsSince: list });

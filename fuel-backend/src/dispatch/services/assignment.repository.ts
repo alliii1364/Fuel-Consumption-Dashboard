@@ -283,6 +283,33 @@ export class AssignmentRepository {
     return rows.map((r: any) => r.stop_id as number);
   }
 
+  /** Stop ids already flagged as skipped — so monitoring emits each once. */
+  async listSkippedStopIds(assignmentId: number): Promise<number[]> {
+    const rows = await this.ds.query(
+      `SELECT DISTINCT stop_id FROM fd_route_events
+       WHERE assignment_id = ? AND type = 'stop_skipped' AND stop_id IS NOT NULL`,
+      [assignmentId],
+    );
+    return rows.map((r: any) => r.stop_id as number);
+  }
+
+  /** Set the operator remark on one deviation/skip event, scoped to the manager. */
+  async setEventRemark(
+    userId: number,
+    assignmentId: number,
+    eventId: number,
+    remark: string,
+  ): Promise<boolean> {
+    const res = await this.ds.query(
+      `UPDATE fd_route_events e
+       JOIN fd_assignments a ON a.assignment_id = e.assignment_id
+       SET e.remark = ?
+       WHERE e.event_id = ? AND e.assignment_id = ? AND a.user_id = ?`,
+      [remark, eventId, assignmentId, userId],
+    );
+    return (res?.affectedRows ?? 0) > 0;
+  }
+
   /** Most recent deviation event timestamp — used to throttle repeat alerts. */
   async lastDeviationAt(assignmentId: number): Promise<Date | null> {
     const rows = await this.ds.query(
@@ -294,7 +321,7 @@ export class AssignmentRepository {
     return rows.length ? rows[0].created_at : null;
   }
 
-  /** One row per deviation event newer than the cursor, across this manager's assignments. */
+  /** One row per deviation/skip event newer than the cursor, across this manager's assignments. */
   async listDeviationAlertsSince(
     userId: number,
     sinceEventId: number,
@@ -306,17 +333,20 @@ export class AssignmentRepository {
       driverName: string | null;
       routeName: string | null;
       distanceM: number | null;
+      alertType: string;
+      stopName: string | null;
       at: Date;
     }>
   > {
     const rows = await this.ds.query(
-      `SELECT e.event_id, e.assignment_id, e.distance_m, e.created_at,
-              d.driver_name, r.name AS route_name
+      `SELECT e.event_id, e.assignment_id, e.distance_m, e.type AS alert_type,
+              e.created_at, d.driver_name, r.name AS route_name, s.name AS stop_name
        FROM fd_route_events e
        JOIN fd_assignments a ON a.assignment_id = e.assignment_id
        LEFT JOIN gs_user_object_drivers d ON d.driver_id = a.driver_id
        LEFT JOIN fd_routes r ON r.route_id = a.route_id
-       WHERE a.user_id = ? AND e.type = 'deviation' AND e.event_id > ?
+       LEFT JOIN fd_route_stops s ON s.stop_id = e.stop_id
+       WHERE a.user_id = ? AND e.type IN ('deviation','stop_skipped') AND e.event_id > ?
        ORDER BY e.event_id ASC
        LIMIT ?`,
       [userId, sinceEventId, limit],
@@ -327,6 +357,8 @@ export class AssignmentRepository {
       driverName: r.driver_name ?? null,
       routeName: r.route_name ?? null,
       distanceM: r.distance_m,
+      alertType: r.alert_type,
+      stopName: r.stop_name ?? null,
       at: r.created_at,
     }));
   }
