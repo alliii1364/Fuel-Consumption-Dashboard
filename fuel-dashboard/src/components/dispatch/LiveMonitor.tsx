@@ -58,7 +58,7 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
   async function saveRemark(ev: RouteEvent) {
     if (!token) return;
     try {
-      await setEventRemark(token, assignmentId, ev.eventId, remarks[ev.eventId] ?? "");
+      await setEventRemark(token, assignmentId, ev.eventId, remarks[ev.eventId] ?? ev.remark ?? "");
       await load();
     } catch { /* surfaced on next poll */ }
   }

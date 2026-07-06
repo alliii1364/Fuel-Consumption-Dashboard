@@ -180,16 +180,20 @@ export class MonitoringService {
       });
     }
 
-    // Skip alerts — emit each genuinely-skipped stop once (NOT merely not-yet-reached).
+    // Skip alerts — emit each genuinely-skipped stop once (NOT merely not-yet-reached),
+    // and never for a bin the driver has already ground-truth completed.
     const skipped = new Set(
       await this.assignments.listSkippedStopIds(assignment.assignmentId),
+    );
+    const completed = new Set(
+      await this.assignments.listCompletedStopIds(assignment.assignmentId),
     );
     const skippedSeqs = analysis.stopStatuses
       .filter((s) => s.status === 'skipped')
       .map((s) => s.seq);
     for (const seq of skippedSeqs) {
       const stop: any = stopsBySeq.get(seq);
-      if (!stop || skipped.has(stop.stopId)) continue;
+      if (!stop || skipped.has(stop.stopId) || completed.has(stop.stopId)) continue;
       await this.assignments.addEvent(assignment.assignmentId, {
         type: 'stop_skipped',
         stopId: stop.stopId,

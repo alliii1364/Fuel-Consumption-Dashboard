@@ -50,6 +50,7 @@ export interface RouteEvent {
   distanceM: number | null;
   actor: string;
   note: string | null;
+  remark: string | null;
   createdAt: Date;
 }
 
@@ -256,7 +257,7 @@ export class AssignmentRepository {
   async listEvents(assignmentId: number, limit = 200): Promise<RouteEvent[]> {
     const rows = await this.ds.query(
       `SELECT event_id, type, from_status, to_status, stop_id, lat, lng,
-              distance_m, actor, note, created_at
+              distance_m, actor, note, remark, created_at
        FROM fd_route_events WHERE assignment_id = ?
        ORDER BY created_at DESC LIMIT ?`,
       [assignmentId, limit],
@@ -272,6 +273,7 @@ export class AssignmentRepository {
       distanceM: r.distance_m,
       actor: r.actor,
       note: r.note,
+      remark: r.remark ?? null,
       createdAt: r.created_at,
     }));
   }
@@ -291,6 +293,16 @@ export class AssignmentRepository {
     const rows = await this.ds.query(
       `SELECT DISTINCT stop_id FROM fd_route_events
        WHERE assignment_id = ? AND type = 'stop_skipped' AND stop_id IS NOT NULL`,
+      [assignmentId],
+    );
+    return rows.map((r: any) => r.stop_id as number);
+  }
+
+  /** Stop ids with a ground-truth driver completion — used to suppress false skip alerts. */
+  async listCompletedStopIds(assignmentId: number): Promise<number[]> {
+    const rows = await this.ds.query(
+      `SELECT DISTINCT stop_id FROM fd_stop_completions
+       WHERE assignment_id = ? AND stop_id IS NOT NULL`,
       [assignmentId],
     );
     return rows.map((r: any) => r.stop_id as number);
@@ -393,7 +405,11 @@ export class AssignmentRepository {
   async resetAssignment(assignmentId: number): Promise<void> {
     await this.ds.query(`DELETE FROM fd_stop_completions WHERE assignment_id = ?`, [assignmentId]);
     await this.ds.query(
-      `UPDATE fd_assignments SET status = 'assigned', completed_at = NULL, progress_pct = NULL, off_route = 0
+      `DELETE FROM fd_route_events WHERE assignment_id = ? AND type IN ('arrived_stop','stop_skipped')`,
+      [assignmentId],
+    );
+    await this.ds.query(
+      `UPDATE fd_assignments SET status = 'assigned', started_at = NULL, completed_at = NULL, progress_pct = NULL, off_route = 0
        WHERE assignment_id = ?`,
       [assignmentId],
     );
