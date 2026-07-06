@@ -130,6 +130,31 @@ export interface RouteEvent {
   createdAt: string;
 }
 
+/** A driver-confirmed bin completion (photo + location-verified). */
+export interface StopCompletion {
+  id: number;
+  assignmentId: number;
+  stopId: number;
+  driverId: number;
+  lat: number;
+  lng: number;
+  accuracyM: number | null;
+  distanceM: number;
+  inRange: boolean;
+  photoPath: string;
+  note: string | null;
+  createdAt: string;
+}
+
+export interface DeviationAlert {
+  eventId: number;
+  assignmentId: number;
+  driverName: string | null;
+  routeName: string | null;
+  distanceM: number | null;
+  at: string;
+}
+
 export type PositionSource = "tracker" | "phone" | "none";
 
 export type StopVisitStatus = "stopped" | "skipped" | "not_reached" | "pending";
@@ -168,6 +193,7 @@ export interface LiveStatus {
     totalDistanceKm: number | null;
   };
   events: RouteEvent[];
+  stopCompletions: StopCompletion[];
 }
 
 export interface StopInput {
@@ -363,7 +389,7 @@ export const getMyJobs = (token: string) =>
   request<Assignment[]>("/me/jobs", {}, token);
 
 export const getMyJob = (token: string, id: number) =>
-  request<{ assignment: Assignment; route: RouteDetail }>(`/me/jobs/${id}`, {}, token);
+  request<{ assignment: Assignment; route: RouteDetail; stopCompletions: StopCompletion[] }>(`/me/jobs/${id}`, {}, token);
 
 export const updateMyJobStatus = (token: string, id: number, status: string) =>
   request<Assignment>(
@@ -442,6 +468,38 @@ export async function uploadProof(
   if (!res.ok) throw new Error(json?.message || `Upload failed (${res.status})`);
   return json.data;
 }
+
+/** Driver marks a bin complete — photo + GPS required (multipart). */
+export async function completeStop(
+  token: string,
+  jobId: number,
+  stopId: number,
+  data: { photo: Blob; lat: number; lng: number; accuracyM?: number; note?: string },
+): Promise<{ completion: StopCompletion; jobCompleted: boolean; stopCompletions: StopCompletion[] }> {
+  const base = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3007"}/api`;
+  const form = new FormData();
+  form.append("photo", data.photo, "bin.jpg");
+  form.append("lat", String(data.lat));
+  form.append("lng", String(data.lng));
+  if (data.accuracyM != null) form.append("accuracyM", String(data.accuracyM));
+  if (data.note) form.append("note", data.note);
+  const res = await fetch(`${base}/me/jobs/${jobId}/stops/${stopId}/complete`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(json?.message || `Completion failed (${res.status})`);
+  return json.data;
+}
+
+/** Deviation alert feed for the portal popup watcher. */
+export const getDeviationAlerts = (token: string, sinceEventId?: number) =>
+  request<{ cursor: number; alerts: DeviationAlert[] }>(
+    `/assignments/alerts${sinceEventId != null ? `?sinceEventId=${sinceEventId}` : ""}`,
+    {},
+    token,
+  );
 
 // Manager-side views of driver-reported data.
 export const getAssignmentProof = (token: string, id: number) =>
