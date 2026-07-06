@@ -63,6 +63,19 @@ and notifications — declared in `android/app/src/main/AndroidManifest.xml`.
 Android 13+ prompts at runtime; background location needs the user to choose
 "Allow all the time".
 
+## Building the APK
+
+Debug build (for driver testing):
+
+    bash scripts/build-debug-apk.sh      # macOS/Linux/Git Bash
+    pwsh scripts/build-debug-apk.ps1     # Windows
+
+The unsigned debug APK is written to
+`android/app/build/outputs/apk/debug/app-debug.apk`.
+
+Release builds (signed, for distribution) are produced with your own keystore
+via `./gradlew assembleRelease` and are intentionally not scripted here.
+
 ## Not yet wired
 
 - **Push notifications (FCM)** — needs a Firebase project
