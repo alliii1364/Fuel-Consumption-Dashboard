@@ -18,7 +18,7 @@ import {
   getRoutes, getRoute, deleteRoute, getImportableRoutes, importRoute,
   getDrivers, setDriverPin, disableDriverLogin,
   createDriver, updateDriver, deleteDriver,
-  getAssignments, createAssignment, setAssignmentStatus, cancelAssignment, resetAssignment, setAssignmentPersistent,
+  getAssignments, createAssignment, setAssignmentStatus, cancelAssignment, resetAssignment,
   getSettings, updateSettings,
   RouteSummary, ImportableRoute, DriverRecord, DriverInput, Assignment, RouteDetail,
 } from "@/lib/dispatch";
@@ -584,7 +584,7 @@ function AssignmentsPanel({
                   </button>
                 )}
                 {a.persistent && (
-                  <button onClick={async () => { await resetAssignment(token, a.assignmentId); run(async () => { await onChange(); }, "Failed to reload"); }} className="text-xs text-indigo-600 font-semibold">
+                  <button onClick={() => run(async () => { await resetAssignment(token, a.assignmentId); toast.success("Assignment reset"); await onChange(); }, "Failed to reset assignment")} className="text-xs text-indigo-600 font-semibold">
                     New run
                   </button>
                 )}
