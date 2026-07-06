@@ -1,13 +1,18 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Loader2, ArrowLeft, MapPin, Flag, Camera, CheckCircle2, WifiOff } from "lucide-react";
-import { getMyJob, updateMyJobStatus, uploadProof, completeStop, Assignment, RouteDetail, StopCompletion } from "@/lib/dispatch";
+import { getMyJob, updateMyJobStatus, uploadProof, completeStop, Assignment, RouteDetail, StopCompletion, LatLng } from "@/lib/dispatch";
 import { getDriverToken } from "@/lib/driverSession";
 import { storeGet, storeSet, cacheKeys } from "@/lib/native/store";
 import { capturePhoto } from "@/lib/native/camera";
 import { startTracking, stopTracking } from "@/lib/native/location";
+import type { NavStop } from "@/components/dispatch/DriverNavMap";
+
+// Leaflet is client-only — dynamically import so it never runs during SSR/build.
+const DriverNavMap = dynamic(() => import("@/components/dispatch/DriverNavMap"), { ssr: false });
 
 // Driver-facing forward transitions.
 const NEXT: Record<string, { to: string; label: string } | null> = {
@@ -33,6 +38,7 @@ function DriverJobDetailInner() {
   const [podBusy, setPodBusy] = useState(false);
   const [podDone, setPodDone] = useState(false);
   const [completingStopId, setCompletingStopId] = useState<number | null>(null);
+  const [driverPos, setDriverPos] = useState<LatLng | null>(null);
   const tracking = useRef(false);
 
   useEffect(() => {
@@ -72,6 +78,18 @@ function DriverJobDetailInner() {
     }
     return () => { if (tracking.current) { tracking.current = false; void stopTracking(); } };
   }, [data?.assignment.status, token, id]);
+
+  // Live driver position for the in-app map — separate from the periodic
+  // startTracking() upload above, which only reports to the manager.
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    const watchId = navigator.geolocation.watchPosition(
+      (p) => setDriverPos({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 },
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
 
   async function advance(to: string) {
     if (!token) return;
@@ -161,6 +179,21 @@ function DriverJobDetailInner() {
   const completionByStop = new Map(completions.map((c) => [c.stopId, c]));
   const jobActive = a.status === "accepted" || a.status === "en_route" || a.status === "arrived";
 
+  // Active stop = first route stop whose stopId has no completion yet. Since
+  // completeBin() calls load() on success (refetching stopCompletions), this
+  // recomputes on every successful completion — the map and action button
+  // auto-advance to the next bin with no extra state machine or timer.
+  const doneIds = new Set(completions.map((c) => c.stopId));
+  const activeStop = route.stops.find((s) => s.stopId == null || !doneIds.has(s.stopId)) ?? null;
+  const navStops: NavStop[] = route.stops.map((s) => ({
+    seq: s.seq,
+    name: s.name,
+    lat: s.lat,
+    lng: s.lng,
+    done: s.stopId != null && doneIds.has(s.stopId),
+    active: activeStop?.seq === s.seq,
+  }));
+
   return (
     <div className="max-w-md mx-auto pb-28">
       {/* Native-style app bar */}
@@ -194,6 +227,26 @@ function DriverJobDetailInner() {
             </p>
           )}
         </div>
+
+        <div className="rounded-xl overflow-hidden shadow-sm mb-3" style={{ height: 320 }}>
+          <DriverNavMap
+            geometry={route.geometry ?? []}
+            stops={navStops}
+            driver={driverPos}
+            active={activeStop ? { lat: activeStop.lat, lng: activeStop.lng } : null}
+          />
+        </div>
+
+        {activeStop && jobActive && (
+          <button
+            onClick={() => activeStop.stopId != null && completeBin(activeStop.stopId)}
+            disabled={completingStopId != null}
+            className="w-full mb-3 py-3 rounded-xl text-sm font-bold text-white disabled:opacity-50"
+            style={{ background: "#16a34a" }}
+          >
+            {completingStopId != null ? "Saving…" : `Done — ${activeStop.name || `Stop ${activeStop.seq}`}`}
+          </button>
+        )}
 
         <div className="bg-white rounded-xl p-4 shadow-sm">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
