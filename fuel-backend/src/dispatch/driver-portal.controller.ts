@@ -26,6 +26,7 @@ import { RouteRepository } from './services/route.repository';
 import { DriverAppRepository } from './services/driver-app.repository';
 import { StopCompletionRepository } from './services/stop-completion.repository';
 import { StopCompletionService } from './services/stop-completion.service';
+import { ManagerSettingsRepository } from './services/manager-settings.repository';
 import {
   ProofOfDeliveryDto,
   RegisterDeviceDto,
@@ -47,6 +48,7 @@ export class DriverPortalController {
     private readonly driverApp: DriverAppRepository,
     private readonly stopCompletions: StopCompletionService,
     private readonly stopCompletionRepo: StopCompletionRepository,
+    private readonly settings: ManagerSettingsRepository,
   ) {}
 
   @Get('jobs')
@@ -62,6 +64,7 @@ export class DriverPortalController {
     const stopCompletions = await this.stopCompletionRepo.listForAssignment(
       assignment.assignmentId,
     );
+    const { requireBinPhoto } = await this.settings.getSettings(assignment.userId);
     return {
       success: true,
       message: 'Job fetched',
@@ -76,6 +79,7 @@ export class DriverPortalController {
           totalDurationS: route.totalDurationS,
         },
         stopCompletions,
+        requirePhoto: requireBinPhoto,
       },
     };
   }
@@ -198,9 +202,10 @@ export class DriverPortalController {
   }
 
   /**
-   * Driver marks a bin complete: requires a photo and a GPS fix; the fix is
-   * verified against the bin's geofence (out-of-range accepted but flagged).
-   * Completing the last bin auto-completes the job.
+   * Driver marks a bin complete: requires a GPS fix, and a photo when the
+   * owning manager's settings require one; the fix is verified against the
+   * bin's geofence (out-of-range accepted but flagged). Completing the last
+   * bin auto-completes the job.
    */
   @Post('jobs/:id/stops/:stopId/complete')
   @UseInterceptors(FileInterceptor('photo'))
@@ -211,36 +216,44 @@ export class DriverPortalController {
     @UploadedFile() file: { buffer: Buffer; originalname: string } | undefined,
     @Body() body: Record<string, string>,
   ) {
-    if (!file?.buffer?.length) {
-      throw new BadRequestException('A photo is required to complete a bin');
+    const assignment = await this.assignments.getForDriver(req.user.driverId, id);
+    const { requireBinPhoto } = await this.settings.getSettings(assignment.userId);
+
+    let photoPath: string | null = null;
+    if (file?.buffer?.length) {
+      const dir = join(UPLOADS_DIR, 'completions');
+      await fs.mkdir(dir, { recursive: true });
+      const ext = (file.originalname.split('.').pop() || 'jpg').replace(/[^a-z0-9]/gi, '') || 'jpg';
+      const name = `bin_${id}_${stopId}_${Date.now()}.${ext}`;
+      await fs.writeFile(join(dir, name), file.buffer);
+      photoPath = `completions/${name}`;
     }
+
     const lat = Number(body.lat);
     const lng = Number(body.lng);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      if (photoPath) await fs.unlink(join(UPLOADS_DIR, photoPath)).catch(() => {});
       throw new BadRequestException('Location is required — enable GPS and try again');
     }
-
-    const dir = join(UPLOADS_DIR, 'completions');
-    await fs.mkdir(dir, { recursive: true });
-    const ext =
-      (file.originalname.split('.').pop() || 'jpg').replace(/[^a-z0-9]/gi, '') || 'jpg';
-    const name = `bin_${id}_${stopId}_${Date.now()}.${ext}`;
-    await fs.writeFile(join(dir, name), file.buffer);
 
     const accuracyM =
       body.accuracyM != null && body.accuracyM !== '' ? Number(body.accuracyM) : null;
     let data;
     try {
-      data = await this.stopCompletions.complete(req.user.driverId, id, stopId, {
-        lat,
-        lng,
-        accuracyM: Number.isFinite(accuracyM as number) ? accuracyM : null,
-        note: body.note || null,
-        photoPath: `completions/${name}`,
-      });
+      data = await this.stopCompletions.complete(
+        req.user.driverId, id, stopId,
+        {
+          lat,
+          lng,
+          accuracyM: Number.isFinite(accuracyM as number) ? accuracyM : null,
+          note: body.note || null,
+          photoPath,
+        },
+        requireBinPhoto,
+      );
     } catch (err) {
       // Validation failed after the photo hit disk — don't leave an orphan.
-      await fs.unlink(join(dir, name)).catch(() => {});
+      if (photoPath) await fs.unlink(join(UPLOADS_DIR, photoPath)).catch(() => {});
       throw err;
     }
     return {

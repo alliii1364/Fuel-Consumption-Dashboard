@@ -38,8 +38,9 @@ function makeFakes(opts: {
     }),
     listForAssignment: jest.fn(async () => [...store]),
   };
+  const settings = { getSettings: jest.fn(async () => ({ requireBinPhoto: true })) };
   const svc = new StopCompletionService(assignments as any, routes as any, completions as any);
-  return { svc, assignments, routes, completions, events, statusCalls, store };
+  return { svc, assignments, routes, completions, settings, events, statusCalls, store };
 }
 
 const AT_BIN_1 = { lat: 0, lng: 0.0001, photoPath: 'completions/x.jpg' }; // ~11m away
@@ -47,7 +48,7 @@ const AT_BIN_1 = { lat: 0, lng: 0.0001, photoPath: 'completions/x.jpg' }; // ~11
 describe('StopCompletionService.complete', () => {
   it('records an in-range completion and logs a stop_completed event', async () => {
     const f = makeFakes({});
-    const r = await f.svc.complete(3, 5, 11, AT_BIN_1);
+    const r = await f.svc.complete(3, 5, 11, AT_BIN_1, true);
     expect(r.completion.inRange).toBe(true);
     expect(r.completion.stopId).toBe(11);
     expect(r.jobCompleted).toBe(false);
@@ -61,7 +62,7 @@ describe('StopCompletionService.complete', () => {
   it('accepts but flags an out-of-range completion', async () => {
     const f = makeFakes({});
     // ~1113m from Bin 1
-    const r = await f.svc.complete(3, 5, 11, { lat: 0, lng: 0.01, photoPath: 'completions/x.jpg' });
+    const r = await f.svc.complete(3, 5, 11, { lat: 0, lng: 0.01, photoPath: 'completions/x.jpg' }, true);
     expect(r.completion.inRange).toBe(false);
     expect(f.events[0].note).toContain('out of range');
     expect(f.events[0].distanceM).toBeGreaterThan(1000);
@@ -69,12 +70,12 @@ describe('StopCompletionService.complete', () => {
 
   it('rejects when the job is not active', async () => {
     const f = makeFakes({ status: 'assigned' });
-    await expect(f.svc.complete(3, 5, 11, AT_BIN_1)).rejects.toThrow(BadRequestException);
+    await expect(f.svc.complete(3, 5, 11, AT_BIN_1, true)).rejects.toThrow(BadRequestException);
   });
 
   it('rejects a stop that is not on the route', async () => {
     const f = makeFakes({});
-    await expect(f.svc.complete(3, 5, 999, AT_BIN_1)).rejects.toThrow(NotFoundException);
+    await expect(f.svc.complete(3, 5, 999, AT_BIN_1, true)).rejects.toThrow(NotFoundException);
   });
 
   it('rejects a duplicate completion with 409', async () => {
@@ -85,7 +86,7 @@ describe('StopCompletionService.complete', () => {
         createdAt: new Date(),
       }],
     });
-    await expect(f.svc.complete(3, 5, 11, AT_BIN_1)).rejects.toThrow(ConflictException);
+    await expect(f.svc.complete(3, 5, 11, AT_BIN_1, true)).rejects.toThrow(ConflictException);
   });
 
   it('maps a duplicate-key race on insert to a 409, not a raw DB error', async () => {
@@ -93,7 +94,7 @@ describe('StopCompletionService.complete', () => {
     f.completions.add.mockImplementationOnce(async () => {
       throw Object.assign(new Error('dup'), { code: 'ER_DUP_ENTRY' });
     });
-    await expect(f.svc.complete(3, 5, 11, AT_BIN_1)).rejects.toThrow(ConflictException);
+    await expect(f.svc.complete(3, 5, 11, AT_BIN_1, true)).rejects.toThrow(ConflictException);
   });
 
   it('auto-completes the job when the last bin lands', async () => {
@@ -104,9 +105,22 @@ describe('StopCompletionService.complete', () => {
         createdAt: new Date(),
       }],
     });
-    const r = await f.svc.complete(3, 5, 12, { lat: 0, lng: 0.0101, photoPath: 'completions/y.jpg' });
+    const r = await f.svc.complete(3, 5, 12, { lat: 0, lng: 0.0101, photoPath: 'completions/y.jpg' }, true);
     expect(r.jobCompleted).toBe(true);
     expect(f.statusCalls).toHaveLength(1);
     expect(f.statusCalls[0]).toEqual([5, 'en_route', 'completed', 'system']);
+  });
+
+  it('rejects a photoless completion when a photo is required', async () => {
+    const f = makeFakes({});
+    await expect(
+      f.svc.complete(3, 5, 11, { lat: 0, lng: 0.0001, photoPath: null }, true),
+    ).rejects.toThrow('A photo is required to complete a bin');
+  });
+
+  it('accepts a photoless completion when photo is not required', async () => {
+    const f = makeFakes({});
+    const r = await f.svc.complete(3, 5, 11, { lat: 0, lng: 0.0001, photoPath: null }, false);
+    expect(r.completion.stopId).toBe(11);
   });
 });

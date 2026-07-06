@@ -43,12 +43,16 @@ export class StopCompletionService {
       lng: number;
       accuracyM?: number | null;
       note?: string | null;
-      photoPath: string;
+      photoPath: string | null;
     },
+    requirePhoto: boolean,
   ): Promise<CompleteStopResult> {
     const assignment = await this.assignments.getForDriver(driverId, assignmentId);
     if (!ACTIVE_STATUSES.includes(assignment.status)) {
       throw new BadRequestException('Job is not active');
+    }
+    if (requirePhoto && !input.photoPath) {
+      throw new BadRequestException('A photo is required to complete a bin');
     }
 
     const route = await this.routes.get(assignment.userId, assignment.routeId);

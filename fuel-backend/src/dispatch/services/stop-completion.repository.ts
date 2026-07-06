@@ -13,7 +13,7 @@ export interface StopCompletion {
   accuracyM: number | null;
   distanceM: number;
   inRange: boolean;
-  photoPath: string;
+  photoPath: string | null;
   note: string | null;
   createdAt: Date;
 }
