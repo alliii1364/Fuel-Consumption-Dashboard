@@ -35,6 +35,10 @@ export default function RouteBuilder({ token, onSaved, editRoute, onCancelEdit, 
   const [name, setName] = useState("");
   const [stops, setStops] = useState<BuilderStop[]>([]);
   const [optimize, setOptimize] = useState(true);
+  // KML files (Google Earth/My Maps exports, etc.) usually already encode a
+  // deliberate stop order — default this to OFF so import preserves it,
+  // unlike manual builds where OSRM optimization is the more useful default.
+  const [kmlOptimize, setKmlOptimize] = useState(false);
   const [corridorM, setCorridorM] = useState(150);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +87,7 @@ export default function RouteBuilder({ token, onSaved, editRoute, onCancelEdit, 
     setStops([]);
     setCorridorM(150);
     setOptimize(true);
+    setKmlOptimize(false);
     setError(null);
     setYardMode(false);
     setPendingYard(null);
@@ -176,7 +181,7 @@ export default function RouteBuilder({ token, onSaved, editRoute, onCancelEdit, 
       await uploadKmlRoute(token, file, {
         name: name.trim() || undefined,
         corridorBufferM: corridorM,
-        optimize,
+        optimize: kmlOptimize,
       });
       notify?.success("KML imported", file.name);
       resetForm();
@@ -322,10 +327,21 @@ export default function RouteBuilder({ token, onSaved, editRoute, onCancelEdit, 
           </button>
 
           {!isEdit && (
-            <label className="mt-2 w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold cursor-pointer border" style={{ borderColor: "#E5E7EB", color: "#374151" }}>
-              <Upload size={15} /> Import KML
-              <input type="file" accept=".kml" hidden onChange={onKml} />
-            </label>
+            <>
+              <label className="mt-2 w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold cursor-pointer border" style={{ borderColor: "#E5E7EB", color: "#374151" }}>
+                <Upload size={15} /> Import KML
+                <input type="file" accept=".kml" hidden onChange={onKml} />
+              </label>
+              <label className="flex items-center gap-2 text-xs text-gray-600 mt-1.5 cursor-pointer">
+                <input type="checkbox" checked={kmlOptimize} onChange={(e) => setKmlOptimize(e.target.checked)} />
+                <Wand2 size={12} className="text-primary" /> Optimize KML stop order (OSRM)
+              </label>
+              <p className="text-[10px] text-gray-400 mt-1">
+                {kmlOptimize
+                  ? "Stops will be re-sequenced by OSRM for the shortest route."
+                  : "Off preserves the KML's original placemark order (1, 2, 3…)."}
+              </p>
+            </>
           )}
         </div>
 

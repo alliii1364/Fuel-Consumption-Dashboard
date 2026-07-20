@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { X, AlertTriangle, CheckCircle2, Navigation, Gauge, Camera, Satellite, Smartphone, CircleSlash, Circle, Clock, Info } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { getAssignmentLive, getAssignmentProof, setEventRemark, LiveStatus, PodRecord, RouteEvent, StopVisitStatus, StopCompletion } from "@/lib/dispatch";
+import { getAssignmentLive, getAssignmentProof, getAssignmentLatestLocation, setEventRemark, LiveStatus, PodRecord, RouteEvent, StopVisitStatus, StopCompletion, LatestLocation, ASSIGNMENT_STATUS_COLORS } from "@/lib/dispatch";
 
 const DispatchMap = dynamic(() => import("./DispatchMap"), { ssr: false });
 
@@ -19,6 +19,7 @@ interface Props {
 export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
   const [live, setLive] = useState<LiveStatus | null>(null);
   const [pod, setPod] = useState<PodRecord[]>([]);
+  const [latestLocation, setLatestLocation] = useState<LatestLocation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showLegend, setShowLegend] = useState(false);
   const [remarks, setRemarks] = useState<Record<number, string>>({});
@@ -37,12 +38,14 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
 
   const load = useCallback(async () => {
     try {
-      const [l, p] = await Promise.all([
+      const [l, p, loc] = await Promise.all([
         getAssignmentLive(token, assignmentId),
         getAssignmentProof(token, assignmentId).catch(() => [] as PodRecord[]),
+        getAssignmentLatestLocation(token, assignmentId).catch(() => null),
       ]);
       setLive(l);
       setPod(p);
+      setLatestLocation(loc);
       setError(null);
     } catch (e: any) {
       setError(e?.message || "Failed to load live status");
@@ -100,6 +103,16 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
                   status: a?.stopStatuses.find((x) => x.seq === s.seq)?.status,
                 }))}
                 vehicle={pos ? { lat: pos.lat, lng: pos.lng, offRoute: a?.offRoute, label: live.assignment.vehicleName || "" } : null}
+                latestFix={
+                  latestLocation
+                    ? {
+                        lat: latestLocation.lat,
+                        lng: latestLocation.lng,
+                        ageLabel: formatAgo(latestLocation.dtTracker),
+                        timeLabel: formatGmt5(latestLocation.dtTracker),
+                      }
+                    : null
+                }
               />
             )}
           </div>
@@ -123,7 +136,18 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
                   </span>
                 </div>
 
-                <Metric icon={<Navigation size={14} />} label="Progress" value={`${a.progressPct}%`} />
+                <div className="py-2 border-b" style={{ borderColor: "#F3F4F6" }}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500 flex items-center gap-1.5">
+                      <Navigation size={14} />
+                      Progress
+                    </span>
+                    <span className="text-sm font-semibold text-gray-800 tabular-nums">{a.progressPct}%</span>
+                  </div>
+                  <div className="h-1.5 bg-gray-100 rounded mt-1.5 overflow-hidden">
+                    <div className="h-full bg-primary" style={{ width: `${a.progressPct}%` }} />
+                  </div>
+                </div>
                 <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: "#F3F4F6" }}>
                   <span className="text-xs text-gray-500 flex items-center gap-1.5">
                     <Gauge size={14} />
@@ -160,6 +184,22 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
                       : "No signal"
                   }
                 />
+                <div className="mt-1 mb-1">
+                  <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5 pt-2">
+                    <Satellite size={12} /> Latest tracker fix
+                  </p>
+                  {latestLocation ? (
+                    <>
+                      <Metric label="Coordinates" value={`${latestLocation.lat.toFixed(5)}, ${latestLocation.lng.toFixed(5)}`} />
+                      <Metric label="Speed" value={`${latestLocation.speed} km/h`} />
+                      <Metric label="Reported" value={formatAgo(latestLocation.dtTracker)} />
+                      <Metric label="Time (GMT+5)" value={formatGmt5(latestLocation.dtTracker)} />
+                    </>
+                  ) : (
+                    <p className="text-xs text-gray-400 py-2">No tracker data for this vehicle.</p>
+                  )}
+                </div>
+
                 <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: "#F3F4F6" }}>
                   <span className="text-xs text-gray-500">Stops</span>
                   <span className="flex items-center gap-2.5">
@@ -239,7 +279,15 @@ export default function LiveMonitor({ token, assignmentId, onClose }: Props) {
                   </div>
                 </div>
 
-                <Metric label="Status" value={live!.assignment.status} />
+                <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: "#F3F4F6" }}>
+                  <span className="text-xs text-gray-500">Status</span>
+                  <span
+                    className="text-xs font-bold px-2 py-0.5 rounded-full text-white"
+                    style={{ background: ASSIGNMENT_STATUS_COLORS[live!.assignment.status] ?? "#6B7280" }}
+                  >
+                    {live!.assignment.status}
+                  </span>
+                </div>
 
                 <div className="mt-5">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Event log</p>
@@ -338,6 +386,38 @@ function formatDwell(seconds: number): string {
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
   return m ? `${h}h ${m}m` : `${h}h`;
+}
+
+// Absolute fix time in Pakistan Standard Time (GMT+5, no DST) — independent of
+// the viewer's own timezone, since the fleet and its managers are Karachi-based.
+function formatGmt5(iso: string): string {
+  const d = new Date(iso);
+  return (
+    d.toLocaleString("en-GB", {
+      timeZone: "Asia/Karachi",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }) + " GMT+5"
+  );
+}
+
+// Relative age of a tracker fix ("42s ago", "5 min ago", "3h ago"); falls back
+// to an absolute timestamp once it's more than a day old.
+function formatAgo(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms < 0) return new Date(iso).toLocaleString();
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return new Date(iso).toLocaleString();
 }
 
 function StopStatusBadge({ status, dwellS }: { status: StopVisitStatus; dwellS?: number }) {

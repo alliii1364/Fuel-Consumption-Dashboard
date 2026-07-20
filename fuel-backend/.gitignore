@@ -10,3 +10,5 @@ google-services.json
 
 # Driver proof-of-delivery uploads (user data; use a persistent volume in prod)
 uploads/
+
+dist/

@@ -21,6 +21,7 @@ fuel-backend/osrm/data/
 fuel-backend/uploads/
 fuel-backend/fcm-service-account.json
 fuel-backend/google-services.json
+fuel-backend/dist/
 
 # OS
 .DS_Store

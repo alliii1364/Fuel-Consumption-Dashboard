@@ -24,6 +24,7 @@ import { DriverAppRepository } from './services/driver-app.repository';
 import { PushService } from './services/push.service';
 import { StopCompletionRepository } from './services/stop-completion.repository';
 import { ManagerSettingsRepository } from './services/manager-settings.repository';
+import { DynamicTableQueryService } from '../fuel/services/dynamic-table-query.service';
 import {
   CreateAssignmentDto,
   UpdateStatusDto,
@@ -45,6 +46,7 @@ export class AssignmentsController {
     private readonly push: PushService,
     private readonly stopCompletions: StopCompletionRepository,
     private readonly settings: ManagerSettingsRepository,
+    private readonly dynQuery: DynamicTableQueryService,
   ) {}
 
   @Post()
@@ -216,6 +218,27 @@ export class AssignmentsController {
     await this.assignments.get(req.user.id, id); // ownership check
     const data = await this.driverApp.recentLocations(id);
     return { success: true, message: `${data.length} point(s)`, data };
+  }
+
+  /**
+   * Raw latest fix straight from the vehicle's tracker table
+   * (gs_object_data_<IMEI>) — no route/fallback blending, just whatever the
+   * hardware last reported. Null when the tracker has never reported.
+   */
+  @Get(':id/latest-location')
+  async latestLocation(@Request() req: any, @Param('id', ParseIntPipe) id: number) {
+    const assignment = await this.assignments.get(req.user.id, id); // ownership check
+    const row = await this.dynQuery.getLatestRow(assignment.imei).catch(() => null);
+    const data = row
+      ? {
+          imei: assignment.imei,
+          lat: Number(row.lat),
+          lng: Number(row.lng),
+          speed: Number(row.speed),
+          dtTracker: new Date(row.dt_tracker).toISOString(),
+        }
+      : null;
+    return { success: true, message: data ? 'Latest location fetched' : 'No tracker data', data };
   }
 
   @Patch(':id/status')

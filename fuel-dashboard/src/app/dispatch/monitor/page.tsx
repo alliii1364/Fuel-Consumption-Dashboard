@@ -7,16 +7,16 @@ import {
   Loader2, ArrowLeft, RefreshCw, AlertTriangle, Inbox, MapPin,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { getMonitor, MonitorEntry } from "@/lib/dispatch";
+import {
+  getMonitor, getAssignmentLive, getAssignmentLatestLocation,
+  MonitorEntry, LatestLocation, StopVisitStatus, ASSIGNMENT_STATUS_COLORS,
+} from "@/lib/dispatch";
 import { ApiError } from "@/lib/types";
 import type { FleetEntry } from "@/components/dispatch/FleetMap";
 
 const FleetMap = dynamic(() => import("@/components/dispatch/FleetMap"), { ssr: false });
 
-const STATUS_COLORS: Record<string, string> = {
-  assigned: "#6B7280", accepted: "#2563eb", en_route: "#f59e0b",
-  arrived: "#16a34a", completed: "#16a34a", cancelled: "#9CA3AF",
-};
+const STATUS_COLORS = ASSIGNMENT_STATUS_COLORS;
 
 const REFRESH_MS = 20_000;
 
@@ -29,6 +29,24 @@ function relTime(iso: string | null): string {
   return `${Math.floor(s / 3600)}h ago`;
 }
 
+// Absolute fix time in Pakistan Standard Time (GMT+5, no DST) — independent of
+// the viewer's own timezone, since the fleet and its managers are Karachi-based.
+function formatGmt5(iso: string): string {
+  const d = new Date(iso);
+  return (
+    d.toLocaleString("en-GB", {
+      timeZone: "Asia/Karachi",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }) + " GMT+5"
+  );
+}
+
 export default function FleetMonitorPage() {
   const { token, isLoading: authLoading, logout } = useAuth();
   const router = useRouter();
@@ -38,6 +56,13 @@ export default function FleetMonitorPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  // Per-stop status + raw tracker fix for whichever route is selected — fetched
+  // on-demand (not for the whole fleet) since only the selected route's bins
+  // and vehicle marker are ever drawn.
+  const [selDetail, setSelDetail] = useState<{
+    stopStatus: Record<number, StopVisitStatus>;
+    latestFix: LatestLocation | null;
+  } | null>(null);
 
   useEffect(() => {
     if (!authLoading && !token) router.replace("/login");
@@ -65,22 +90,62 @@ export default function FleetMonitorPage() {
     return () => clearInterval(id);
   }, [token, load]);
 
+  // Load bin statuses + the raw latest tracker fix for whichever route is
+  // selected. Runs independently of the fleet-wide poll above and stops as
+  // soon as nothing is selected.
+  useEffect(() => {
+    if (!token || selectedId == null) { setSelDetail(null); return; }
+    let cancelled = false;
+    const loadDetail = async () => {
+      try {
+        const [live, loc] = await Promise.all([
+          getAssignmentLive(token, selectedId),
+          getAssignmentLatestLocation(token, selectedId).catch(() => null),
+        ]);
+        if (cancelled) return;
+        const stopStatus: Record<number, StopVisitStatus> = {};
+        live.analysis.stopStatuses.forEach((s) => { stopStatus[s.seq] = s.status; });
+        setSelDetail({ stopStatus, latestFix: loc });
+      } catch {
+        if (!cancelled) setSelDetail(null);
+      }
+    };
+    loadDetail();
+    const id = setInterval(loadDetail, REFRESH_MS);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [token, selectedId]);
+
   const fleet: FleetEntry[] = useMemo(
     () =>
-      entries.map((m) => ({
-        assignmentId: m.assignment.assignmentId,
-        label: m.assignment.routeName || m.assignment.vehicleName || `#${m.assignment.assignmentId}`,
-        status: m.assignment.status,
-        offRoute: m.assignment.offRoute,
-        position:
-          m.assignment.lastLat != null && m.assignment.lastLng != null
-            ? { lat: m.assignment.lastLat, lng: m.assignment.lastLng }
-            : null,
-        geometry: m.route?.geometry ?? [],
-        stops: (m.route?.stops ?? []).map((s) => ({ lat: s.lat, lng: s.lng, name: s.name, seq: s.seq })),
-        depot: m.route?.depot ? { lat: m.route.depot.lat, lng: m.route.depot.lng, name: m.route.depot.name } : null,
-      })),
-    [entries],
+      entries.map((m) => {
+        const isSel = m.assignment.assignmentId === selectedId;
+        return {
+          assignmentId: m.assignment.assignmentId,
+          label: m.assignment.routeName || m.assignment.vehicleName || `#${m.assignment.assignmentId}`,
+          status: m.assignment.status,
+          offRoute: m.assignment.offRoute,
+          position:
+            m.assignment.lastLat != null && m.assignment.lastLng != null
+              ? { lat: m.assignment.lastLat, lng: m.assignment.lastLng }
+              : null,
+          latestFix:
+            isSel && selDetail?.latestFix
+              ? {
+                  lat: selDetail.latestFix.lat,
+                  lng: selDetail.latestFix.lng,
+                  ageLabel: relTime(selDetail.latestFix.dtTracker),
+                  timeLabel: formatGmt5(selDetail.latestFix.dtTracker),
+                }
+              : null,
+          geometry: m.route?.geometry ?? [],
+          stops: (m.route?.stops ?? []).map((s) => ({
+            lat: s.lat, lng: s.lng, name: s.name, seq: s.seq,
+            status: isSel ? selDetail?.stopStatus[s.seq] : undefined,
+          })),
+          depot: m.route?.depot ? { lat: m.route.depot.lat, lng: m.route.depot.lng, name: m.route.depot.name } : null,
+        };
+      }),
+    [entries, selectedId, selDetail],
   );
 
   const offRouteCount = fleet.filter((e) => e.offRoute).length;

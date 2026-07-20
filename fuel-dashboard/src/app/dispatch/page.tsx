@@ -21,14 +21,12 @@ import {
   getAssignments, createAssignment, setAssignmentStatus, cancelAssignment, resetAssignment,
   getSettings, updateSettings,
   RouteSummary, ImportableRoute, DriverRecord, DriverInput, Assignment, RouteDetail,
+  ASSIGNMENT_STATUS_COLORS,
 } from "@/lib/dispatch";
 
 type Tab = "routes" | "drivers" | "assignments";
 
-const STATUS_COLORS: Record<string, string> = {
-  assigned: "#6B7280", accepted: "#2563eb", en_route: "#f59e0b",
-  arrived: "#16a34a", completed: "#16a34a", cancelled: "#9CA3AF",
-};
+const STATUS_COLORS = ASSIGNMENT_STATUS_COLORS;
 
 export default function DispatchPage() {
   const { token, isLoading: authLoading, logout } = useAuth();

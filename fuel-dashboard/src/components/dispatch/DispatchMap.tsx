@@ -1,18 +1,19 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   MapContainer,
   TileLayer,
   Marker,
   Polyline,
+  Circle,
   Popup,
   useMap,
   useMapEvents,
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { LatLng, StopVisitStatus } from "@/lib/dispatch";
+import { LatLng, StopVisitStatus, STOP_STATUS_COLORS } from "@/lib/dispatch";
 
 interface StopMarker {
   lat: number;
@@ -29,8 +30,10 @@ interface Props {
   geometry?: LatLng[];
   /** The yard/depot — round-trip start & end, drawn as a distinct home marker. */
   depot?: { lat: number; lng: number; name?: string | null } | null;
-  /** Live vehicle position. */
+  /** Live vehicle position (route-analysis derived: tracker, falls back to phone GPS). */
   vehicle?: { lat: number; lng: number; offRoute?: boolean; label?: string } | null;
+  /** Raw latest fix straight from the tracker table — no route/fallback blending. */
+  latestFix?: { lat: number; lng: number; ageLabel?: string; timeLabel?: string } | null;
   /** Click handler — enables "click to add stop" build mode. */
   onMapClick?: (lat: number, lng: number) => void;
   center?: [number, number];
@@ -38,13 +41,7 @@ interface Props {
 }
 
 const KARACHI: [number, number] = [24.8607, 67.0011];
-
-const STOP_STATUS_COLOR: Record<StopVisitStatus, string> = {
-  stopped: "#16a34a",
-  skipped: "#f59e0b",
-  not_reached: "#9CA3AF",
-  pending: "#2563eb",
-};
+const LATEST_FIX_COLOR = "#9333ea";
 
 function numberPin(seq: number, color: string) {
   return L.divIcon({
@@ -84,6 +81,81 @@ function vehicleIcon(offRoute: boolean) {
   });
 }
 
+// Solid center dot for the raw tracker fix — visually distinct from
+// vehicleIcon (which is blue/red) so it never reads as "the" vehicle marker.
+// The live/animated read comes from the PingRadius rings drawn around it.
+function latestFixIcon(color: string) {
+  return L.divIcon({
+    className: "",
+    html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};
+      border:2px solid white;box-shadow:0 0 6px rgba(0,0,0,0.4);"></div>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  });
+}
+
+/**
+ * A geo-anchored ring that continuously expands and fades — a "sonar ping"
+ * reprojected correctly by Leaflet on every pan/zoom. Sized in *screen*
+ * pixels (converted to metres each frame from the current zoom) rather than
+ * a fixed metre radius, so it reads as a visible pulse whether the map is
+ * zoomed to one bin or fit to a 37-stop route — a fixed metre radius all but
+ * disappears at city-wide zoom. `phase` (0–1) offsets this ring's position in
+ * the shared cycle so several instances layered together read as one
+ * continuous ripple instead of a single lonely pulse.
+ */
+function PingRadius({
+  center, color, phase = 0, minPx = 16, maxPx = 90, periodMs = 2200,
+}: {
+  center: [number, number];
+  color: string;
+  phase?: number;
+  minPx?: number;
+  maxPx?: number;
+  periodMs?: number;
+}) {
+  const map = useMap();
+  const [t, setT] = useState(phase);
+  const rafRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    let start: number | null = null;
+    function step(ts: number) {
+      if (start == null) start = ts - phase * periodMs;
+      const elapsed = (ts - start) % periodMs;
+      setT(elapsed / periodMs);
+      rafRef.current = requestAnimationFrame(step);
+    }
+    rafRef.current = requestAnimationFrame(step);
+    return () => {
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodMs]);
+
+  // Web Mercator metres-per-pixel at this latitude/zoom (read live each
+  // animation frame, so it stays correct across zoom/pan without a listener).
+  const metersPerPixel = (156543.03392 * Math.cos((center[0] * Math.PI) / 180)) / Math.pow(2, map.getZoom());
+  const pxRadius = minPx + (maxPx - minPx) * t;
+  const radius = pxRadius * metersPerPixel;
+  const fade = 1 - t;
+
+  return (
+    <Circle
+      center={center}
+      radius={radius}
+      pathOptions={{
+        color,
+        weight: 2,
+        opacity: fade * 0.9,
+        fillColor: color,
+        fillOpacity: fade * 0.25,
+      }}
+      interactive={false}
+    />
+  );
+}
+
 function ClickCapture({ onClick }: { onClick?: (lat: number, lng: number) => void }) {
   useMapEvents({
     click(e) {
@@ -116,6 +188,7 @@ export default function DispatchMap({
   geometry = [],
   depot = null,
   vehicle = null,
+  latestFix = null,
   onMapClick,
   center,
   height = "100%",
@@ -126,6 +199,7 @@ export default function DispatchMap({
   ];
   if (depot) allPts.push([depot.lat, depot.lng]);
   if (vehicle) allPts.push([vehicle.lat, vehicle.lng]);
+  if (latestFix) allPts.push([latestFix.lat, latestFix.lng]);
 
   const start = center ?? (allPts[0] || KARACHI);
 
@@ -158,7 +232,7 @@ export default function DispatchMap({
         <Marker
           key={`stop-${i}`}
           position={[s.lat, s.lng]}
-          icon={numberPin(s.seq ?? i + 1, s.status ? STOP_STATUS_COLOR[s.status] : "#E84040")}
+          icon={numberPin(s.seq ?? i + 1, s.status ? STOP_STATUS_COLORS[s.status] : "#E84040")}
         >
           <Popup>
             <b>{s.name || `Stop ${s.seq ?? i + 1}`}</b>
@@ -182,6 +256,26 @@ export default function DispatchMap({
         <Marker position={[vehicle.lat, vehicle.lng]} icon={vehicleIcon(!!vehicle.offRoute)}>
           <Popup>{vehicle.label || "Vehicle"}{vehicle.offRoute ? " — OFF ROUTE" : ""}</Popup>
         </Marker>
+      )}
+
+      {latestFix && (
+        <>
+          {/* Three staggered rings sharing one 2.2s cycle — always one
+              mid-expansion, so it reads as a continuous ripple rather than a
+              single pulse-then-pause. */}
+          {[0, 1 / 3, 2 / 3].map((phase) => (
+            <PingRadius key={phase} center={[latestFix.lat, latestFix.lng]} color={LATEST_FIX_COLOR} phase={phase} />
+          ))}
+          <Marker position={[latestFix.lat, latestFix.lng]} icon={latestFixIcon(LATEST_FIX_COLOR)}>
+            <Popup>
+              <b>Latest tracker fix</b>
+              {latestFix.ageLabel ? <><br />{latestFix.ageLabel}</> : null}
+              <br />
+              {latestFix.lat.toFixed(5)}, {latestFix.lng.toFixed(5)}
+              {latestFix.timeLabel ? <><br />{latestFix.timeLabel}</> : null}
+            </Popup>
+          </Marker>
+        </>
       )}
     </MapContainer>
   );

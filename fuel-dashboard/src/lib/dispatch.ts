@@ -348,8 +348,34 @@ export const createAssignment = (
   },
 ) => request<Assignment>("/assignments", { method: "POST", body: JSON.stringify(body) }, token);
 
+/** Shared with the Assignments card list so status coloring stays identical everywhere it appears. */
+export const ASSIGNMENT_STATUS_COLORS: Record<string, string> = {
+  assigned: "#6B7280", accepted: "#2563eb", en_route: "#f59e0b",
+  arrived: "#16a34a", completed: "#16a34a", cancelled: "#9CA3AF",
+};
+
+/** Shared bin/stop marker coloring — used by both DispatchMap and FleetMap so a bin never reads differently between screens. */
+export const STOP_STATUS_COLORS: Record<StopVisitStatus, string> = {
+  stopped: "#16a34a",
+  skipped: "#f59e0b",
+  not_reached: "#9CA3AF",
+  pending: "#2563eb",
+};
+
 export const getAssignmentLive = (token: string, id: number) =>
   request<LiveStatus>(`/assignments/${id}/live`, {}, token);
+
+/** Raw latest fix straight from gs_object_data_<IMEI> — no route/fallback blending. */
+export interface LatestLocation {
+  imei: string;
+  lat: number;
+  lng: number;
+  speed: number;
+  dtTracker: string;
+}
+
+export const getAssignmentLatestLocation = (token: string, id: number) =>
+  request<LatestLocation | null>(`/assignments/${id}/latest-location`, {}, token);
 
 /** One in-flight assignment + its planned route, for the fleet monitor screen. */
 export interface MonitorEntry {

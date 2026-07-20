@@ -9,6 +9,7 @@ function makeController(fake: Partial<Record<string, any>>) {
     null as any,      // push
     null as any,      // stopCompletions
     null as any,      // settings
+    null as any,      // dynQuery
   );
 }
 
